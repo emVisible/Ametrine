@@ -1,0 +1,13 @@
+.y_input {
+  @apply border border-gray-200 placeholder:text-xs w-full rounded py-1 px-2 outline-none focus:ring-2 ring-offset-2 ring-purple-600 duration-300 focus:border-white;
+}
+.y_error{
+  @apply rounded-md bg-pink-600 text-white text-xs px-2 py-1 mt-3 ;
+}
+.y_button {
+  @apply bg-violet-700 text-white py-2 px-4 rounded-md hover:bg-violet-600 duration-300;
+  &.y-danger{
+    @apply bg-fuchsia-600 hover:bg-fuchsia-500
+  }
+
+}
