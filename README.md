@@ -57,12 +57,27 @@ Task
 - 低代码编排
 - 多端
 
-## 后端
-XINFERENCE_MODEL_SRC=modelscope xinference-local --host 0.0.0.0 --port 9997
+## 项目启动
 
-chroma run --path ./db_vector --port 8080
+### 后端
+apps/backend下
 
+```
+xinference-local
 uvicorn main:app --port 3000 --reload
+```
 
-## 前端
+### 前端
+apps/frontend下
+```
 yarn dev
+```
+
+### 数据库
+apps/database下
+
+## 系统要求
+OS: Ubuntu 20.04
+GPU: 2080ti 22G
+Disk: 50G+
+Memory: 32G+
