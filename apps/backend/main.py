@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import RedirectResponse
 from torch.cuda import empty_cache, ipc_collect, is_available
 
@@ -16,7 +15,13 @@ from src.llm.controller import route_llm
 from src.rag.controller import route_rag
 from src.utils import log_config, config_logger
 from src.vector_store.controller import route_vector
-
+from os import path
+from fastapi.openapi.docs import (
+    get_redoc_html,
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html,
+)
+from fastapi.staticfiles import StaticFiles
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,22 +35,22 @@ async def lifespan(app: FastAPI):
         ipc_collect()
 
 
-def swagger_monkey_patch(*args, **kwargs):
-    return get_swagger_ui_html(
-        swagger_js_url="/assets/swagger.js",
-        swagger_css_url="/assets/swagger.css",
-        *args,
-        **kwargs
-    )
-
-
 load_dotenv("./.env")
 # 打印配置信息
 log_config()
 # 初始化数据库
 Base.metadata.create_all(bind=engine)
 # 初始化app实例
-app = FastAPI(title="ZISU-RAG", version="1.0.0", lifespan=lifespan)
+# app = FastAPI(title="ZISU-RAG", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="ZISU-RAG",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url="/openapi.json",  # 显式定义 OpenAPI 文件路径
+    swagger_ui_oauth2_redirect_url="/oauth2-redirect",  # 定义 OAuth2 重定向 URL
+)
 # 导入路由
 route_prefix = "/api"
 app.include_router(route_base, prefix=route_prefix)
@@ -62,6 +67,29 @@ def root_page():
     return RedirectResponse("/docs")
 
 
+static_dir = path.dirname(path.abspath(__file__))
+app.mount("/static", StaticFiles(directory=f"{static_dir}/static"), name="static")
+
+
 @app.get("/docs", include_in_schema=False)
-def custom_swagger():
-    return swagger_monkey_patch(app.openapi())
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_js_url="/static/swagger-ui/swagger-ui-bundle.js",
+        swagger_css_url="/static/swagger-ui/swagger-ui.css",
+    )
+
+@app.get(app.swagger_ui_oauth2_redirect_url, include_in_schema=False)
+async def swagger_ui_redirect():
+    return get_swagger_ui_oauth2_redirect_html()
+
+
+@app.get("/redoc", include_in_schema=False)
+async def redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - ReDoc",
+        redoc_js_url="/static/redoc/redoc.standalone.js",
+    )

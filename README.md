@@ -58,6 +58,24 @@ Task
 - 多端
 
 ## 项目启动
+开发模式下所需显存约为7G
+本项目开发使用2080Ti 11G版本，生产使用3090
+
+### LLM
+LLM: qwen2.5-instruct(dev) / glm4-chat-1m(prodct)
+Embedding: bge-m3
+Rerank: bge-reranker-base(dev) / minicpm-reranker(product)
+
+显存占用:
+- qwen2.5-instruct 0.5B: 1.4G
+- bge-m3: 2.4G
+- bge-reranker-base: 1.3G; minicpm-reranker: 12G
+-  常规开发时不需要启动rerank模型
+
+下载时指定download_hub为modelscope用于加速
+```
+xinference-local
+```
 
 ### 后端
 apps/backend下
@@ -75,6 +93,10 @@ yarn dev
 
 ### 数据库
 apps/database下
+
+### 插件
+- Black Formatter
+
 
 ## 系统要求
 OS: Ubuntu 20.04

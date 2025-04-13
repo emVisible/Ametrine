@@ -1,6 +1,29 @@
-# torch cuda 11.8, with code: pip install torch torchvision torchaudio
-
+# Environments
 torch
 torchvision
 torchaudio
 
+
+# LLM related
+xinference
+tiktoken
+protobuf
+bitsandbytes
+sentence-transformers
+
+# Database
+langchain
+langchain_community
+
+chromadb # for dev
+langchain-chroma # for dev
+
+pymilvus
+langchain_milvus
+
+
+# Backend
+fastapi
+dotenv
+sqlalchemy
+colorlog
