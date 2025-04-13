@@ -10,11 +10,10 @@ from src.base.controller import route_base
 from src.base.database import engine
 from src.base.middleware import CORSMiddleware, origins
 from src.base.models import Base
-from src.init.controller import route_init
 from src.llm.controller import route_llm
 from src.rag.controller import route_rag
+from src.vector.controller import route_vector_milvus
 from src.utils import log_config, config_logger
-from src.vector_store.controller import route_vector
 from os import path
 from fastapi.openapi.docs import (
     get_redoc_html,
@@ -54,8 +53,7 @@ app = FastAPI(
 # 导入路由
 route_prefix = "/api"
 app.include_router(route_base, prefix=route_prefix)
-app.include_router(route_init, prefix=route_prefix)
-app.include_router(route_vector, prefix=route_prefix)
+app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_rag, prefix=route_prefix)
 # 跨域中间件

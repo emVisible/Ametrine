@@ -22,6 +22,17 @@ from tqdm import tqdm
 from ..config import (chunk_overlap, chunk_size, db_addr, doc_addr,
                       xinference_addr, xinference_embedding_model_id)
 
+import os
+import shutil
+from pathlib import Path
+from fastapi import File, HTTPException, UploadFile
+from langchain.docstore.document import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.embeddings import XinferenceEmbeddings
+from pymilvus import Collection, CollectionSchema, FieldSchema, DataType, connections
+from tqdm import tqdm
+from ..config import chunk_overlap, chunk_size, db_addr, doc_addr, xinference_addr, xinference_embedding_model_id
+
 
 # 自定义文档加载器 document loader
 class MyElmLoader(UnstructuredEmailLoader):
@@ -140,9 +151,71 @@ def embedding_document(collection_name:str, file: UploadFile = File(...)):
     #         os.remove(tmp_save_path)
 
 
+
 def embedding_all_from_dir():
     texts = process_documents()
     embedding_function = XinferenceEmbeddings(
         server_url=xinference_addr, model_uid=xinference_embedding_model_id
     )
     Chroma.from_documents(texts, embedding_function, persist_directory=db_addr)
+
+
+# Ensure Milvus connection is set up
+connections.connect("default", host="127.0.0.1", port="19530")
+
+# Create a schema for the collection in Milvus
+def create_milvus_collection(collection_name: str):
+    fields = [
+        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=512),  # Adjust the dim accordingly to the model
+        FieldSchema(name="document_id", dtype=DataType.INT64),
+        FieldSchema(name="text", dtype=DataType.STRING)
+    ]
+    schema = CollectionSchema(fields, description="Document collection schema")
+    collection = Collection(name=collection_name, schema=schema)
+    return collection
+
+# Embedding the document into Milvus
+def embedding_document(collection_name: str, file: UploadFile = File(...)):
+    doc_dir = os.getenv("DOC_ADDR")
+    Path(f"{doc_dir}").mkdir(parents=True, exist_ok=True)
+    tmp_save_path_obj = Path(f"{doc_dir}/{file.filename}")
+    tmp_save_path = str(tmp_save_path_obj)
+
+    try:
+        # Save the uploaded file temporarily
+        with open(tmp_save_path, "wb") as tmp_f:
+            shutil.copyfileobj(file.file, tmp_f)
+
+        # Load document and process it into text chunks
+        documents = load_document(tmp_save_path)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap
+        )
+        texts = text_splitter.split_documents(documents)
+
+        # Get embeddings for the documents
+        embedding_function = XinferenceEmbeddings(
+            server_url=xinference_addr, model_uid=xinference_embedding_model_id
+        )
+        embeddings = embedding_function.embed_documents([doc.page_content for doc in texts])
+
+        # Connect to Milvus collection
+        collection = create_milvus_collection(collection_name)
+
+        # Prepare data for insertion into Milvus
+        document_ids = list(range(len(texts)))
+        texts_to_insert = [doc.page_content for doc in texts]
+        vectors_to_insert = embeddings
+
+        # Insert data into Milvus
+        collection.insert([document_ids, texts_to_insert, vectors_to_insert])
+
+        # Optionally, create an index for faster search
+        collection.create_index(field_name="embedding", index_params={"metric_type": "IP", "index_type": "IVF_FLAT", "params": {"nlist": 100}})
+
+        return True
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        if tmp_save_path_obj.exists():
+            os.remove(tmp_save_path)

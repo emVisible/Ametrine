@@ -20,6 +20,7 @@ langchain-chroma # for dev
 
 pymilvus
 langchain_milvus
+milvus-cli
 
 
 # Backend
