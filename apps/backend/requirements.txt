@@ -15,13 +15,11 @@ sentence-transformers
 langchain
 langchain_community
 
-chromadb # for dev
-langchain-chroma # for dev
+chromadb # for refactor dev
+langchain-chroma # for refactor dev
 
 pymilvus
 langchain_milvus
-milvus-cli
-
 
 # Backend
 fastapi

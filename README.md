@@ -1,6 +1,7 @@
 ## 简介
-本项目为RAG项目, 为Lexinaut的重构版
-原始lexinaut:
+Ametrine-基于RAG的本地知识库
+Lexinaut重构版, 正在开发中中⎇
+lexinaut:
 - emLLM-front (rag分支, 前端)
 - emRag (rag分支, 后端)
 
@@ -8,8 +9,9 @@
 - frontend
   - AntV支持
   - 主题风格
-  - 多语言支持
-  - 文件上传优化
+  - 多语言
+  - 文件上传
+  - 接口重构
 - backend
   - 混合检索
   - 多格式document analysis支持
@@ -20,6 +22,7 @@
     - 联网搜索
     - Image模型
     - *工具链
+  - *SSE -> WS
   - *Oauth2加密
   - * websockets
 - database
@@ -57,29 +60,33 @@ Task
 - 低代码编排
 - 多端
 
+## 系统要求 (本地开发)
+OS: Ubuntu 20.04
+GPU: 2080ti 11G；最好是30系的N卡，最低显存10G
+Disk: 60G+
+Memory: 32G+
+
 ## 项目启动
 开发模式下所需显存约为7G
-本项目开发使用2080Ti 11G版本，生产使用3090
+本项目开发使用3080 11G版本，测试使用3090
 
 ### LLM
+启动xinference
+```
+XINFERENCE_MODEL_SRC=modelscope xinference-local
+```
 LLM: qwen2.5-instruct(dev) / glm4-chat-1m(prodct)
 Embedding: bge-m3
 Rerank: bge-reranker-base(dev) / minicpm-reranker(product)
+常规开发时可按需使用rerank模型
 
 显存占用:
 - qwen2.5-instruct 0.5B: 1.4G
 - bge-m3: 2.4G
 - bge-reranker-base: 1.3G; minicpm-reranker: 12G
--  常规开发时不需要启动rerank模型
-
-下载时指定download_hub为modelscope用于加速
-```
-xinference-local
-```
 
 ### 后端
 apps/backend下
-
 ```
 xinference-local
 uvicorn main:app --port 3000 --reload
@@ -93,13 +100,7 @@ yarn dev
 
 ### 数据库
 apps/database下
-
-### 插件
-- Black Formatter
-
-
-## 系统要求
-OS: Ubuntu 20.04
-GPU: 2080ti 22G
-Disk: 50G+
-Memory: 32G+
+启动milvus, 基于Docker
+```
+bash run.sh
+```
