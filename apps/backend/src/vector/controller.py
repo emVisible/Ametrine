@@ -5,12 +5,15 @@ from ..embedding.document_loader import embedding_document
 from src.base.database import get_db
 from src.base.models import Collection as DBCollection, Database, Tenant
 from src.utils import Tags
+from src.vector.dto.collection import CollectionCreateDto
 from pymilvus import MilvusClient
+from langchain_milvus import BM25BuiltInFunction, Milvus
+
 
 # Milvus 连接设置
 route_vector_milvus = APIRouter(prefix="/vector")
 
-connections.connect("default", host="localhost", port="19530")
+client = MilvusClient(host="localhost", port="19530")
 
 @route_vector_milvus.get(
     "/collections",
@@ -20,71 +23,63 @@ connections.connect("default", host="localhost", port="19530")
     tags=[Tags.vector_db],
 )
 async def get_collections():
-    # 获取所有集合名称
-    collections = Collection.list()
-    return [{"name": col} for col in collections]
+    return client.list_collections()
+
 
 @route_vector_milvus.post(
     "/collection/create",
-    summary="[Vector Database] 创建collection",
-    response_description="返回是否成功",
+    summary="[Vector Database] 创建Collection",
+    response_description="返回collection",
     status_code=status.HTTP_200_OK,
     tags=[Tags.vector_db],
 )
-async def create_collection(dto: CreateCollectionDto, db: Session = Depends(get_db)):
+async def create_collection(dto: CollectionCreateDto, db: Session = Depends(get_db)):
     name = dto.name
     tenant_name = dto.tenant_name
     database_name = dto.database_name
     metadata = dto.metadata
 
-    # 获取数据库 ID
-    aim_db_id = (
-        db.query(Database)
-        .filter(Database.tenant_name == tenant_name and Database.name == database_name)
-        .first()
-        .id
-    )
-
     # Milvus集合定义
-    fields = [
-        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=768),
-        FieldSchema(name="text", dtype=DataType.STRING),
-        FieldSchema(name="source", dtype=DataType.STRING),
-    ]
-    schema = CollectionSchema(fields)
+    schema = client.create_schema(
+        auto_id=False,
+        enable_dynamic_field=True,
+    )
+    schema.add_field(field_name="id", datatype=DataType.INT64, is_primary=True)
+    schema.add_field(field_name="vector", datatype=DataType.FLOAT_VECTOR, dim=1024)
+    schema.add_field(field_name="document", datatype=DataType.VARCHAR, max_length=65535)
+    schema.add_field(field_name="source", datatype=DataType.VARCHAR, max_length=500)
+    schema.add_field(field_name="metadata", datatype=DataType.JSON)
 
     # 创建 Milvus 集合
-    collection = Collection(name=name, schema=schema)
-
-    db.add(DBCollection(name=name, database_id=aim_db_id))
-    db.commit()
+    client.create_collection(collection_name=name, schema=schema)
     return {"status": "success", "message": f"Collection '{name}' created in Milvus."}
 
-@route_vector_milvus.post(
-    "/upload_single/{collection_name}",
-    summary="[RAG] 根据单一文档转换为矢量",
-    response_description="返回是否成功",
-    status_code=status.HTTP_200_OK,
-    tags=[Tags.vector_db],
-)
-async def upload_single(collection_name: str, file: UploadFile = File(...)):
-    # 从文件中提取文本并生成嵌入
-    content = await file.read()
-    embedding = embedding_document(collection_name, file)  # 使用你的嵌入生成函数
 
-    # 连接 Milvus 集合
-    collection = Collection(name=collection_name)
+# @route_vector_milvus.post(
+#     "/upload_single/{collection_name}",
+#     summary="[RAG] 根据单一文档转换为矢量",
+#     response_description="返回是否成功",
+#     status_code=status.HTTP_200_OK,
+#     tags=[Tags.vector_db],
+# )
+# async def upload_single(collection_name: str, file: UploadFile = File(...)):
+#     # 从文件中提取文本并生成嵌入
+#     content = await file.read()
+#     embedding = embedding_document(collection_name, file)  # 使用你的嵌入生成函数
 
-    # 构造数据并插入
-    data = [
-        embedding,
-        [content.decode('utf-8')],
-        [file.filename]
-    ]
-    collection.insert(data)
-    collection.flush()  # 刷新数据到磁盘
+#     # 连接 Milvus 集合
+#     collection = Collection(name=collection_name)
 
-    return {"status": "success", "message": f"Document '{file.filename}' uploaded."}
+#     # 构造数据并插入
+#     data = [
+#         embedding,
+#         [content.decode('utf-8')],
+#         [file.filename]
+#     ]
+#     collection.insert(data)
+#     collection.flush()  # 刷新数据到磁盘
+
+#     return {"status": "success", "message": f"Document '{file.filename}' uploaded."}
 
 # @route_vector.post(
 #     "/generate",
@@ -116,36 +111,36 @@ async def upload_single(collection_name: str, file: UploadFile = File(...)):
 
 #     return {"status": "success", "message": "Documents generated and inserted."}
 
-@route_vector_milvus.post(
-    "/collections/get_document",
-    summary="[Vector Database] 返回文档详情",
-    response_description="返回是否成功",
-    status_code=status.HTTP_200_OK,
-    tags=[Tags.dev],
-)
-async def document_detail_get(dto: GetDocumentDto):
-    collection_name = dto.collection_name
-    document_id = dto.document_id
+# @route_vector_milvus.post(
+#     "/collections/get_document",
+#     summary="[Vector Database] 返回文档详情",
+#     response_description="返回是否成功",
+#     status_code=status.HTTP_200_OK,
+#     tags=[Tags.dev],
+# )
+# async def document_detail_get(dto: any):
+#     collection_name = dto.collection_name
+#     document_id = dto.document_id
 
-    # 查询 Milvus 集合
-    collection = Collection(name=collection_name)
-    results = collection.query(expr=f"id == {document_id}")
+#     # 查询 Milvus 集合
+#     collection = Collection(name=collection_name)
+#     results = collection.query(expr=f"id == {document_id}")
 
-    # 返回查询结果
-    return {"status": "success", "data": results}
+#     # 返回查询结果
+#     return {"status": "success", "data": results}
 
-@route_vector_milvus.post(
-    "/collection/delete",
-    summary="[Vector Database] 删除collection",
-    response_description="返回是否成功",
-    status_code=status.HTTP_200_OK,
-    tags=[Tags.vector_db],
-)
-async def delete_collection(dto: GetCollectionDto):
-    collection_name = dto.name
+# @route_vector_milvus.post(
+#     "/collection/delete",
+#     summary="[Vector Database] 删除collection",
+#     response_description="返回是否成功",
+#     status_code=status.HTTP_200_OK,
+#     tags=[Tags.vector_db],
+# )
+# async def delete_collection(dto: any):
+#     collection_name = dto.name
 
-    # 删除集合
-    collection = Collection(name=collection_name)
-    collection.drop()
+#     # 删除集合
+#     collection = Collection(name=collection_name)
+#     collection.drop()
 
-    return {"status": "success", "message": f"Collection '{collection_name}' deleted."}
+#     return {"status": "success", "message": f"Collection '{collection_name}' deleted."}

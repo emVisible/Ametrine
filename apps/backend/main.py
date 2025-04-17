@@ -35,12 +35,10 @@ async def lifespan(app: FastAPI):
 
 
 load_dotenv("./.env")
-# 打印配置信息
 log_config()
 # 初始化数据库
 Base.metadata.create_all(bind=engine)
 # 初始化app实例
-# app = FastAPI(title="ZISU-RAG", version="1.0.0", lifespan=lifespan)
 app = FastAPI(
     title="ZISU-RAG",
     version="1.0.0",
@@ -65,6 +63,7 @@ def root_page():
     return RedirectResponse("/docs")
 
 
+# 静态文件目录
 static_dir = path.dirname(path.abspath(__file__))
 app.mount("/static", StaticFiles(directory=f"{static_dir}/static"), name="static")
 

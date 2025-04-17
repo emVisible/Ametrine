@@ -72,10 +72,17 @@ tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "conda activate ametrine" 
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "echo '🚀 启动 Milvus...'" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "cd $DATABASE_PATH" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "bash standalone_embed.sh start" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "echo '🚀 数据库加载完成，请打开localhost:9091/webui页面'" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "echo '🚀 关闭当前窗口'" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "sleep 10" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "exit" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "echo '🚀 数据库加载完成，请打开localhost:9091/webui页面'" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "echo '🚀 关闭当前窗口'" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "sleep 10" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "exit" C-m
+
+# 启动后端服务, 在/apps/backend下运行uvicorn
+tmux split-window -h -t ${SESSION_NAME}:${BACKEND_WINDOW}
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.3 "conda activate ametrine" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.3 "cd $BACKEND_PATH" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.3 "uvicorn main:app --port 3000 --reload" C-m
+
 
 # 附加到 tmux 会话
 tmux select-window -t ${SESSION_NAME}:${BACKEND_WINDOW}
