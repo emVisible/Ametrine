@@ -5,6 +5,7 @@ FRONTEND_WINDOW="frontend"
 FRONTEND_PATH="apps/frontend"
 BACKEND_WINDOW="backend"
 BACKEND_PATH="apps/backend"
+DATABASE_WINDOW="database"
 DATABASE_PATH="apps/database"
 
 # 检查 tmux 是否安装
@@ -60,29 +61,27 @@ tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "cd $BACKEND_PATH" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "echo '⏳ 等待 xinference-local 启动完成...'" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "sleep 30" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "xinference launch --model-name qwen2.5-instruct --model-engine Transformers --size-in-billions 0_5 --model-format pytorch" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "sleep 10" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "xinference launch --model-name bge-m3 --model-type embedding" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "sleep 10" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "xinference launch --model-name bge-reranker-base --model-type rerank" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "echo '🚀 模型加载完成，关闭当前窗口...'" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "sleep 5" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "exit" C-m
-
-# 在 backend当前窗口中，运行/apps/database/standalone_embed.sh脚本
-tmux split-window -h -t ${SESSION_NAME}:${BACKEND_WINDOW}
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "conda activate ametrine" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "echo '🚀 启动 Milvus...'" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "cd $DATABASE_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "bash standalone_embed.sh start" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "echo '🚀 数据库加载完成，请打开localhost:9091/webui页面'" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "echo '🚀 关闭当前窗口'" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "sleep 10" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "exit" C-m
 
 # 启动后端服务, 在/apps/backend下运行uvicorn
 tmux split-window -h -t ${SESSION_NAME}:${BACKEND_WINDOW}
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.3 "conda activate ametrine" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.3 "cd $BACKEND_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.3 "uvicorn main:app --port 3000 --reload" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "sleep 65" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "conda activate ametrine" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "cd $BACKEND_PATH" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "uvicorn main:app --port 3000 --reload" C-m
 
+# 创建独立的 database 窗口
+tmux new-window -t $SESSION_NAME -n $DATABASE_WINDOW
+tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "conda activate ametrine" C-m
+tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "echo '🚀 启动 Milvus...'" C-m
+tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "cd $DATABASE_PATH" C-m
+tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "bash standalone_embed.sh start" C-m
+tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "echo '🚀 数据库加载完成，请打开localhost:9091/webui页面'" C-m
 
 # 附加到 tmux 会话
 tmux select-window -t ${SESSION_NAME}:${BACKEND_WINDOW}

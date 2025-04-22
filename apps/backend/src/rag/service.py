@@ -12,14 +12,6 @@ from .dto.rearank import RerankResultSchemas
 logger = getLogger(__name__)
 
 
-async def rerank_loop(document: list[str], question: str):
-    loop = get_running_loop()
-    res: RerankResultSchemas = await loop.run_in_executor(
-        None, rerank_model.rerank, document, question, None, None, True
-    )
-    return res
-
-
 # rerank结果统一处理
 async def unify_filter(data: list[dict], question: str):
     res = []
@@ -38,6 +30,7 @@ async def unify_filter(data: list[dict], question: str):
                 {
                     "doc": item["document"]["text"][:30] + "...",
                     "score": item["relevance_score"],
+                    "source": item["document"]["source"],
                 }
                 for item in filter_res
                 if item["relevance_score"] > min_relevance_score
@@ -62,6 +55,14 @@ async def batch_rerank(question: str, sourece_document: list[str]):
         part_res = await rerank_loop(document=[document], question=question)
         reranked_data.append(part_res)
     return reranked_data
+
+
+async def rerank_loop(document: list[str], question: str):
+    loop = get_running_loop()
+    res: RerankResultSchemas = await loop.run_in_executor(
+        None, rerank_model.rerank, document, question, None, None, True
+    )
+    return res
 
 
 # rag文档检索, 通过文本转换为向量, 通过向量检索以及rerank返回合适结果

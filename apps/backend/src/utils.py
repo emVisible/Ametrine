@@ -87,3 +87,4 @@ def log_config():
         tag = config["tags"]
         name = config["name"]
         config_logger.critical(f"[{tag}]-[{name}]: {getenv(name)}")
+
