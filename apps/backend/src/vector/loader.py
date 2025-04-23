@@ -1,11 +1,8 @@
-# coding: utf-8
 import glob
 import os
-
-# import torch
-from multiprocessing import Pool
+from tqdm import tqdm
 from typing import List
-
+from multiprocessing import Pool
 from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
@@ -22,54 +19,18 @@ from langchain_community.document_loaders import (
     UnstructuredPowerPointLoader,
     UnstructuredWordDocumentLoader,
 )
-from tqdm import tqdm
-
 from ..config import (
     chunk_overlap,
     chunk_size,
     doc_addr,
 )
 
-import os
-from langchain.docstore.document import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from tqdm import tqdm
-from ..config import (
-    chunk_overlap,
-    chunk_size,
-    doc_addr,
-)
-
-
-class MyElmLoader(UnstructuredEmailLoader):
-    """Wrapper to fallback to text/plain when default does not work"""
-
-    async def load(self) -> List[Document]:
-        """Wrapper adding fallback for elm without html"""
-        try:
-            try:
-                doc = UnstructuredEmailLoader.load(self)
-            except ValueError as e:
-                if "text/html content not found in email" in str(e):
-                    # Try plain text
-                    self.unstructured_kwargs["content_source"] = "text/plain"
-                    doc = UnstructuredEmailLoader.load(self)
-                else:
-                    raise
-        except Exception as e:
-            # Add file_path to exception message
-            raise type(e)(f"{self.file_path}: {e}") from e
-
-        return doc
-
-
-# document loader 映射表
 LOADER_MAPPING = {
     ".csv": (CSVLoader, {}),
     ".doc": (UnstructuredWordDocumentLoader, {}),
     ".docx": (UnstructuredWordDocumentLoader, {}),
     ".enex": (EverNoteLoader, {}),
-    ".eml": (MyElmLoader, {}),
+    ".eml": (UnstructuredEmailLoader, {}),
     ".epub": (UnstructuredEPubLoader, {}),
     ".html": (UnstructuredHTMLLoader, {}),
     ".md": (UnstructuredMarkdownLoader, {}),
@@ -92,9 +53,7 @@ def load_document(file_path: str) -> List[Document]:
     raise ValueError(f"不支持的格式 .'{ext}'")
 
 
-def load_documents(
-    source_dir: str, ignored_files: List[str] = []
-) -> List[Document]:
+def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Document]:
     all_files = []
     for ext in LOADER_MAPPING:
         all_files.extend(
@@ -116,11 +75,14 @@ def load_documents(
     return results
 
 
-def process_documents(ignored_files: List[str] = []) -> List[Document]:
-    print(f"文档加载中: 源自 {doc_addr}")
-    documents = load_documents(doc_addr, ignored_files)
+def process_documents(
+    is_multiple: bool, file_path: str, ignored_files: List[str] = []
+) -> List[Document]:
+    if is_multiple:
+        documents = load_documents(doc_addr, ignored_files)
+    else:
+        documents = load_document(file_path=file_path)
     if not documents:
-        print("没有可加载的文档")
         exit(0)
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, chunk_overlap=chunk_overlap
