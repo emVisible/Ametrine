@@ -1,64 +1,64 @@
 ## 简介
-Ametrine-基于RAG的本地知识库
-Lexinaut重构版, 正在开发中中⎇
-lexinaut:
+Ametrine-基于RAG的本地知识库, 基于monorepo
+Lexinaut为旧版本，可以参考我的repo中的
 - emLLM-front (rag分支, 前端)
 - emRag (rag分支, 后端)
 
-重构计划
+如果项目对你有什么帮助, 或者使用中遇到什么问题, 欢迎联系我或者给我提个Issue
+
+## 重构计划
 - frontend
-  - AntV支持
-  - 主题风格
-  - 多语言
-  - 文件上传
-  - 接口重构
-- backend
-  - 混合检索
-  - 多格式document analysis支持
-  - Embedding优化
-  - split chunk优化
-  - overlap 优化
+  - 主题风格 & UI (Themes)
+  - 多语言 (English & Chinese)
+  - 后台：
+    - AntV支持
+    - document management重构
+  - 可视化回答：比如图表
+- LLM
+  - 对话的格式_ 答案+来源
+  - 文档切分策略
+    - 新增基于语义切分
+    - split chunk优化
+    - overlap 优化
   - Agent
     - 联网搜索
     - Image模型
     - *工具链
+  - langchain重构
+  - Embedding优化
+  - 提示词管理
+    - 政治倾向判断 & 情感问题判断
+    - 时间概念
+    - 角色概念
+
+- backend
+  - 多格式document analysis支持
+  - 静态回答
+    - 统一问答系统 (静态)
+      - 问题推荐(热点问题)
+      - 对话系统-对话框+检索功能，问题固定，固定话术
+    - 意见反馈系统 (静态)
   - *SSE -> WS
   - *Oauth2加密
-  - * websockets
+  - *websockets
+  - *第三方API
+
 - database
-  - vector
-    - Milvus
-  - traditional
-    - postgre
-    - mongo
-    - redis
-  - 表重构
+  - vector: Chroma重制为Milvus
+    - 混合检索
+  - traditional: sqlite重制为postgre, 添加redis & 重构表
+  - 按时间去重
+  - 对话数据存储系统，包括聊天记录，问答记录，未解觉问题，错误问题
+  - 多知识库-业务知识库，优化知识库
+  - 多集合查找和单集合查找
 
 - deploy
-  - docker
-
-Task
-- 确认定位
-- 提示词管理
-- 按时间去重
-- 轻量化部署
-- 动态与静态模式的切换
-- 可视化回答：比如图表
-- 第三方API
-- 对话数据存储系统，包括聊天记录，问答记录，未解觉问题，错误问题
-- 对话的格式_ 答案+来源
-- 对话系统-对话框+检索功能，问题固定，固定话术
-- 意见反馈系统
-- 终端类型
-- 政治倾向判断 & 情感问题判断
-- 时间概念
-- 提示词-对话不同角色
-- 统一问答系统
-- 问题推荐(热点问题)
-- 多知识库-业务知识库，优化知识库
-- 多集合查找和单集合查找
-- 低代码编排
-- 多端
+  - add: docker
+  - 轻量化部署
+  - 终端类型
+  - 低代码编排
+  - 多端
+  - 确认定位
 
 ## 系统要求 (本地开发)
 OS: Ubuntu 20.04
@@ -86,14 +86,13 @@ Rerank: bge-reranker-base(dev) / minicpm-reranker(product)
 - bge-reranker-base: 1.3G; minicpm-reranker: 12G
 
 ### 后端
-apps/backend下
+apps/backend下运行
 ```
-xinference-local
 uvicorn main:app --port 3000 --reload
 ```
 
 ### 前端
-apps/frontend下
+apps/frontend下运行
 ```
 yarn dev
 ```
@@ -102,5 +101,5 @@ yarn dev
 apps/database下
 启动milvus, 基于Docker
 ```
-bash run.sh
+bash standalone_embed.sh
 ```
