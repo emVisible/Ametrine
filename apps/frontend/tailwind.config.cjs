@@ -6,11 +6,7 @@ module.exports = {
     "./src/**/*.{js,ts,jsx,tsx,vue}",
   ],
   theme: {
-    extend: {
-      backgroundImage:{
-          "main": "url('/images/background.jpg')"
-      }
-    },
+    extend: {}
   },
   plugins: [],
 }

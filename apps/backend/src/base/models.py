@@ -1,11 +1,6 @@
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
-
 from .database import Base
-
-"""
-  该文件为数据库中的表信息, 即SQLite表信息
-"""
 
 
 class Role(Base):
@@ -42,7 +37,7 @@ class Database(Base):
     name = Column(String, index=True)
 
     tenant = relationship("Tenant", back_populates="databases")
-    tenant_name = Column(Integer, ForeignKey("tenants.name"))
+    tenant_name = Column(String, ForeignKey("tenants.name"))
     collections = relationship("Collection", back_populates="database")
 
 

@@ -3,20 +3,18 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 """
-  本文件为数据库初始化设置, 一般不会改动
+  Change this into your postgresql database config.
+  SQLAlchemy_DB = "postgresql+psycopg2://{username}:{password}@localhost:5432/{dbname}"
 """
-SQLAlchemy_DB = "sqlite:///./sql_app.db"
-
-engine = create_engine(SQLAlchemy_DB, connect_args={"check_same_thread": False})
-
+SQLAlchemy_DB = "postgresql+psycopg2://postgres:review@localhost:5432/ametrine"
+engine = create_engine(SQLAlchemy_DB)
 db_session_local = sessionmaker(autoflush=False, autocommit=False, bind=engine)
-
 Base = declarative_base()
 
 
 def get_db():
     """
-    获取数据库实例
+    获取postgres instance
     """
     db = db_session_local()
     try:
@@ -26,7 +24,5 @@ def get_db():
 
 
 def reset_db():
-    # 删除所有表
     Base.metadata.drop_all(bind=engine)
-    # 重新创建所有表
     Base.metadata.create_all(bind=engine)
