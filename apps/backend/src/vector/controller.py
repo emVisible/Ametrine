@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, File, UploadFile, status, Form
-from sqlalchemy.orm import Session
-from src.base.database import get_db
 from src.utils import Tags
-from src.vector.dto.collection import (
+from src.vector.dto import (
     CollectionRenameDto,
     DocumentQueryServiceDto,
     CollectionCreateDto,

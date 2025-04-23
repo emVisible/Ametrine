@@ -11,7 +11,6 @@ from src.base.database import engine
 from src.base.middleware import CORSMiddleware, origins
 from src.base.models import Base
 from src.llm.controller import route_llm
-from src.rag.controller import route_rag
 from src.vector.controller import route_vector_milvus
 from src.utils import log_config, config_logger
 from os import path
@@ -21,6 +20,7 @@ from fastapi.openapi.docs import (
     get_swagger_ui_oauth2_redirect_html,
 )
 from fastapi.staticfiles import StaticFiles
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -53,7 +53,6 @@ route_prefix = "/api"
 app.include_router(route_base, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
-app.include_router(route_rag, prefix=route_prefix)
 # 跨域中间件
 app.add_middleware(CORSMiddleware, allow_origins=origins)
 
@@ -77,6 +76,7 @@ async def custom_swagger_ui_html():
         swagger_js_url="/static/swagger-ui/swagger-ui-bundle.js",
         swagger_css_url="/static/swagger-ui/swagger-ui.css",
     )
+
 
 @app.get(app.swagger_ui_oauth2_redirect_url, include_in_schema=False)
 async def swagger_ui_redirect():

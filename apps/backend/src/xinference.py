@@ -1,4 +1,4 @@
-from ..config import (
+from .config import (
     xinference_addr,
     xinference_llm_model_id,
     xinference_rerank_model_id,
@@ -6,6 +6,7 @@ from ..config import (
 )
 from asyncio import Lock
 from xinference.client import RESTfulClient
+# from xinference.types import Chat
 from langchain_community.embeddings import XinferenceEmbeddings
 
 model_lock = Lock()

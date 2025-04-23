@@ -4,9 +4,6 @@ from fastapi import UploadFile
 
 class CollectionCreateDto(BaseModel):
     name: str
-    # tenant_name: str
-    # database_name: str
-    # metadata: dict
 
 
 class CollectionRenameDto(BaseModel):

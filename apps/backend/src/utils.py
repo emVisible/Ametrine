@@ -22,7 +22,7 @@ config_logger.setLevel(CRITICAL)
 config_logger.addHandler(console_handler)
 
 file_log = basicConfig(
-    filename="lexinaut.log",  # 输出日志文件
+    filename="ametrine.log",  # 输出日志文件
     level=INFO,  # 日志级别
     format="%(asctime)s - %(levelname)s - %(message)s",  # 日志格式
 )

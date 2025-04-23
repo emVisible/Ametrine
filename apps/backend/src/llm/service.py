@@ -2,7 +2,7 @@ from asyncio import get_running_loop
 
 from langchain_chroma import Chroma
 
-from src.xinference.service import embedding_function, llm_model, rerank_model
+from src.xinference import embedding_function, rerank_model
 
 
 from logging import getLogger

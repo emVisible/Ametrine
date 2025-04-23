@@ -8,8 +8,8 @@ from pymilvus import (
     DataType,
 )
 from .loader import process_documents
-from src.xinference.service import embedding_function, rerank_model
-from src.vector.dto.collection import (
+from src.xinference import embedding_function
+from src.vector.dto import (
     CollectionRenameDto,
     DocumentQueryServiceDto,
 )
@@ -46,6 +46,17 @@ class CollectionService:
             return "Collection already exists"
         schema = Schemas().schema
         client.create_collection(collection_name=name, schema=schema)
+        index_params = client.prepare_index_params()
+        index_params.add_index(
+            field_name="embedding",
+            index_type="IVF_FLAT",
+            index_name="vector_index",
+            metric_type="L2",
+            params={
+                "nlist": 256,
+            },
+        )
+        client.create_index(collection_name=name, index_params=index_params)
         return client.describe_collection(collection_name=name)
 
     async def collection_rename_service(self, dto: CollectionRenameDto):
