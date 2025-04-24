@@ -4,6 +4,7 @@ import App from './App.vue'
 import router, { setupRouter } from '@/router'
 import { setupPlugins } from './plugins'
 import '../public/styles/global.scss'
+import '../public/styles/theme.scss'
 import 'animate.css'
 async function bootstrap() {
   const app = createApp(App)

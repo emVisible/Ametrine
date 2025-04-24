@@ -1,6 +1,6 @@
 <template>
   <div class="h-screen w-screen">
-    <el-container class="h-full w-full bg-orange-50">
+    <el-container class="h-full w-full bg-bgMain">
       <el-aside width="300px" class="h-full">
         <Vice></Vice>
       </el-aside>

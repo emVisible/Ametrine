@@ -7,18 +7,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from ..utils import Tags
-from .auth.service_auth import authenticate_user, create_access_token
+from .auth.service import AuthService, get_current_user, permission_map
 from .database import get_db
-from .schemas import UserBase, UserSchemas
-from .service_user import (
-    create_user,
-    permission_map,
-    get_current_user,
-    get_user_by_account,
-    get_user_by_email,
-    get_user_by_id,
-    get_users,
-)
+from .dto import UserBase, UserSchemas
+from .service import UserService
+
 
 route_base = APIRouter(prefix="/base")
 
@@ -35,13 +28,17 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(
     status_code=status.HTTP_201_CREATED,
     tags=[Tags.user],
 )
-def create_user_route(user: UserBase, db: Session = Depends(get_db)):
-    db_user = get_user_by_email(db=db, user_email=user.email)
+async def create_user_route(
+    user: UserBase,
+    db: Session = Depends(get_db),
+    service: UserService = Depends(UserService),
+):
+    db_user = await service.get_user_by_email(db=db, user_email=user.email)
     if db_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="该邮箱已注册"
         )
-    return create_user(db=db, user=user)
+    return service.create_user(db=db, user=user)
 
 
 @route_base.get(
@@ -52,8 +49,12 @@ def create_user_route(user: UserBase, db: Session = Depends(get_db)):
     response_description="返回指定用户信息",
     tags=[Tags.user],
 )
-def get_user(user_id: int, db: Session = Depends(get_db)):
-    user = get_user_by_id(db=db, user_id=user_id)
+async def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    service: UserService = Depends(UserService),
+):
+    user = await service.get_user_by_id(db=db, user_id=user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户未注册")
     return user
@@ -67,8 +68,13 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     response_description="返回用户组成的list",
     tags=[Tags.user],
 )
-def get_user_all(offset=0, limit=100, db: Session = Depends(get_db)):
-    users = get_users(db=db, offset=offset, limit=limit)
+async def get_user_all(
+    offset=0,
+    limit=100,
+    db: Session = Depends(get_db),
+    service: UserService = Depends(UserService),
+):
+    users = await service.get_users(db=db, offset=offset, limit=limit)
     return users
 
 
@@ -82,10 +88,12 @@ def get_user_all(offset=0, limit=100, db: Session = Depends(get_db)):
 async def login_for_access_token(
     db: Session = Depends(get_db),
     form_data: OAuth2PasswordRequestForm = Depends(),
+    service: UserService = Depends(UserService),
+    auth_service: AuthService = Depends(AuthService),
 ):
-    user = authenticate_user(
+    user = auth_service.authenticate_user(
         db,
-        get_user_by_account(
+        await service.get_user_by_account(
             db=db, username=form_data.username, password=form_data.password
         ),
     )
@@ -96,7 +104,7 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
+    access_token = auth_service.create_access_token(
         {"sub": user.name}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
@@ -110,10 +118,10 @@ async def login_for_access_token(
     tags=[Tags.auth],
 )
 async def check_current_user(
-    user: UserSchemas = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ):
     res = {}
-    res["name"] = user.name
-    res["email"] = user.email
-    res["permissions"] = permission_map(user.role_id)
+    res["name"] = current_user.name
+    res["email"] = current_user.email
+    res["permissions"] = await permission_map(current_user.role_id)
     return res

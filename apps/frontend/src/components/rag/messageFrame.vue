@@ -3,7 +3,7 @@
     <el-avatar v-if="role === 'user'" :size="40" src="/images/user.png" />
     <el-avatar v-else :size="40" src="/images/robot.png" />
     <div class="flex flex-col w-full pl-3">
-      <div class="flex">
+      <div class="flex text-text-gentle">
         <div class="font-semibold">
           <slot name="name"></slot>
         </div>
@@ -12,7 +12,7 @@
         </div>
       </div>
       <div
-        class="content bg-orange-100 w-full rounded-lg px-6 my-4 shadow-lg break-words break-all p-4 overflow-hidden">
+        class="contentw-full rounded-lg px-6 my-4 drop-shadow-lg break-words break-all p-4 overflow-hidden text-text-heavy bg-bgVice">
         <slot name="content"></slot>
       </div>
 

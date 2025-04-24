@@ -47,7 +47,7 @@ async def rename_collection(
 
 
 @route_vector_milvus.get(
-    "/collection",
+    "/collection/get",
     summary="[Vector Database] 获取Collection详细信息",
     status_code=status.HTTP_200_OK,
     tags=[Tags.vector_db],

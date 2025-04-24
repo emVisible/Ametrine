@@ -11,16 +11,17 @@
     </el-main>
     <el-footer class="relative flex flex-col justify-center items-center mt-3">
       <section class="flex-1 flex w-[850px] justify-center items-center my-4">
-        <div class="relative flex flex-1 h-[50px] bg-white items-center rounded-lg duration-300 hover:shadow-md focus:shadow-md">
-          <input class="flex-[8] h-full pl-6 outline-none" type="text" v-model="userInput" placeholder="想了解点什么~"
-            @keyup.enter="handleSubmit" />
+        <div
+          class="relative flex flex-1 h-[50px] bg-bgReverse items-center rounded-lg duration-300 hover:shadow-md focus:shadow-md">
+          <input class="bg-bgReverse rounded-lg text-text-heavy flex-[8] h-full pl-6 outline-none" type="text"
+            v-model="userInput" placeholder="想了解点什么~" @keyup.enter="handleSubmit" />
           <span v-if="chatMode"
-            class="cursor-default flex-1 flex justify-center items-center h-1/2 text-white bg-[#A29BFE] rounded-lg mr-2 px-3">{{
-            collectionName }}</span>
-          <Drawer class="absolute -left-12" v-show="chatMode" />
+            class="cursor-default flex-1 flex justify-center items-center h-1/2 text-white bg-bgReverse rounded-lg mr-2 px-3">
+            {{ collectionName }}</span>
+          <Drawer class="absolute -left-12" />
         </div>
-        <el-switch v-model="chatMode" inline-prompt
-          style="margin-left: 12px; --el-switch-on-color: #a29bfe; --el-switch-off-color: #74b9ff" active-text="检索模式"
+        <el-switch class="text-text-heavy" v-model="chatMode" inline-prompt
+          style="margin-left: 12px; --el-switch-on-color:#ffc08d; --el-switch-off-color: #a29bfe " active-text="检索模式"
           width="100%" size="large" inactive-text="基础模式" />
       </section>
       <section class="text-xs opacity-30 p-1">给出的建议可能会有错误, 请仔细鉴别</section>
@@ -37,7 +38,6 @@ import { v4 } from 'uuid'
 import { onMounted, ref } from 'vue'
 import Drawer from './drawer.vue'
 import Message from './message.vue'
-import { getCollectionNames } from '@/apis/collection'
 import llmStore from '@/store/llmStore'
 const userInput = ref('')
 const isEmpty = ref(await sessionStore().isSessionEmpty())

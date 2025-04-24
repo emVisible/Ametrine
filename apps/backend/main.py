@@ -1,11 +1,17 @@
-from contextlib import asynccontextmanager
-
+from os import path
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import (
+    get_redoc_html,
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html,
+)
 from torch.cuda import empty_cache, ipc_collect, is_available
-
+from src.base.init.controller import route_init
 from src.base.controller import route_base
 from src.base.database import engine
 from src.base.middleware import CORSMiddleware, origins
@@ -13,13 +19,6 @@ from src.base.models import Base
 from src.llm.controller import route_llm
 from src.vector.controller import route_vector_milvus
 from src.utils import log_config, config_logger
-from os import path
-from fastapi.openapi.docs import (
-    get_redoc_html,
-    get_swagger_ui_html,
-    get_swagger_ui_oauth2_redirect_html,
-)
-from fastapi.staticfiles import StaticFiles
 
 
 @asynccontextmanager
@@ -53,6 +52,7 @@ route_prefix = "/api"
 app.include_router(route_base, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
+app.include_router(route_init, prefix=route_prefix)
 # 跨域中间件
 app.add_middleware(CORSMiddleware, allow_origins=origins)
 

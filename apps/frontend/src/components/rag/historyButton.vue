@@ -1,5 +1,5 @@
 <template>
-  <button class="relative flex flex-col text-left py-2 transition-[.3s] hover:bg-slate-200">
+  <button class="relative flex flex-col text-left py-2 transition-[.3s] hover:bg-bgAddition">
     <div class="w-full flex">
       <p class="pl-1">
         <slot name="title"></slot>

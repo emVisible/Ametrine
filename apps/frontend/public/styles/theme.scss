@@ -1,0 +1,51 @@
+:root {
+  --color-bg-main: #f5f6fa;
+  --color-bg-vice: #f1f2f6;
+  --color-bg-addition: #dfe4ea;
+  --color-bg-reverse: #d1d8e0;
+  --color-text-gentle: #6b7280;
+  --color-text-heavy: #111827;
+  --color-amethyst: #a29bfe;
+  --color-topaz: #ffc08d;
+}
+
+html.dark {
+  --color-bg-main: #333030;
+  --color-bg-vice: #28231a;
+  --color-bg-addition: #2f3542;
+  --color-bg-reverse: #484848;
+  --color-text-gentle: #9ca3af;
+  --color-text-heavy: #f9fafb;
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar {
+    width: 5px;
+    background-color: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: #9ca3af;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #9ca3af;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  ::-webkit-scrollbar {
+    width: 5px;
+    background-color: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: #b8bfc259;
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #c4c4c4;
+    border-radius: 10px;
+  }
+}

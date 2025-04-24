@@ -98,6 +98,38 @@ yarn dev
 ```
 
 ### 数据库
+OS安装PostgreSQL
+```
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+```
+
+验证安装成功
+```
+sudo -u postgres psql -c "SELECT version();"
+```
+
+安装后会自动创建一个名为postgres的系统用户, 切换至该账户
+```
+sudo -i -u postgres
+```
+
+进入交互, 修改密码
+```
+psql
+\password postgres
+```
+
+创建对应的数据库
+```
+sudo -u postgres createdb ametrine
+// 或者用SQL
+CREATE DATABASE ametrine OWNER postgres
+```
+
+Vscode安装插件：Database Client, 可连接到postgre上进行可视化管理
+至此, 后段与Postgre的连接可以填入并应正常连接
+
 apps/database下
 启动milvus, 基于Docker
 ```
