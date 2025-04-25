@@ -1,104 +1,41 @@
 ## 简介
-Ametrine-基于RAG的本地知识库, 基于monorepo
-Lexinaut为旧版本，可以参考我的repo中的
-- emLLM-front (rag分支, 前端)
-- emRag (rag分支, 后端)
+Ametrine——基于RAG的本地知识库系统, 基于monorepo
 
-如果项目对你有什么帮助, 或者使用中遇到什么问题, 欢迎联系我或者给我提个Issue
-
-## 重构计划
-- frontend
-  - 主题风格 & UI (Themes)
-  - 多语言 (English & Chinese)
-  - 后台：
-    - AntV支持
-    - document management重构
-  - 可视化回答：比如图表
-- LLM
-  - 对话的格式_ 答案+来源
-  - 文档切分策略
-    - 新增基于语义切分
-    - split chunk优化
-    - overlap 优化
-  - Agent
-    - 联网搜索
-    - Image模型
-    - *工具链
-  - langchain重构
-  - Embedding优化
-  - 提示词管理
-    - 政治倾向判断 & 情感问题判断
-    - 时间概念
-    - 角色概念
-
-- backend
-  - 多格式document analysis支持
-  - 静态回答
-    - 统一问答系统 (静态)
-      - 问题推荐(热点问题)
-      - 对话系统-对话框+检索功能，问题固定，固定话术
-    - 意见反馈系统 (静态)
-  - *SSE -> WS
-  - *Oauth2加密
-  - *websockets
-  - *第三方API
-
-- database
-  - vector: Chroma重制为Milvus
-    - 混合检索
-  - traditional: sqlite重制为postgre, 添加redis & 重构表
-  - 按时间去重
-  - 对话数据存储系统，包括聊天记录，问答记录，未解觉问题，错误问题
-  - 多知识库-业务知识库，优化知识库
-  - 多集合查找和单集合查找
-
-- deploy
-  - add: docker
-  - 轻量化部署
-  - 终端类型
-  - 低代码编排
-  - 多端
-  - 确认定位
-
-## 系统要求 (本地开发)
+## 系统要求
+最低配置
 OS: Ubuntu 20.04
-GPU: 2080ti 11G；最好是30系的N卡，最低显存10G
+GPU: 没有也行 | 能跑就行
+Disk: 30G
+Memory: 16G
+
+推荐配置
+OS: Ubuntu 20.04
+GPU: 2080ti 22G | 3090 | ...8G以上显存
 Disk: 60G+
 Memory: 32G+
 
-## 项目启动
-开发模式下所需显存约为7G
-本项目开发使用3080 11G版本，测试使用3090
+本项目开发使用3080，开发模式下所需最低显存约为7G, 测试部署使用3090x2
 
-### LLM
-启动xinference
-```
-XINFERENCE_MODEL_SRC=modelscope xinference-local
-```
-LLM: qwen2.5-instruct(dev) / glm4-chat-1m(prodct)
-Embedding: bge-m3
-Rerank: bge-reranker-base(dev) / minicpm-reranker(product)
-常规开发时可按需使用rerank模型
-
-显存占用:
-- qwen2.5-instruct 0.5B: 1.4G
-- bge-m3: 2.4G
-- bge-reranker-base: 1.3G; minicpm-reranker: 12G
-
-### 后端
-apps/backend下运行
-```
-uvicorn main:app --port 3000 --reload
-```
+## 依赖安装
+概要
+- 安装nvm; 安装yarn
+- 安装python3.10 (项目开发所使用的版本)
+- 安装postgreSQL并创建对应数据库
 
 ### 前端
-apps/frontend下运行
+进入apps/frontend
 ```
-yarn dev
+yarn
+```
+
+### 后端
+进入apps/backend
+```
+pip install -r requirements.txt
 ```
 
 ### 数据库
-OS安装PostgreSQL
+ubuntu下安装PostgreSQL
 ```
 sudo apt update
 sudo apt install postgresql postgresql-contrib
@@ -128,10 +65,53 @@ CREATE DATABASE ametrine OWNER postgres
 ```
 
 Vscode安装插件：Database Client, 可连接到postgre上进行可视化管理
-至此, 后段与Postgre的连接可以填入并应正常连接
 
+至此, 后端与Postgre的连接可以在apps/backend/base/database填入并应正常连接(pip安装了psycopg2-binary的前提下)
+
+## 项目启动
+可以单独启动后, 运行Ametrine/dev.sh一键启动
+
+### LLM
+启动xinference
+```
+XINFERENCE_MODEL_SRC=modelscope xinference-local
+```
+Models
+- LLM
+  - qwen2.5-instruct(dev)
+  - glm4-chat-1m(prodct) or other llm
+- Embedding
+  - bge-m3
+- Rerank
+  - bge-reranker-base(dev)
+  - minicpm-reranker(product)
+
+常规开发时可按需使用rerank模型
+
+显存占用:
+- qwen2.5-instruct 0.5B: 1.4G
+- bge-m3: 2.4G
+- bge-reranker-base: 1.3G; minicpm-reranker: 12G
+
+### 后端
+apps/backend下运行
+```
+uvicorn main:app --port 3000 --reload
+```
+
+### 前端
+apps/frontend下运行
+```
+yarn dev
+```
+
+### 数据库
 apps/database下
 启动milvus, 基于Docker
 ```
 bash standalone_embed.sh
 ```
+
+## 最后
+使用中如果遇到什么问题, 欢迎提issue或在discussion中讨论
+如果项目对你有什么帮助, 就给个⭐️吧
