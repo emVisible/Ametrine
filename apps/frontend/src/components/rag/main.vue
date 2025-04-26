@@ -23,7 +23,7 @@
             <span
               v-if="chatMode"
               @click.stop="selectCollection"
-              class="flex-1 min-w-8 p-2 flex justify-center items-center h-1/2 hover:bg-bgAddition cursor-pointer transition-all"
+              class="flex-1 min-w-8 p-2 flex justify-center items-center h-1/2 hover:bg-bgAddition cursor-pointer transition-all rounded-md"
               :class="chatMode ? 'opacity-100' : 'opacity-30'">
               {{ collectionName }}</span
             >
@@ -31,7 +31,7 @@
               theme="filled"
               size="24"
               :fill="currentFill"
-              class="p-2 hover:bg-bgAddition cursor-pointer transition-all"
+              class="p-2 hover:bg-bgAddition cursor-pointer transition-all rounded-md"
               :class="chatMode ? 'opacity-100' : 'opacity-30'" />
           </section>
           <el-dialog v-model="dialogFormVisible" title="选择集合" class="w-2/3 h-2/3">
