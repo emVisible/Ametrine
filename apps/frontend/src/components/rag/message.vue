@@ -1,7 +1,7 @@
 <template>
   <section class="flex flex-col sm:px-2 md:px-16 lg:px-24 xl:px-28 2xl:px-32">
     <messageFrame class="my-4" :role="history?.role" v-for="history in data">
-      <template #name> {{ history?.role === 'machine' ? '浙外小助手' : '你' }} </template>
+      <template #name> {{ history?.role === 'machine' ? 'Ametrine' : '你' }} </template>
       <template #date> {{ history?.date && history.date }} </template>
       <template class="py-4" v-if="history?.role === 'machine'" #content>
         <div v-html="md.render(history?.content)"></div>

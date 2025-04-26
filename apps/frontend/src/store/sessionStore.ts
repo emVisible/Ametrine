@@ -2,6 +2,10 @@ import { defineStore } from 'pinia'
 import store from '@/utils/store'
 import { CacheEnum } from '@/enum/cacheEnum'
 
+export type SessionType = {
+  title: string
+  history: HistoryType[]
+}
 export type HistoryType = {
   id: string,
   role: string,
@@ -12,7 +16,7 @@ export type HistoryType = {
 export default defineStore('session', {
   state: () => {
     return {
-      sessions: [] as HistoryType[][],
+      sessions: [] as SessionType[],
       currentIndex: 0,
       isNeedFlush: true,
       currentConversationIndex: 0
@@ -28,7 +32,10 @@ export default defineStore('session', {
     },
     async createSession(historySession: HistoryType[]) {
       if (store.get(CacheEnum.TOKEN_NAME)) {
-        this.sessions.push(historySession)
+        this.sessions.push({
+          title: `会话${this.sessions.length + 1}`,
+          history: historySession
+        })
       }
     },
     async getSessions() {
@@ -38,7 +45,7 @@ export default defineStore('session', {
     },
     async getCurrentSession(index: number) {
       if (store.get(CacheEnum.TOKEN_NAME)) {
-        return this.sessions[index]
+        return this.sessions[index].history
       }
     },
     async updateCurrentSession(data: HistoryType) {
@@ -46,13 +53,19 @@ export default defineStore('session', {
         if (this.sessions.length === 0) {
           this.createSession([])
         }
-        this.sessions[this.currentIndex].push(data)
+        this.sessions[this.currentIndex].history.push(data)
+      }
+    },
+    async renameCurrentSession(name: string) {
+      if (store.get(CacheEnum.TOKEN_NAME)) {
+        const targetSession = this.sessions[this.currentIndex]
+        targetSession.title = name
       }
     },
     async pushItemToCurrentSession(data: any) {
       if (store.get(CacheEnum.TOKEN_NAME)) {
-        const targetSession = this.sessions[this.currentIndex]
-        const targetObj = targetSession[this.sessions[this.currentIndex].length - 1]
+        const targetSession = this.sessions[this.currentIndex].history
+        const targetObj = targetSession[this.sessions[this.currentIndex].history.length - 1]
         if (targetObj.content === '...') targetObj.content = ""
         targetObj.id = data.id
         targetObj.date = new Date().toLocaleString()

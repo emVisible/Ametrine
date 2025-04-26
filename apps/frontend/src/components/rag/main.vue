@@ -6,31 +6,47 @@
       </article>
       <article v-else class="flex-1 h-full flex flex-col justify-center items-center">
         <el-image src="/images/empty.png" fit="contain" :lazy="true" class="py-12 scale-150"></el-image>
-        <h1 class="opacity-70 text-slate-600 mt-6">当前还没有记录, 快去聊聊吧~</h1>
+        <h1 class="opacity-70 mt-6 text-text-gentle">当前还没有记录, 快去聊聊吧~</h1>
       </article>
     </el-main>
     <el-footer class="relative flex flex-col justify-center items-center mt-3">
-      <section class="flex-1 flex w-[850px] justify-center items-center my-4">
+      <section class="flex-1 flex w-3/4 justify-center items-center my-4">
         <div
-          class="relative flex flex-1 h-[50px] bg-bgReverse items-center rounded-lg duration-300 hover:shadow-md focus:shadow-md">
-          <input class="bg-bgReverse rounded-lg text-text-heavy flex-[8] h-full pl-6 outline-none" type="text"
-            v-model="userInput" placeholder="想了解点什么~" @keyup.enter="handleSubmit" />
-          <span v-if="chatMode"
-            class="cursor-default flex-1 flex justify-center items-center h-1/2 text-white bg-bgReverse rounded-lg mr-2 px-3">
-            {{ collectionName }}</span>
-          <Drawer class="absolute -left-12" />
+          class="relative flex flex-1 h-[50px] bg-bgReverse items-center rounded-lg duration-300 shadow-sm hover:shadow-lg">
+          <input
+            class="bg-bgReverse rounded-lg text-text-heavy flex-[8] h-full pl-6 outline-none"
+            type="text"
+            v-model="userInput"
+            placeholder="想了解点什么~"
+            @keyup.enter="handleSubmit" />
+          <section class="flex items-center text-text-gentle rounded-lg mr-2" @click="switchMode">
+            <span
+              v-if="chatMode"
+              @click.stop="selectCollection"
+              class="flex-1 min-w-8 p-2 flex justify-center items-center h-1/2 hover:bg-bgAddition cursor-pointer transition-all"
+              :class="chatMode ? 'opacity-100' : 'opacity-30'">
+              {{ collectionName }}</span
+            >
+            <Components
+              theme="filled"
+              size="24"
+              :fill="currentFill"
+              class="p-2 hover:bg-bgAddition cursor-pointer transition-all"
+              :class="chatMode ? 'opacity-100' : 'opacity-30'" />
+          </section>
+          <el-dialog v-model="dialogFormVisible" title="选择集合" class="w-2/3 h-2/3">
+            <el-segmented v-model="collectionName" :options="collections" :change="updateCurrentCollection" />
+          </el-dialog>
         </div>
-        <el-switch class="text-text-heavy" v-model="chatMode" inline-prompt
-          style="margin-left: 12px; --el-switch-on-color:#ffc08d; --el-switch-off-color: #a29bfe " active-text="检索模式"
-          width="100%" size="large" inactive-text="基础模式" />
       </section>
-      <section class="text-xs opacity-30 p-1">给出的建议可能会有错误, 请仔细鉴别</section>
+      <section class="text-xs opacity-30 p-1 text-text-gentle">给出的建议可能会有错误, 请仔细鉴别</section>
     </el-footer>
   </el-container>
 </template>
 
 <script setup lang="ts">
 import { chat, llmChat } from '@/apis/llm'
+import { Components } from '@icon-park/vue-next'
 import { ragChat } from '@/apis/rag'
 import sessionStore from '@/store/sessionStore'
 import { ElMessage } from 'element-plus'
@@ -39,12 +55,22 @@ import { onMounted, ref } from 'vue'
 import Drawer from './drawer.vue'
 import Message from './message.vue'
 import llmStore from '@/store/llmStore'
+import { useThemeStore } from '@/store/themeStore'
+import { getCollectionNames } from '@/apis/collection'
 const userInput = ref('')
+const dialogFormVisible = ref(false)
 const isEmpty = ref(await sessionStore().isSessionEmpty())
 // false: 基础LLM模式; true: RAG模式
-const chatMode = ref('基础模式')
+const chatMode = ref(false)
+const collections = ref<string[]>([])
 const collectionName = ref('')
-
+const themeStore = useThemeStore()
+const currentFill = computed(() => (themeStore.theme === 'light' ? '#ffc08d' : '#a29bfe'))
+const updateCurrentCollection = async (val: string) => {
+  collectionName.value = val
+  dialogFormVisible.value = false
+  await llmStore().updateDefaultCollectionName(val)
+}
 const syncCollectionName = async () => {
   const savedCollectionName = await llmStore().getDefaultCollectionName()
   try {
@@ -53,8 +79,15 @@ const syncCollectionName = async () => {
     ElMessage.error('请设置默认查询集合')
   }
 }
+const selectCollection = () => (dialogFormVisible.value = !dialogFormVisible.value)
 
+onMounted(async () => {
+  const res = (await getCollectionNames().then((res) => res.json())) as string[]
+  collections.value.push(...res)
+  await llmStore().updateDefaultCollectionName(res[0])
+})
 onMounted(syncCollectionName)
+onMounted(themeStore.initTheme)
 onMounted(() => {
   const mainWindow = document.getElementById('main-window')
   mainWindow?.scroll({ top: mainWindow?.scrollHeight })
@@ -66,8 +99,25 @@ watch(await sessionStore(), async () => {
   mainWindow?.scroll({ top: mainWindow?.scrollHeight })
   isEmpty.value = await sessionStore().isSessionEmpty()
 })
+const switchMode = () => {
+  chatMode.value = !chatMode.value
+}
 // 发起对话
-const handleSubmit = async (e: KeyboardEvent) => {
+
+const throttle = (fn: Function, delay: number) => {
+  let lastCall = 0
+  return function (...args: any[]) {
+    const now = new Date().getTime()
+    if (now - lastCall < delay) {
+      return
+    }
+    lastCall = now
+    return fn(...args)
+  }
+}
+
+// Modify handleSubmit to use throttle
+const handleSubmit = throttle(async (e: KeyboardEvent) => {
   const ipt = e.target as HTMLInputElement
   userInput.value = ipt.value
   try {
@@ -93,7 +143,34 @@ const handleSubmit = async (e: KeyboardEvent) => {
     console.error(e)
   }
   userInput.value = ''
-}
+}, 1000) // 1000ms (1 second) throttle delay
+// const handleSubmit = async (e: KeyboardEvent) => {
+//   const ipt = e.target as HTMLInputElement
+//   userInput.value = ipt.value
+//   try {
+//     await sessionStore()
+//       .updateCurrentSession({
+//         id: v4(),
+//         content: JSON.stringify({
+//           content: ipt.value,
+//         }),
+//         role: 'user',
+//         date: new Date().toLocaleString(),
+//       })
+//       .then(async () => {
+//         await sessionStore().updateCurrentSession({
+//           date: new Date().toLocaleString(),
+//           id: v4(),
+//           role: 'machine',
+//           content: '...',
+//         })
+//       })
+//       .then(dispatch)
+//   } catch (e) {
+//     console.error(e)
+//   }
+//   userInput.value = ''
+// }
 
 const dispatch = async () => {
   const de = await sessionStore().getCurrentSession(await sessionStore().getSessionIndex())
@@ -157,8 +234,7 @@ const handleStream = async (slice: string[]) => {
     }
     ElNotification({
       title: '回答完毕',
-      position: 'bottom-right',
-      showClose: false,
+      position: 'top-right',
     })
   }
 }
