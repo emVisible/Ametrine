@@ -11,7 +11,6 @@ from .loader import process_documents
 from src.xinference import embedding_function
 from src.vector.dto import (
     CollectionRenameDto,
-    DocumentQueryServiceDto,
 )
 
 client = MilvusClient(host="localhost", port="19530")
@@ -77,19 +76,14 @@ class CollectionService:
 
 
 class EmbeddingService:
-    async def document_query_service(self, dto: DocumentQueryServiceDto):
-        collection_name = dto.collection_name
-        filter_field = dto.filter_field
-        output_fields = dto.output_fields
-        timeout = dto.timeout
-        ids = dto.ids
-        partition_names = dto.partition_names
+    async def document_query_service(self, collection_name: str, data: str):
         if not client.has_collection(collection_name=collection_name):
             raise HTTPException(status_code=404, detail="Collection not found")
         client.load_collection(collection_name=collection_name)
         res = client.search(
             collection_name=collection_name,
-            data=[embedding_function.embed_query("who am i")],
+            data=[embedding_function.embed_query(data)],
+            output_fields=["text", "source"],
             # filter=filter_field,
             # output_fields=output_fields,
             # timeout=timeout,
@@ -98,7 +92,7 @@ class EmbeddingService:
             limit=10,
         )
         client.release_collection(collection_name=collection_name)
-        return res
+        return res[0]
 
     async def document_upload_service(
         self, collection_name: str, file: UploadFile, database: str
@@ -129,6 +123,6 @@ class EmbeddingService:
             return client.get_collection_stats(collection_name=collection_name)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-        finally:
-            if tmp_path.exists():
-                os.remove(tmp_path)
+        # finally:
+        #     if tmp_path.exists():
+        #         os.remove(tmp_path)

@@ -26,9 +26,6 @@ xinference_llm_model_id = os.getenv("XINFERENCE_LLM_MODEL_ID")
 xinference_rerank_model_id = os.getenv("XINFERENCE_RERANK_MODEL_ID", "bge-reranker-v2-m3")
 xinference_embedding_model_id = os.getenv("XINFERENCE_EMBEDDING_MODEL_ID", "bge-large-zh-v1.5")
 
-# Chroma 地址
-chroma_addr = os.getenv("CHROMA_ADDR", "http://127.0.0.1:8080")
-
 # ✅ 可选：检查关键配置
 required_vars = {
     "ALGORITHM": algorithm,

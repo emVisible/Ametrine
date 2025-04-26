@@ -6,7 +6,6 @@ from .config import (
 )
 from asyncio import Lock
 from xinference.client import RESTfulClient
-# from xinference.types import Chat
 from langchain_community.embeddings import XinferenceEmbeddings
 
 model_lock = Lock()

@@ -1,7 +1,7 @@
 from asyncio import Lock, sleep
 from json import dumps
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, Depends
 from fastapi.responses import StreamingResponse
 from starlette.responses import StreamingResponse
 
@@ -12,12 +12,21 @@ from ..utils import Tags
 from .dto.chat import LLMChatDto
 from ..config import max_model_len
 from ..llm.dto.chat import RAGChatDto
-from ..prompt import system_prompt_rag
+from ..prompt import system_prompt_llm, system_prompt_rag
 from ..utils import Tags
 from ..llm import service
+from ..vector.service import EmbeddingService
 
 route_llm = APIRouter(prefix="/llm")
 model_lock = Lock()
+
+
+async def streaming_response_iterator(res):
+    for chunk in res:
+        cache = dumps(chunk["choices"][0]["delta"]["content"]) + "\n"
+        if cache:
+            yield cache
+        await sleep(0)
 
 
 @route_llm.post(
@@ -26,33 +35,24 @@ model_lock = Lock()
     status_code=status.HTTP_200_OK,
     tags=[Tags.llm],
 )
-async def chat(body: LLMChatDto):
-    prompt = body.prompt
-    chat_history = body.chat_history
+async def chat(dto: LLMChatDto):
+    prompt = dto.prompt
+    chat_history = dto.chat_history
     messages = [
         {"role": "system", "content": system_prompt_llm},
         {"role": "user", "content": prompt},
+        *chat_history,
     ]
-
-    # 通过XINFERENCE Client联通, 对LLM模型发送chat API
     async with model_lock:
         res = llm_model.chat(
             messages=messages,
-            # chat_history=chat_history,
             generate_config={
                 "stream": True,
             },
         )
 
-    async def streaming_response_iterator():
-        for chunk in res:
-            cache = dumps(chunk["choices"][0]["delta"]["content"]) + "\n"
-            if cache:
-                yield cache
-            await sleep(0)
-
     return StreamingResponse(
-        content=streaming_response_iterator(),
+        content=streaming_response_iterator(res),
         media_type="text/event-stream",
         status_code=200,
     )
@@ -64,13 +64,16 @@ async def chat(body: LLMChatDto):
     status_code=status.HTTP_200_OK,
     tags=[Tags.llm],
 )
-async def search(body: RAGChatDto):
-    raw_prompt = body.prompt
-    chat_history = body.chat_history
-    collection_name = body.collection_name
-    context = await service.similarity_search(
-        question=raw_prompt, collection_name=collection_name
+async def search(
+    dto: RAGChatDto, embedding_service: EmbeddingService = Depends(EmbeddingService)
+):
+    raw_prompt = dto.prompt
+    chat_history = dto.chat_history
+    collection_name = dto.collection_name
+    context = await embedding_service.document_query_service(
+        collection_name=collection_name, data=raw_prompt
     )
+    context = await service.rerank(question=raw_prompt, context=context)
     prompt = await service.create_system_static_prompt(
         question=raw_prompt, context=context
     )
@@ -78,24 +81,18 @@ async def search(body: RAGChatDto):
         prompt = prompt[:max_model_len]
     async with model_lock:
         res = llm_model.chat(
-            prompt=prompt,
-            system_prompt=system_prompt_rag,
-            chat_history=[],
+            messages=[
+                {"role": "system", "content": system_prompt_rag},
+                {"role": "user", "content": prompt},
+                *chat_history,
+            ],
             generate_config={
                 "stream": True,
-                "max_tokens": 4096,
+                "max_tokens": 30000,
             },
         )
-
-    async def streaming_response_iterator():
-        for chunk in res:
-            cache = dumps(chunk["choices"][0]["delta"]["content"]) + "\n"
-            if cache:
-                yield cache
-            await sleep(0)
-
     return StreamingResponse(
-        content=streaming_response_iterator(),
+        content=streaming_response_iterator(res),
         media_type="text/event-stream",
         status_code=200,
     )

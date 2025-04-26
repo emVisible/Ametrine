@@ -71,7 +71,6 @@ def log_config():
         {"name": "ACCESS_TOKEN_EXPIRE_MINUTES", "tags": auth},
         {"name": "DB_ADDR", "tags": vector},
         {"name": "DOC_ADDR", "tags": vector},
-        {"name": "CHROMA_ADDR", "tags": vector},
         {"name": "K", "tags": vector},
         {"name": "ALLOW_RESET", "tags": vector},
         {"name": "MIN_RELEVANCE_SCORE", "tags": vector},

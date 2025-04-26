@@ -19,6 +19,7 @@ class DocumentUploadServiceDto(BaseModel):
 
 class DocumentQueryServiceDto(BaseModel):
     collection_name: str
+    data:str
     filter_field: str = None
     output_fields: list[str] = []
     timeout: float = None

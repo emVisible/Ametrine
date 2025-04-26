@@ -10,11 +10,12 @@ __pycache__
 docs/*
 *.bin
 *.log
-chroma.log
 env_rag
+
 
 # database
 apps/database/volumes
+apps/database/docs
 
 # Logs
 logs

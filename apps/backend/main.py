@@ -35,25 +35,21 @@ async def lifespan(app: FastAPI):
 
 load_dotenv("./.env")
 log_config()
-# 初始化数据库
 Base.metadata.create_all(bind=engine)
-# 初始化app实例
 app = FastAPI(
-    title="ZISU-RAG",
+    title="Ametrine",
     version="1.0.0",
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
-    openapi_url="/openapi.json",  # 显式定义 OpenAPI 文件路径
-    swagger_ui_oauth2_redirect_url="/oauth2-redirect",  # 定义 OAuth2 重定向 URL
+    openapi_url="/openapi.json",
+    swagger_ui_oauth2_redirect_url="/oauth2-redirect",
 )
-# 导入路由
 route_prefix = "/api"
 app.include_router(route_base, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_init, prefix=route_prefix)
-# 跨域中间件
 app.add_middleware(CORSMiddleware, allow_origins=origins)
 
 
@@ -62,7 +58,6 @@ def root_page():
     return RedirectResponse("/docs")
 
 
-# 静态文件目录
 static_dir = path.dirname(path.abspath(__file__))
 app.mount("/static", StaticFiles(directory=f"{static_dir}/static"), name="static")
 
