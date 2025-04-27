@@ -1,15 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
-from fastapi import UploadFile
-
-
-class CollectionCreateDto(BaseModel):
-    name: str
-
-
-class CollectionRenameDto(BaseModel):
-    old_name: str
-    new_name: str
-    target_db: str
+from pydantic import BaseModel
 
 
 class DocumentUploadServiceDto(BaseModel):
@@ -19,7 +8,7 @@ class DocumentUploadServiceDto(BaseModel):
 
 class DocumentQueryServiceDto(BaseModel):
     collection_name: str
-    data:str
+    data: str
     filter_field: str = None
     output_fields: list[str] = []
     timeout: float = None

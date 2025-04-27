@@ -1,11 +1,8 @@
 from asyncio import get_running_loop
 
-from src.xinference import rerank_model
-from logging import getLogger
+from src.middleware import rerank_model
 from ..config import k, min_relevance_score
 from .dto.rearank import RerankResultSchemas
-
-logger = getLogger(__name__)
 
 
 async def unify_filter(data: list[dict], question: str):

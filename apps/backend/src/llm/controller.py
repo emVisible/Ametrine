@@ -5,17 +5,17 @@ from fastapi import APIRouter, status, Depends
 from fastapi.responses import StreamingResponse
 from starlette.responses import StreamingResponse
 
-from src.xinference import llm_model
+from src.middleware import llm_model
 
 from ..prompt import system_prompt_llm
 from ..utils import Tags
-from .dto.chat import LLMChatDto
 from ..config import max_model_len
 from ..llm.dto.chat import RAGChatDto
 from ..prompt import system_prompt_llm, system_prompt_rag
 from ..utils import Tags
 from ..llm import service
-from ..vector.service import EmbeddingService
+from ..vector.documents.service import get_document_service, DocumentService
+from .dto.chat import LLMChatDto
 
 route_llm = APIRouter(prefix="/llm")
 model_lock = Lock()
@@ -65,12 +65,12 @@ async def chat(dto: LLMChatDto):
     tags=[Tags.llm],
 )
 async def search(
-    dto: RAGChatDto, embedding_service: EmbeddingService = Depends(EmbeddingService)
+    dto: RAGChatDto, document_service: DocumentService = Depends(get_document_service)
 ):
     raw_prompt = dto.prompt
     chat_history = dto.chat_history
     collection_name = dto.collection_name
-    context = await embedding_service.document_query_service(
+    context = await document_service.document_query_service(
         collection_name=collection_name, data=raw_prompt
     )
     context = await service.rerank(question=raw_prompt, context=context)

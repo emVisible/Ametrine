@@ -9,7 +9,7 @@ route_init = APIRouter(prefix="/init")
 
 
 @route_init.post(
-    "/init_table",
+    "/table",
     summary="[初始化] 初始化数据库",
     status_code=status.HTTP_200_OK,
     response_description="返回是否成功",

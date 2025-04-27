@@ -19,7 +19,7 @@ from langchain_community.document_loaders import (
     UnstructuredPowerPointLoader,
     UnstructuredWordDocumentLoader,
 )
-from ..config import (
+from ...config import (
     chunk_overlap,
     chunk_size,
     doc_addr,
