@@ -11,14 +11,21 @@ from fastapi.openapi.docs import (
     get_swagger_ui_oauth2_redirect_html,
 )
 from torch.cuda import empty_cache, ipc_collect, is_available
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.exceptions import RequestValidationError
 from src.base.init.controller import route_init
+from src.base.auth.controller import route_auth
 from src.base.controller import route_base
 from src.base.database import engine
-from src.base.middleware import CORSMiddleware, origins
 from src.base.models import Base
 from src.llm.controller import route_llm
 from src.vector.controller import route_vector_milvus
 from src.utils import log_config, config_logger
+from src.response import (
+    IResponse,
+    custom_http_exception_handler,
+    validation_exception_handler,
+)
 
 
 @asynccontextmanager
@@ -44,13 +51,18 @@ app = FastAPI(
     redoc_url=None,
     openapi_url="/openapi.json",
     swagger_ui_oauth2_redirect_url="/oauth2-redirect",
+    default_response_class=IResponse,
 )
+app.add_exception_handler(StarletteHTTPException, custom_http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 route_prefix = "/api"
+white_list = ["http://127.0.0.1:5173"]
 app.include_router(route_base, prefix=route_prefix)
+app.include_router(route_auth, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_init, prefix=route_prefix)
-app.add_middleware(CORSMiddleware, allow_origins=origins)
+app.add_middleware(CORSMiddleware, allow_origins=white_list)
 
 
 @app.get("/")
@@ -66,10 +78,10 @@ app.mount("/static", StaticFiles(directory=f"{static_dir}/static"), name="static
 async def custom_swagger_ui_html():
     return get_swagger_ui_html(
         openapi_url=app.openapi_url,
-        title=app.title + " - Swagger UI",
+        title=app.title,
         oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
-        swagger_js_url="/static/swagger-ui/swagger-ui-bundle.js",
-        swagger_css_url="/static/swagger-ui/swagger-ui.css",
+        swagger_js_url="/static/swagger/swagger-ui-bundle.js",
+        swagger_css_url="/static/swagger/swagger-ui.css",
     )
 
 

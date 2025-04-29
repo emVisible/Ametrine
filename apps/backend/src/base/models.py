@@ -21,9 +21,6 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.id"))
 
 
-# 与向量数据库同步更新
-
-
 class Tenant(Base):
     __tablename__ = "tenants"
     id = Column(Integer, primary_key=True, index=True)

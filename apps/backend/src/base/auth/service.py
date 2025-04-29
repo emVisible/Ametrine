@@ -1,20 +1,23 @@
-from datetime import datetime, timedelta
-from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from datetime import datetime, timedelta
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from src.config import algorithm, secret_key
 from ..dto import TokenDataSchemas
 from ..database import get_db
 from .. import models
-from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth", scheme_name="data")
 
 
 class AuthService:
+    def __init__(self, client: Session = Depends(get_db)):
+        self.client = client
+
     def hash_password(self, password: str) -> str:
         return pwd_context.hash(password)
 
@@ -24,7 +27,7 @@ class AuthService:
     def get_password_hash(self, plain_password):
         return pwd_context.hash(plain_password)
 
-    def authenticate_user(self, db, user):
+    def authenticate_user(self, user):
         if not user:
             return False
         if not self.verify_password(
