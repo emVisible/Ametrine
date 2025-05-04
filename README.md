@@ -29,7 +29,7 @@ Memory: 32G+
 概要
 
 - 安装 nvm; 安装 yarn
-- 安装 python3.10 (项目开发所使用的版本)
+- 安装 python3.10 (项目开发所使用的版本); isort, black-formatter 等 Python 相关插件
 - 安装 postgreSQL 并创建对应数据库
 
 ### 前端
