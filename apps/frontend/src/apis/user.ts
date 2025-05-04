@@ -3,6 +3,7 @@ import { CacheEnum } from '@/enum/cacheEnum'
 import { useRouter } from 'vue-router'
 import store from '@/utils/store'
 import { logout, logout_force } from '@/utils/user'
+import { BaseResponse } from './base'
 
 export interface UserType {
   id: number,
@@ -25,7 +26,7 @@ export interface AuthReturnType {
   token_type: string
 }
 
-export async function login(data: UserLoginType): Promise<AuthReturnType> {
+export async function login(data: UserLoginType): Promise<BaseResponse<AuthReturnType>> {
   const params: URLSearchParams = new URLSearchParams() as any
   params.append("username", data.account)
   params.append("password", data.password)
@@ -49,7 +50,7 @@ export function registry(data: UserRegistryType) {
   })
 }
 
-export async function getCurrentUser(): Promise<UserType> {
+export async function getCurrentUser(): Promise<BaseResponse<UserType>> {
   const result = await fetch(apiEnum.GET_CURRENT_USER, {
     headers: {
       'Authorization': `Bearer ${store.get(CacheEnum.TOKEN_NAME)}`,

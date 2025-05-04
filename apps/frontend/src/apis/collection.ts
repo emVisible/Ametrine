@@ -1,4 +1,5 @@
 import { apiEnum } from "@/enum/apiEnum";
+import { BaseResponse } from "./base";
 interface CreateCollectionType {
   name: string
   tenant_name: string
@@ -25,8 +26,9 @@ export function getCollections() {
   return fetch(apiEnum.COLLECTION_GET_ALL)
 }
 
-export function getCollectionNames() {
+export function getCollectionNames(): Promise<BaseResponse<any>> {
   return fetch(apiEnum.COLLECTION_GET_ALL_NAME)
+    .then(response => response.json());
 }
 
 export function createCollection(data: CreateCollectionType) {

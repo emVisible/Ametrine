@@ -12,7 +12,12 @@
           v-model="defaultCollectionName"
           :options="options"
           @change="setNewCollectionName" />
-        <el-switch style="--el-switch-on-color: #ffeaa7; --el-switch-off-color:#a29bfe" v-model="switchValue" @click="toggleTheme" :active-icon="SunOne" :inactive-icon="Moon" />
+        <el-switch
+          style="--el-switch-on-color: #ffeaa7; --el-switch-off-color: #a29bfe"
+          v-model="switchValue"
+          @click="toggleTheme"
+          :active-icon="SunOne"
+          :inactive-icon="Moon" />
       </template>
     </el-drawer>
     <div class="duration-300 hover:scale-125">
@@ -45,7 +50,8 @@ const toggleDrawerShow = () => {
 }
 
 onMounted(async () => {
-  const collections = await getCollectionNames().then((res) => res.json())
+  const collections = (await getCollectionNames()).data
+
   const res: any = []
   collections.forEach((collectionName: string) => {
     const optionItem: OptionsType = {

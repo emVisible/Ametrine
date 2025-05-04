@@ -40,6 +40,7 @@
 </template>
 
 <script setup lang="ts">
+import { BaseResponse } from '@/apis/base'
 import { getCollections } from '@/apis/collection'
 import { getDatabases } from '@/apis/database'
 import { getTenants } from '@/apis/tenant'
@@ -65,13 +66,13 @@ const databases = ref<ResDatabaseType[]>([])
 const tenants = ref<ResTenantType[]>([])
 
 onMounted(async () => {
-  const resCollections: ResCollectionType[] = await (await getCollections()).json()
-  const resDatabases: ResDatabaseType[] = await (await getDatabases()).json()
-  const resTenants: ResTenantType[] = await (await getTenants()).json()
+  // const resCollections: BaseResponse<ResCollectionType[]> = await getCollections().json().data
+  // const resDatabases: BaseResponse<ResDatabaseType[]> = await (await getDatabases()).json()
+  // const resTenants: BaseResponse<ResTenantType[]> = await (await getTenants()).json()
 
-  collections.value = resCollections
-  databases.value = resDatabases
-  tenants.value = resTenants
+  // collections.value = resCollections
+  // databases.value = resDatabases
+  // tenants.value = resTenants
 })
 </script>
 

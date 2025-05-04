@@ -82,7 +82,7 @@ const syncCollectionName = async () => {
 const selectCollection = () => (dialogFormVisible.value = !dialogFormVisible.value)
 
 onMounted(async () => {
-  const res = (await getCollectionNames().then((res) => res.json())) as string[]
+  const res = (await getCollectionNames()).data
   collections.value.push(...res)
   await llmStore().updateDefaultCollectionName(res[0])
 })
@@ -255,11 +255,14 @@ const handleStream = async (slice: string[]) => {
   background-color: #f1f1f1;
 }
 
-/* 定义滚动条滑块 */
 .main::-webkit-scrollbar-thumb {
   background-color: #c4c4c4;
-  /* 设置滑块背景色 */
   border-radius: 10px;
-  /* 轨道边框圆角 */
+}
+
+.el-segmented {
+  --el-segmented-item-selected-color: var(--color-ametrine);
+  --el-segmented-item-selected-bg-color: var(--corlor-bg-main);
+  --el-border-radius-base: 16px;
 }
 </style>

@@ -1,8 +1,8 @@
 export enum apiEnum {
   UPLOAD_IMAGE_URL = '/api/upload_image',
-  LOGIN = "/api/base/auth",
-  REGISTRY = "/api/base/registry",
-  GET_CURRENT_USER = "/api/base/current",
+  LOGIN = "/api/auth",
+  GET_CURRENT_USER = "/api/current",
+  REGISTRY = "/api/user/registry",
   LLM_CHAT = "/api/llm/chat",
   RAG_CHAT = "/api/llm/rag",
 
@@ -18,8 +18,8 @@ export enum apiEnum {
 
   COLLECTION_CREATE = "/api/vector/collection/create",
   COLLECTION_GET = "/api/vector/collection/get",
-  COLLECTION_GET_ALL = "/api/vector/collections",
-  COLLECTION_GET_ALL_NAME = "/api/vector/collections",
-  COLLECTION_GET_ALL_DETAIL = "/api/vector/collections/get_detail_all",
+  COLLECTION_GET_ALL = "/api/vector/collection/all",
+  COLLECTION_GET_ALL_NAME = "/api/vector/collection/all",
+  COLLECTION_GET_ALL_DETAIL = "/api/vector/collections/all_detail",
   DOCUMENT_GET = "/api/vector/collections/get_document"
 }

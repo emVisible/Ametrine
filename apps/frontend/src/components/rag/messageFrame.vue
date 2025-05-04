@@ -1,7 +1,7 @@
 <template>
   <div class="flex">
     <el-avatar v-if="role === 'user'" :size="40" src="/images/user.png" />
-    <el-avatar v-else :size="40" src="/images/robot.png" />
+    <el-avatar v-else :size="40" src="/images/logo.png" />
     <div class="flex flex-col w-full pl-3">
       <div class="flex text-text-gentle">
         <div class="font-semibold">

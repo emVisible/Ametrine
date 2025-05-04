@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col p-4 bg-bgVice">
     <section class="flex items-center justify-center mb-4">
-      <img src="/images/logo.png" alt="" class="w-32 mr-auto" />
+      <img src="/images/banner.png" alt="" class="w-32 mr-auto" />
       <button class="add flex justify-center p-2 duration-300 rounded-full hover:bg-bgAddition" @click="createSession">
         <div class="flex items-center">
           <Newlybuild class="duration-300 icon" theme="filled" size="32" :fill="currentFill" />

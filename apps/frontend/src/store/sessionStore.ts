@@ -45,7 +45,7 @@ export default defineStore('session', {
     },
     async getCurrentSession(index: number) {
       if (store.get(CacheEnum.TOKEN_NAME)) {
-        return this.sessions[index].history
+        return this.sessions[index]?.history
       }
     },
     async updateCurrentSession(data: HistoryType) {
@@ -90,7 +90,8 @@ export default defineStore('session', {
     },
     async isSessionEmpty() {
       if (store.get(CacheEnum.TOKEN_NAME)) {
-        return this.sessions.length === 0
+        const isCurrentEmpty = (await this.getCurrentSession(await this.getSessionIndex()))?.length === 0
+        return this.sessions.length === 0 || isCurrentEmpty
       }
     },
     async deleteSessionCurrent(id: number) {

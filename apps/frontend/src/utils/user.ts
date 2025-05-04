@@ -8,7 +8,7 @@ import store from "./store";
 
 export async function loginWrap(values: UserLoginType) {
   // token验证
-  const { access_token } = await login(values)
+  const { access_token } = (await login(values)).data
   if ((access_token !== null) || (access_token !== undefined)) {
     store.set(CacheEnum.TOKEN_NAME, access_token)
     // 重定向
@@ -16,7 +16,7 @@ export async function loginWrap(values: UserLoginType) {
       store.set(CacheEnum.REDIRECT_ROUTE_NAME, "rag")
     }
     const routeName = store.get(CacheEnum.REDIRECT_ROUTE_NAME) ?? 'home'
-    userStore().setUserInfo(await getCurrentUser().then(res => res))
+    userStore().setUserInfo((await getCurrentUser().then(res => res)).data)
     router.push({ name: routeName })
     location.reload()
     return true
