@@ -1,11 +1,14 @@
 from pydantic import BaseModel
 
 
-class CollectionCreateDto(BaseModel):
-    name: str
+class CollectionBaseDto(BaseModel):
+    database_name: str
 
 
-class CollectionRenameDto(BaseModel):
+class CollectionUniversalDto(CollectionBaseDto):
+    collection_name: str
+
+
+class CollectionRenameDto(CollectionBaseDto):
     old_name: str
     new_name: str
-    target_db: str

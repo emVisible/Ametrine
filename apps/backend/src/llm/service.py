@@ -17,10 +17,11 @@ async def unify_filter(data: list[dict], question: str):
             if item["relevance_score"] > min_relevance_score
             # if item["relevance_score"] > min_relevance_score
         ]
-        res.append(texts[0])
+        if len(texts) > 0:
+            res.append(texts[0])
     if len(res) > 0:
         return res[0]
-    return False
+    return ""
 
 
 async def rerank_loop(document: list[str], question: str):

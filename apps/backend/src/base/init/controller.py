@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from fastapi import status, Depends
-from src.utils import Tags
+from src.logger import Tags
 from src.base.database import get_db, reset_db
 from sqlalchemy.orm import Session
 from .service import InitService

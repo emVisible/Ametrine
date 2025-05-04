@@ -2,7 +2,7 @@ from dotenv import dotenv_values
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import APIRouter, Depends, HTTPException, status
 from datetime import timedelta
-from src.utils import Tags
+from src.logger import Tags
 from ..service import UserService
 from .service import AuthService, get_current_user, permission_map
 

@@ -1,31 +1,32 @@
-from os import path
-from dotenv import load_dotenv
 from contextlib import asynccontextmanager
+from os import path
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import (
     get_redoc_html,
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html,
 )
-from torch.cuda import empty_cache, ipc_collect, is_available
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from fastapi.exceptions import RequestValidationError
-from src.base.init.controller import route_init
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from src.base.auth.controller import route_auth
 from src.base.controller import route_base
 from src.base.database import engine
+from src.base.init.controller import route_init
 from src.base.models import Base
 from src.llm.controller import route_llm
-from src.vector.controller import route_vector_milvus
-from src.utils import log_config, config_logger
 from src.response import (
     IResponse,
     custom_http_exception_handler,
     validation_exception_handler,
 )
+from src.logger import config_logger, log_config
+from src.vector.controller import route_vector_milvus
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from torch.cuda import empty_cache, ipc_collect, is_available
 
 
 @asynccontextmanager

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, File, UploadFile, status, Form
-from src.utils import Tags
+from src.logger import Tags
 from .dto import DocumentQueryServiceDto
 from .service import DocumentService
 

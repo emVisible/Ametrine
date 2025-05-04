@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, File, UploadFile, status, Form
-from .service import DatabaseService, get_database_service
-from .dto import DatabaseUniversalDto
-from src.utils import Tags
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from src.logger import Tags
 
+from .dto import DatabaseCreateDto, DatabaseUniversalDto
+from .service import DatabaseService, get_database_service
 
 # Milvus 连接设置
 route_vector_database = APIRouter(prefix="/database")
@@ -14,7 +14,7 @@ route_vector_database = APIRouter(prefix="/database")
     status_code=status.HTTP_200_OK,
     tags=[Tags.vector_db],
 )
-async def get_all_databases(service: DatabaseService = Depends(get_database_service)):
+async def all(service: DatabaseService = Depends(get_database_service)):
     return await service.database_get_all_service()
 
 
@@ -24,12 +24,16 @@ async def get_all_databases(service: DatabaseService = Depends(get_database_serv
     status_code=status.HTTP_200_OK,
     tags=[Tags.vector_db],
 )
-async def get_all_databases(
-    dto: DatabaseUniversalDto,
+async def create(
+    dto: DatabaseCreateDto,
     service: DatabaseService = Depends(get_database_service),
 ):
     db_name = dto.db_name
-    return await service.create_database_service(db_name=db_name)
+    tenant_name = dto.tenant_name
+    replica_number = dto.replica_number
+    return await service.create_database_service(
+        db_name=db_name, tenant_name=tenant_name, replica_number=replica_number
+    )
 
 
 @route_vector_database.post(
@@ -38,7 +42,7 @@ async def get_all_databases(
     status_code=status.HTTP_200_OK,
     tags=[Tags.vector_db],
 )
-async def get_collection(
+async def get(
     dto: DatabaseUniversalDto,
     service: DatabaseService = Depends(get_database_service),
 ):
@@ -52,7 +56,7 @@ async def get_collection(
     status_code=status.HTTP_200_OK,
     tags=[Tags.vector_db],
 )
-async def delete_collection(
+async def delete(
     dto: DatabaseUniversalDto, service: DatabaseService = Depends(get_database_service)
 ):
     db_name = dto.db_name

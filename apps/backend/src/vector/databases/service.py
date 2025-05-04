@@ -1,6 +1,8 @@
+from collections.abc import Callable
+
 from fastapi import Depends
 from pymilvus import MilvusClient
-from collections.abc import Callable
+
 from ..service import get_milvus_service
 
 
@@ -15,9 +17,15 @@ class DatabaseService:
     async def database_get_all_service(self):
         return self.client.list_databases()
 
-    async def create_database_service(self, db_name: str):
+    async def create_database_service(
+        self, db_name: str, tenant_name: str, replica_number: int = 1
+    ):
         self.client.create_database(
-            db_name=db_name, properties={"database.replica.name": 3}
+            db_name=db_name,
+            properties={
+                "tenant": tenant_name,
+                "database.replica.name": replica_number,
+            },
         )
         return f"Create {db_name} OK"
 

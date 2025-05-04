@@ -7,11 +7,20 @@ from pymilvus import (
 )
 from collections.abc import Callable
 from ..service import get_milvus_service
+from ..databases.service import DatabaseService, get_database_service
+
+from functools import wraps
+from src.utils import use_database_before
 
 
 class CollectionService:
-    def __init__(self, client: MilvusClient):
+    def __init__(
+        self,
+        client: MilvusClient,
+        # databaseService: DatabaseService = Depends(get_database_service),
+    ):
         self.client = client
+        # self.databaseService = databaseService
         self.schema = CollectionSchema(
             fields=[
                 FieldSchema(
@@ -24,19 +33,25 @@ class CollectionService:
             description="My document collection",
         )
 
+    @use_database_before()
     async def collection_call(self, collection_name: str, fn: Callable):
         self.client.load_collection(collection_name=collection_name)
         fn()
         self.client.release_collection(collection_name=collection_name)
         return True
 
-    async def collection_get_all_service(self):
+    @use_database_before()
+    async def collection_get_all_service(self, database_name: str):
         return self.client.list_collections()
 
-    async def collection_get_describe_service(self, collection_name: str):
+    @use_database_before()
+    async def collection_get_describe_service(
+        self, collection_name: str, database_name: str
+    ):
         return self.client.describe_collection(collection_name=collection_name)
 
-    async def collection_create_service(self, collection_name: str):
+    async def collection_create_service(self, collection_name: str, database_name: str):
+        self.client.use_database(database_name)
         name = collection_name
         already_exist = self.client.has_collection(collection_name=name)
         if already_exist:
@@ -56,20 +71,23 @@ class CollectionService:
         self.client.create_index(collection_name=name, index_params=index_params)
         return self.client.describe_collection(collection_name=name)
 
+    @use_database_before()
     async def collection_rename_service(
-        self, old_name: str, new_name: str, target_db: str
+        self, old_name: str, new_name: str, database_name:str
     ):
         self.client.rename_collection(
-            old_name=old_name, new_name=new_name, target_db=target_db
+            old_name=old_name, new_name=new_name, target_db=database_name
         )
-        return f"Rename from {old_name} to {new_name} in {target_db} OK"
+        return f"Rename from {old_name} to {new_name} in {database_name} OK"
 
-    async def collection_delete_service(self, collection_name: str):
+    @use_database_before()
+    async def collection_delete_service(self, collection_name: str, database_name: str):
         self.client.drop_collection(collection_name=collection_name)
         return f"Deleete {collection_name} OK"
 
-    async def collection_reset_service(self):
-        collections = await self.collection_get_all_service()
+    @use_database_before()
+    async def collection_reset_service(self, database_name:str):
+        collections = await self.client.list_collections()
         for collection_name in collections:
             self.client.drop_collection(collection_name=collection_name)
         return "Reset OK"

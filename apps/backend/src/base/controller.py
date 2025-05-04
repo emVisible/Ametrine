@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from .dto import UserBase
 from .service import UserService
-from ..utils import Tags
+from ..logger import Tags
 
 
 route_base = APIRouter(prefix="/user", tags=[Tags.user])

@@ -8,11 +8,11 @@ from starlette.responses import StreamingResponse
 from src.middleware import llm_model
 
 from ..prompt import system_prompt_llm
-from ..utils import Tags
+from ..logger import Tags
 from ..config import max_model_len
 from ..llm.dto.chat import RAGChatDto
 from ..prompt import system_prompt_llm, system_prompt_rag
-from ..utils import Tags
+from ..logger import Tags
 from ..llm import service
 from ..vector.documents.service import get_document_service, DocumentService
 from .dto.chat import LLMChatDto
