@@ -80,6 +80,8 @@ tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "echo '🚀 启动 Milvus..
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "cd $DATABASE_PATH" C-m
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "bash standalone_embed.sh start" C-m
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "echo '🚀 数据库加载完成，请打开localhost:9091/webui页面'" C-m
+tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW}.1 "sleep 32" C-m
+tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW}.1 "exit" C-m
 
 # 附加到 tmux 会话
 tmux select-window -t ${SESSION_NAME}:${BACKEND_WINDOW}
