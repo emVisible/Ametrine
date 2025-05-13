@@ -39,3 +39,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             code=422, message="参数校验错误", data=exc.errors()
         ).model_dump(),
     )
+
+
+
+async def custom_jwt_exception_handler():
+    return JSONResponse(
+        status_code=401,
+        content=BaseResponse(
+            code=401, message="JWT token error", data=None
+        ).model_dump(),
+    )

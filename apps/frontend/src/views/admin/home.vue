@@ -66,10 +66,9 @@ const databases = ref<ResDatabaseType[]>([])
 const tenants = ref<ResTenantType[]>([])
 
 onMounted(async () => {
-  // const resCollections: BaseResponse<ResCollectionType[]> = await getCollections().json().data
-  // const resDatabases: BaseResponse<ResDatabaseType[]> = await (await getDatabases()).json()
-  // const resTenants: BaseResponse<ResTenantType[]> = await (await getTenants()).json()
-
+  // const resCollections: BaseResponse<ResCollectionType[]> = await (await getCollections()).data
+  // const resDatabases: BaseResponse<ResDatabaseType[]> = await (await getDatabases()).data
+  // const resTenants: BaseResponse<ResTenantType[]> = await (await getTenants()).data
   // collections.value = resCollections
   // databases.value = resDatabases
   // tenants.value = resTenants

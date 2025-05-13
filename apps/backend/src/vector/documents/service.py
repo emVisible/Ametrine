@@ -5,13 +5,15 @@ from pymilvus import MilvusClient
 from ...middleware import embedding_function
 from ..service import get_milvus_service
 from .loader import process_documents
+from src.utils import use_database_before
 
 
 class DocumentService:
     def __init__(self, client: MilvusClient = Depends(get_milvus_service)):
         self.client = client
 
-    async def document_query_service(self, collection_name: str, data: str):
+    @use_database_before()
+    async def document_query_service(self, database_name:str, collection_name: str, data: str):
         if not self.client.has_collection(collection_name=collection_name):
             raise HTTPException(status_code=404, detail="Collection not found")
         self.client.load_collection(collection_name=collection_name)
@@ -29,8 +31,9 @@ class DocumentService:
         self.client.release_collection(collection_name=collection_name)
         return res[0]
 
+    @use_database_before()
     async def document_upload_service(
-        self, collection_name: str, file: UploadFile, database: str
+        self, collection_name: str, file: UploadFile, database_name: str
     ):
         doc_dir = getenv("DOC_ADDR")
         Path(doc_dir).mkdir(parents=True, exist_ok=True)

@@ -18,12 +18,13 @@ from src.base.database import engine
 from src.base.init.controller import route_init
 from src.base.models import Base
 from src.llm.controller import route_llm
+from src.logger import config_logger, log_config
+from src.relation.controller import route_relation
 from src.response import (
     IResponse,
     custom_http_exception_handler,
     validation_exception_handler,
 )
-from src.logger import config_logger, log_config
 from src.vector.controller import route_vector_milvus
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from torch.cuda import empty_cache, ipc_collect, is_available
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
         config_logger.critical("CUDA is available. Initializing...")
     else:
         config_logger.critical("CUDA not available. Proceeding without GPU.")
+    await create_all()
     yield
     if is_available():
         empty_cache()
@@ -43,7 +45,6 @@ async def lifespan(app: FastAPI):
 
 load_dotenv("./.env")
 log_config()
-Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title="Ametrine",
     version="1.0.0",
@@ -60,10 +61,16 @@ route_prefix = "/api"
 white_list = ["http://127.0.0.1:5173"]
 app.include_router(route_base, prefix=route_prefix)
 app.include_router(route_auth, prefix=route_prefix)
+app.include_router(route_relation, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_init, prefix=route_prefix)
 app.add_middleware(CORSMiddleware, allow_origins=white_list)
+
+
+async def create_all():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 @app.get("/")

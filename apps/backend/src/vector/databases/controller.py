@@ -10,12 +10,22 @@ route_vector_database = APIRouter(prefix="/database")
 
 @route_vector_database.get(
     "/all",
-    summary="获取Database详细信息",
+    summary="获取Database名称列表",
     status_code=status.HTTP_200_OK,
     tags=[Tags.vector_db],
 )
 async def all(service: DatabaseService = Depends(get_database_service)):
     return await service.database_get_all_service()
+
+
+@route_vector_database.get(
+    "/details",
+    summary="获取Database详细信息",
+    status_code=status.HTTP_200_OK,
+    tags=[Tags.vector_db],
+)
+async def details(service: DatabaseService = Depends(get_database_service)):
+    return await service.database_get_all_detail_service()
 
 
 @route_vector_database.post(

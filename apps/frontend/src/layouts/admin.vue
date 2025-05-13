@@ -11,8 +11,8 @@
           <Transition
             appear
             class="animate__animated"
-            :enter-active-class="route.meta.enterClass??'animate__fadeInRight'"
-            :leave-active-class="route.meta.leaveClass ?? 'animate__fadeOutLeft'">
+            :enter-active-class="route.meta.enterClass??'animate__fadeInUp'"
+            :leave-active-class="route.meta.leaveClass ?? 'animate__fadeOutDown'">
             <component :is="Component" class="absolute w-full "></component>
           </Transition>
         </router-view>

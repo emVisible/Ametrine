@@ -9,6 +9,7 @@ import store from "./store";
 export async function loginWrap(values: UserLoginType) {
   // token验证
   const { access_token } = (await login(values)).data
+  console.log(access_token)
   if ((access_token !== null) || (access_token !== undefined)) {
     store.set(CacheEnum.TOKEN_NAME, access_token)
     // 重定向

@@ -7,6 +7,7 @@ class DocumentUploadServiceDto(BaseModel):
 
 
 class DocumentQueryServiceDto(BaseModel):
+    database_name: str
     collection_name: str
     data: str
     filter_field: str = None

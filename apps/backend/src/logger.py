@@ -31,11 +31,11 @@ file_log = basicConfig(
 # 路由标签
 class Tags(Enum):
     dev = "DEV"
-    rag = "RAG"
     llm = "LLM"
     user = "User"
     auth = "Auth"
     vector_db = "Vector Database"
+    relation_db = "Relation Database"
     init = "Initialization"
 
 
@@ -86,4 +86,3 @@ def log_config():
         tag = config["tags"]
         name = config["name"]
         config_logger.critical(f"[{tag}]-[{name}]: {getenv(name)}")
-

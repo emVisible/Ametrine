@@ -2,7 +2,7 @@ import { RouteRecordRaw } from 'vue-router';
 export default {
   name: 'database',
   path: '/database',
-  meta: { auth: true, menu: { title: "数据管理", icon: "Data", show: true, }, permission: "teacher" },
+  meta: { auth: true, menu: { title: "知识库管理", icon: "Data", show: true, }, permission: "teacher" },
   component: () => import('@/layouts/admin.vue'),
   children: [
     {
@@ -22,6 +22,12 @@ export default {
       path: 'collection',
       component: () => import('@/views/admin/collection.vue'),
       meta: { menu: { title: '集合' }, permission: 'teacher' }
+    },
+    {
+      name: 'admin.document',
+      path: 'document',
+      component: () => import('@/views/admin/document.vue'),
+      meta: { menu: { title: '文档' }, permission: 'teacher' }
     },
   ]
 } as RouteRecordRaw

@@ -1,101 +1,87 @@
 <template>
-  <div>
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <h2>数据库-Database</h2>
-        </div>
-      </template>
-      <div class="header-container">
-        <el-button @click="isDialogVisible = true" type="primary">创建数据库</el-button>
-      </div>
-
+  <Datalist type="database" @search="search" @openDialog="openDialog" createTitle="Create">
+    <template #default>
       <el-table :data="databases" style="width: 100%">
-        <el-table-column prop="id" label="ID" />
         <el-table-column prop="name" label="数据库名称" />
-        <el-table-column prop="tenant_name" label="归属学院 (英)" />
+        <el-table-column prop="tenant" label="隶属租户" />
+        <el-table-column prop="database.replica.name" label="副本数(Replica)" />
       </el-table>
-    </el-card>
-
-    <el-dialog
-      title="创建新数据库"
-      v-model="isDialogVisible"
-      width="500"
-      @close="resetDialogForm"
-      style="z-index: 9999">
-      <el-form :model="newDatabase">
-        <el-form-item label="归属数据库" required>
-          <el-input v-model="newDatabase.database_name" />
-        </el-form-item>
-        <el-form-item label="归属学院 (英)" required>
-          <el-input v-model="newDatabase.tenant_name" />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="isDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="createNewDatabase">创建</el-button>
-      </template>
-    </el-dialog>
-  </div>
+      <el-dialog
+        title="创建新数据库"
+        v-model="isDialogVisible"
+        width="500"
+        @close="resetDialogForm"
+        style="z-index: 9999">
+        <el-form :model="newDatabase">
+          <el-form-item label="名称" required>
+            <el-input v-model="newDatabase.database_name" />
+          </el-form-item>
+          <el-form-item label="隶属租户" required>
+            <el-input v-model="newDatabase.tenant" />
+          </el-form-item>
+          <el-form-item label="副本数(Replica)" required>
+            <el-input v-model="newDatabase.replica" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="isDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="createNewDatabase">创建</el-button>
+        </template>
+      </el-dialog>
+    </template>
+  </Datalist>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { getDatabases, createDatabase, getDatabaseByName } from '@/apis/database'
+import { createDatabase, getDatabaseDetail, getDatabasesDetail } from '@/apis/database'
+import Datalist from '@/components/admin/datalist.vue'
+import searchStore from '@/store/searchStore'
+import { onMounted, ref } from 'vue'
 
 export interface DatabaseType {
-  id: string
-  database_name: string
-  tenant_name: string
+  name: string
+  tenant: string
+  'database.replica.name': number
 }
-
-const databases = ref<DatabaseType[]>([])
-const searchQuery = ref('')
-const newDatabase = ref({
-  tenant_name: '',
-  database_name: '',
-})
 const isDialogVisible = ref(false)
-
-onMounted(async () => {
-  await fetchDatabases()
+const store = searchStore()
+const databases = ref<DatabaseType[]>([])
+const newDatabase = ref({
+  tenant: '',
+  database_name: '',
+  replica: 1,
 })
-
-async function fetchDatabases() {
-  const response = await getDatabases()
-  const data = await response.json()
-  databases.value = data
-}
-
-
-function resetDialogForm() {
+const openDialog = () => (isDialogVisible.value = true)
+const resetDialogForm = () => {
   newDatabase.value = {
-    tenant_name: '',
+    tenant: '',
     database_name: '',
+    replica: 1,
   }
 }
+const search = async () => {
+  const response = await getDatabaseDetail(store.params.database)
+  databases.value = [{ ...response.data }]
+}
+const fetchDatabases = async () => {
+  const response = await getDatabasesDetail()
+  databases.value = response.data
+}
 
-async function createNewDatabase() {
-  if (!newDatabase.value.tenant_name || !newDatabase.value.database_name) {
-    return alert('请填写完整的信息')
-  }
-
+const createNewDatabase = async () => {
   const newData = newDatabase.value
-
   const response = await createDatabase({
-    name: newData.database_name,
-    tenant: newData.tenant_name,
+    db_name: newData.database_name,
+    tenant_name: newData.tenant,
+    replica_number: newData.replica ?? 1,
   })
   if (response.ok) {
-    alert('集合创建成功')
-    newDatabase.value = { tenant_name: '', database_name: '' }
+    newDatabase.value = { tenant: '', database_name: '', replica: 1 }
     fetchDatabases()
     isDialogVisible.value = false
-  } else {
-    alert('创建失败')
   }
 }
+onMounted(async () => await fetchDatabases())
 </script>
 
 <style scoped>

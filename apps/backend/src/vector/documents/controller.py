@@ -28,10 +28,10 @@ async def document_search(
 )
 async def upload_single(
     collection_name: str = Form(...),
-    database: str = Form(default="default"),
+    database_name: str = Form(default="default"),
     file: UploadFile = File(...),
     service: DocumentService = Depends(DocumentService),
 ):
     return await service.document_upload_service(
-        collection_name=collection_name, database=database, file=file
+        collection_name=collection_name, database_name=database_name, file=file
     )

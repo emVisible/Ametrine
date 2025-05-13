@@ -69,9 +69,10 @@ async def search(
 ):
     raw_prompt = dto.prompt
     chat_history = dto.chat_history
+    database_name = dto.database_name
     collection_name = dto.collection_name
     context = await document_service.document_query_service(
-        collection_name=collection_name, data=raw_prompt
+        database_name=database_name, collection_name=collection_name, data=raw_prompt
     )
     context = await service.rerank(question=raw_prompt, context=context)
     prompt = await service.create_system_static_prompt(

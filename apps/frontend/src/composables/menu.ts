@@ -1,14 +1,13 @@
+import router from '@/router';
 import store from '@/utils/store';
-import { IMenu } from '../../types/menu';
-import { RouteRecordRaw } from 'vue-router'
+import { ref } from 'vue';
 import {
   RouteLocationNormalized,
-  RouteLocationNormalizedLoaded,
-} from 'vue-router'
-import { CacheEnum } from './../enum/cacheEnum'
-import { ref } from 'vue'
-import router from '@/router'
-import utils from '../utils'
+  RouteLocationNormalizedLoaded, RouteRecordRaw
+} from 'vue-router';
+import { IMenu } from '../../types/menu';
+import utils from '../utils';
+import { CacheEnum } from './../enum/cacheEnum';
 class Menu {
   public menus = ref<IMenu[]>([])
   public history = ref<IMenu[]>([])

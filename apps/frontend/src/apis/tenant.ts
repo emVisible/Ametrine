@@ -13,14 +13,15 @@ export function getTenantByName(name: string) {
 }
 
 export function getTenants() {
-  return fetch(apiEnum.TENANT_GET_ALL)
+  return fetch(apiEnum.TENANT_GET_ALL).then(res=>res.json())
 }
 
-export function createTenant(name: string) {
+export function createTenant(name: string, database: string) {
   return fetch(apiEnum.TENANT_CREATE, {
     method: "POST",
     body: JSON.stringify({
-      name
+      name,
+      database
     }),
     headers: {
       "Content-Type": "application/json"

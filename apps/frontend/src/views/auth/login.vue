@@ -10,7 +10,7 @@
             <yInput v-model="values.password" class="mt-5" @input="validate" :isPassword="true"></yInput>
             <Error :error="errors.password"></Error>
           </div>
-          <YButton class="w-full">登录</YButton>
+          <YButton class="w-full mt-16">登录</YButton>
         </div>
         <div class="flex gap-3 justify-center mt-10">
           <y-link title="忘记密码" path="/404"></y-link>
@@ -46,7 +46,6 @@ useFields(Object.keys(schema))
 const onSubmit = handleSubmit(async (values: any) => {
   const loadingInstance = ElLoading.service({ fullscreen: true, background: '#bdc3c7a0' })
   loginWrap(values).then((r) => {
-    console.log('r', r)
     if (r) {
       ElNotification({ title: '登录成功' })
     } else {

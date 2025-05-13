@@ -1,46 +1,29 @@
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+
 from .database import Base
 
 
 class Role(Base):
-    __tablename__ = "roles"
+    __tablename__ = "role"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     members = relationship("User", back_populates="role")
 
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "user"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     password = Column(String)
 
     role = relationship("Role", back_populates="members")
-    role_id = Column(Integer, ForeignKey("roles.id"))
+    role_id = Column(Integer, ForeignKey("role.id"))
 
 
 class Tenant(Base):
-    __tablename__ = "tenants"
+    __tablename__ = "tenant"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    databases = relationship("Database", back_populates="tenant")
-
-
-class Database(Base):
-    __tablename__ = "databases"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-
-    tenant = relationship("Tenant", back_populates="databases")
-    tenant_name = Column(String, ForeignKey("tenants.name"))
-    collections = relationship("Collection", back_populates="database")
-
-
-class Collection(Base):
-    __tablename__ = "collections"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    database = relationship("Database", back_populates="collections")
-    database_id = Column(Integer, ForeignKey("databases.id"))
+    database = Column(String, unique=True, index=True)

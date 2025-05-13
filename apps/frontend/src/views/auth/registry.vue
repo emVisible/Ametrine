@@ -13,7 +13,7 @@
             <yInput :isPassword="true" v-model="values.password" class="mt-5" @input="validate"></yInput>
             <Error :error="errors.password"></Error>
           </div>
-          <YButton class="w-full">注册</YButton>
+          <YButton class="w-full mt-16">注册</YButton>
         </div>
         <div class="flex gap-3 justify-center mt-10">
           <y-link title="忘记密码" path="/404"></y-link>

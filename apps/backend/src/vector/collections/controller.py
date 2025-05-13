@@ -11,6 +11,20 @@ route_vector_collection = APIRouter(prefix="/collection")
 
 
 @route_vector_collection.post(
+    "/details",
+    summary="返回当前数据库中所有collection详细信息",
+    status_code=status.HTTP_200_OK,
+    tags=[Tags.vector_db],
+)
+async def get(
+    dto: CollectionBaseDto,
+    service: CollectionService = Depends(get_collection_service),
+):
+    database_name = dto.database_name
+    return await service.collection_get_all_detail_service(database_name=database_name)
+
+
+@route_vector_collection.post(
     "/all",
     summary="返回所有collection",
     status_code=status.HTTP_200_OK,

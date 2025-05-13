@@ -1,59 +1,53 @@
-from sqlalchemy.orm import Session
+# src/base/init/service.py
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
 from src.base.auth.service import AuthService
+from src.base.database import get_db
 from src.base.models import Role, User
 
 
 class InitService:
-    def __call__(self, *args, **kwds):
-        self.auth_service = AuthService()
+    def __init__(
+        self,
+        db: AsyncSession = Depends(get_db),
+        auth_service: AuthService = Depends(),
+    ):
+        self.session = db
+        self.auth_service = auth_service
 
-    async def init_traditional_db(self, db: Session):
-        await self.db_role_init(db)
-        await self.db_user_init(db)
+    async def db_init(self):
+        await self.db_role_init()
+        await self.db_user_init()
 
-    async def db_role_init(self, db: Session):
+    async def db_role_init(self):
         roles = [
-            Role(name="student"),
-            Role(name="teacher"),
-            Role(name="director"),
+            Role(name="user"),
+            Role(name="manager"),
             Role(name="admin"),
-            Role(name="root"),
         ]
-        db.add_all(roles)
-        db.commit()
+        self.session.add_all(roles)  # 同步方法
+        await self.session.commit()
 
-    async def db_user_init(self, db: Session):
+    async def db_user_init(self):
         users = [
-            User(
-                name="root",
-                email="root@qq.com",
-                password=self.auth_service.hash_password("root"),
-                role_id=5,
-            ),
             User(
                 name="admin",
                 email="admin@qq.com",
                 password=self.auth_service.hash_password("admin"),
-                role_id=4,
-            ),
-            User(
-                name="director",
-                email="director@qq.com",
-                password=self.auth_service.hash_password("director"),
                 role_id=3,
             ),
             User(
-                name="teacher",
+                name="manager",
                 email="teacher@qq.com",
                 password=self.auth_service.hash_password("teacher"),
                 role_id=2,
             ),
             User(
-                name="student",
+                name="user",
                 email="student@qq.com",
                 password=self.auth_service.hash_password("student"),
                 role_id=1,
             ),
         ]
-        db.add_all(users)
-        db.commit()
+        self.session.add_all(users)  # 同步方法
+        await self.session.commit()

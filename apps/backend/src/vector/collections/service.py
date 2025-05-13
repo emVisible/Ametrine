@@ -1,16 +1,12 @@
-from fastapi import Depends
-from pymilvus import (
-    MilvusClient,
-    CollectionSchema,
-    FieldSchema,
-    DataType,
-)
 from collections.abc import Callable
-from ..service import get_milvus_service
-from ..databases.service import DatabaseService, get_database_service
-
 from functools import wraps
+
+from fastapi import Depends
+from pymilvus import CollectionSchema, DataType, FieldSchema, MilvusClient
 from src.utils import use_database_before
+
+from ..databases.service import DatabaseService, get_database_service
+from ..service import get_milvus_service
 
 
 class CollectionService:
@@ -45,6 +41,17 @@ class CollectionService:
         return self.client.list_collections()
 
     @use_database_before()
+    async def collection_get_all_detail_service(self, database_name: str):
+        collections = self.client.list_collections()
+        res = []
+        for collection_name in collections:
+            collection = self.client.describe_collection(
+                collection_name=collection_name
+            )
+            res.append(collection)
+        return res
+
+    @use_database_before()
     async def collection_get_describe_service(
         self, collection_name: str, database_name: str
     ):
@@ -73,7 +80,7 @@ class CollectionService:
 
     @use_database_before()
     async def collection_rename_service(
-        self, old_name: str, new_name: str, database_name:str
+        self, old_name: str, new_name: str, database_name: str
     ):
         self.client.rename_collection(
             old_name=old_name, new_name=new_name, target_db=database_name
@@ -86,8 +93,8 @@ class CollectionService:
         return f"Deleete {collection_name} OK"
 
     @use_database_before()
-    async def collection_reset_service(self, database_name:str):
-        collections = await self.client.list_collections()
+    async def collection_reset_service(self, database_name: str):
+        collections = self.client.list_collections()
         for collection_name in collections:
             self.client.drop_collection(collection_name=collection_name)
         return "Reset OK"

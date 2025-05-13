@@ -78,7 +78,7 @@ def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Docum
 def process_documents(
     is_multiple: bool, file_path: str, ignored_files: List[str] = []
 ) -> List[Document]:
-    if is_multiple:
+    if is_multiple == True:
         documents = load_documents(doc_addr, ignored_files)
     else:
         documents = load_document(file_path=file_path)
@@ -87,6 +87,7 @@ def process_documents(
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, chunk_overlap=chunk_overlap
     )
+    print(documents)
     texts = text_splitter.split_documents(documents)
     print(f"Chunks分割: {len(texts)} (最大为 {chunk_size} tokens)")
     return texts

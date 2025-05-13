@@ -1,0 +1,66 @@
+import { apiEnum } from "@/enum/apiEnum";
+
+export interface LLMRequestType {
+  prompt: string
+  mode?: 'llm' | 'rag'
+  system_prompt?: string
+  chat_history?: Message[]
+}
+interface Message {
+  role: string;
+  content: string;
+  user?: string
+  tool_calls?: string[]
+}
+
+export interface RAGRequestType {
+  prompt: string
+  database_name: string
+  collection_name: string
+  mode: 'llm' | 'rag'
+  chat_history: Message[]
+  system_prompt?: string
+}
+interface Message {
+  role: string;
+  content: string;
+  user?: string
+  tool_calls?: string[]
+}
+
+export async function ragChat(data: RAGRequestType) {
+  const { prompt, chat_history, system_prompt, database_name, collection_name } = data
+  return fetch(apiEnum.RAG_CHAT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prompt,
+      system_prompt,
+      chat_history,
+      database_name,
+      collection_name
+    }),
+  })
+}
+export async function llmChat(data: LLMRequestType) {
+  const { prompt, chat_history, system_prompt } = data
+  return fetch(apiEnum.LLM_CHAT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prompt,
+      system_prompt,
+      chat_history
+    }),
+  })
+}
+
+export async function chat(data: RAGRequestType) {
+  const { mode } = data
+  if (mode === 'llm') return llmChat(data)
+  else return ragChat(data)
+}

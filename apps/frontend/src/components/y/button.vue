@@ -1,12 +1,17 @@
 <template>
-  <div>
-    <button class="y_button mt-16">
-      <slot></slot>
-    </button>
-  </div>
+  <button class="y_button">
+    <slot></slot>
+  </button>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+defineProps({
+  size: {
+    type: String,
+    default: 'default',
+  },
+})
+</script>
 
 <style scoped>
 .y_button {

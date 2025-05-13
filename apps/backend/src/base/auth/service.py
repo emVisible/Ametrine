@@ -1,14 +1,16 @@
-from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from passlib.context import CryptContext
-from src.config import algorithm, secret_key
-from ..dto import TokenDataSchemas
-from ..database import get_db
-from .. import models
 
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from sqlalchemy.future import select
+from sqlalchemy.orm import Session
+from src.base.models import User
+from src.config import algorithm, secret_key
+from src.response import custom_jwt_exception_handler
+
+from ..database import get_db
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth", scheme_name="data")
@@ -27,12 +29,10 @@ class AuthService:
     def get_password_hash(self, plain_password):
         return pwd_context.hash(plain_password)
 
-    def authenticate_user(self, user):
+    def authenticate_user(self, user, password: str):
         if not user:
             return False
-        if not self.verify_password(
-            user.password, self.get_password_hash(user.password)
-        ):
+        if not self.verify_password(password, user.password):
             return False
         return user
 
@@ -50,26 +50,15 @@ class AuthService:
 async def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
-    """
-    对token解码, 通过token解析出用户信息(用户信息在数据库中查找)
-    """
-    credential_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="User validation error(JWT error)",
-        headers={"WWW-Authenticate": "bearer"},
-    )
     try:
         payload: dict = jwt.decode(token=token, key=secret_key, algorithms=[algorithm])
         username = payload.get("sub")
-        token_data = TokenDataSchemas(username=username)
-        if not username:
-            raise credential_exception
+        user = await db.execute(
+            select(User).where((User.email == username) | (User.name == username))
+        )
     except JWTError:
-        raise credential_exception
-    user = db.query(models.User).filter(models.User.name == token_data.username).first()
-    if not user:
-        raise credential_exception
-    return user
+        raise custom_jwt_exception_handler()
+    return user.scalar_one_or_none()
 
 
 async def permission_map(permission_id: int):

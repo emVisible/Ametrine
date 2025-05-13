@@ -34,8 +34,28 @@
               class="p-2 hover:bg-bgAddition cursor-pointer transition-all rounded-md"
               :class="chatMode ? 'opacity-100' : 'opacity-30'" />
           </section>
-          <el-dialog v-model="dialogFormVisible" title="选择集合" class="w-2/3 h-2/3">
-            <el-segmented v-model="collectionName" :options="collections" :change="updateCurrentCollection" />
+          <el-dialog v-model="dialogFormVisible" title="Select Knowledge Base" class="w-2/3 h-2/3">
+            <el-card>
+              <template #header>
+                <div>
+                  <div v-if="!databaseName">暂无</div>
+                  <el-segmented v-else v-model="databaseName" :options="databases" :change="updateCurrentDatabase" />
+                </div>
+              </template>
+              <div v-if="!collectionName">暂无</div>
+              <el-segmented v-else v-model="collectionName" :options="collections" :change="updateCurrentCollection" />
+              <template #footer>
+                <div v-if="!collectionName">暂无</div>
+                <el-descriptions v-else :colomn="1" :row="1">
+                  <el-descriptions-item label="Created Time">
+                    {{ new Date(collectionDetail.created_timestamp) }}
+                  </el-descriptions-item>
+                  <el-descriptions-item label="Description">
+                    {{ collectionDetail.description }}
+                  </el-descriptions-item>
+                </el-descriptions>
+              </template>
+            </el-card>
           </el-dialog>
         </div>
       </section>
@@ -45,31 +65,53 @@
 </template>
 
 <script setup lang="ts">
-import { chat, llmChat } from '@/apis/llm'
-import { Components } from '@icon-park/vue-next'
-import { ragChat } from '@/apis/rag'
+import { getCollectionNames } from '@/apis/collection'
+import { getDatabases } from '@/apis/database'
+import { chat } from '@/apis/chat'
+import llmStore from '@/store/llmStore'
 import sessionStore from '@/store/sessionStore'
+import { useThemeStore } from '@/store/themeStore'
+import { Components } from '@icon-park/vue-next'
 import { ElMessage } from 'element-plus'
 import { v4 } from 'uuid'
 import { onMounted, ref } from 'vue'
-import Drawer from './drawer.vue'
 import Message from './message.vue'
-import llmStore from '@/store/llmStore'
-import { useThemeStore } from '@/store/themeStore'
-import { getCollectionNames } from '@/apis/collection'
+import { getCollectionDetail } from '@/apis/collection'
+import { parseChunk, throttle, decodeChunks } from '@/composables/stream'
+interface CollectionDetail {
+  description: string
+  created_timestamp: string
+}
 const userInput = ref('')
 const dialogFormVisible = ref(false)
 const isEmpty = ref(await sessionStore().isSessionEmpty())
-// false: 基础LLM模式; true: RAG模式
 const chatMode = ref(false)
 const collections = ref<string[]>([])
-const collectionName = ref('')
+const databases = ref<string[]>([])
+const collectionName = ref('default')
+const collectionDetail = ref<CollectionDetail>({
+  description: '',
+  created_timestamp: '',
+})
+const databaseName = ref('default')
 const themeStore = useThemeStore()
 const currentFill = computed(() => (themeStore.theme === 'light' ? '#ffc08d' : '#a29bfe'))
+const updateCurrentCollectionDetail = async () => {
+  const detail = (
+    await getCollectionDetail({
+      collection_name: collectionName.value,
+      database_name: databaseName.value,
+    })
+  ).data
+  collectionDetail.value = detail
+}
 const updateCurrentCollection = async (val: string) => {
   collectionName.value = val
-  dialogFormVisible.value = false
   await llmStore().updateDefaultCollectionName(val)
+}
+const updateCurrentDatabase = async (val: string) => {
+  databaseName.value = val
+  await llmStore().updateDefaultDatabaseName(val)
 }
 const syncCollectionName = async () => {
   const savedCollectionName = await llmStore().getDefaultCollectionName()
@@ -81,10 +123,33 @@ const syncCollectionName = async () => {
 }
 const selectCollection = () => (dialogFormVisible.value = !dialogFormVisible.value)
 
-onMounted(async () => {
-  const res = (await getCollectionNames()).data
-  collections.value.push(...res)
+const fetchDatabases = async () => {
+  const res = (await getDatabases()).data
+  databases.value.push(...res)
+}
+const fetchCollections = async (databaseName: string) => {
+  const res = (
+    await getCollectionNames({
+      database_name: databaseName,
+    })
+  ).data
+  collections.value = res
   await llmStore().updateDefaultCollectionName(res[0])
+}
+watch(databaseName, () => fetchCollections(databaseName.value))
+watch(collectionName, async () => {
+  await updateCurrentCollectionDetail()
+})
+watch(llmStore(), syncCollectionName)
+watch(sessionStore(), async () => {
+  const mainWindow = document.getElementById('main-window')
+  mainWindow?.scroll({ top: mainWindow?.scrollHeight })
+  isEmpty.value = await sessionStore().isSessionEmpty()
+})
+
+onMounted(async () => {
+  fetchDatabases()
+  fetchCollections('default')
 })
 onMounted(syncCollectionName)
 onMounted(themeStore.initTheme)
@@ -92,31 +157,8 @@ onMounted(() => {
   const mainWindow = document.getElementById('main-window')
   mainWindow?.scroll({ top: mainWindow?.scrollHeight })
 })
-watch(await llmStore(), syncCollectionName)
-// 初始化滑动与流式渲染监听滑动
-watch(await sessionStore(), async () => {
-  const mainWindow = document.getElementById('main-window')
-  mainWindow?.scroll({ top: mainWindow?.scrollHeight })
-  isEmpty.value = await sessionStore().isSessionEmpty()
-})
-const switchMode = () => {
-  chatMode.value = !chatMode.value
-}
-// 发起对话
+const switchMode = () => (chatMode.value = !chatMode.value)
 
-const throttle = (fn: Function, delay: number) => {
-  let lastCall = 0
-  return function (...args: any[]) {
-    const now = new Date().getTime()
-    if (now - lastCall < delay) {
-      return
-    }
-    lastCall = now
-    return fn(...args)
-  }
-}
-
-// Modify handleSubmit to use throttle
 const handleSubmit = throttle(async (e: KeyboardEvent) => {
   const ipt = e.target as HTMLInputElement
   userInput.value = ipt.value
@@ -143,39 +185,12 @@ const handleSubmit = throttle(async (e: KeyboardEvent) => {
     console.error(e)
   }
   userInput.value = ''
-}, 1000) // 1000ms (1 second) throttle delay
-// const handleSubmit = async (e: KeyboardEvent) => {
-//   const ipt = e.target as HTMLInputElement
-//   userInput.value = ipt.value
-//   try {
-//     await sessionStore()
-//       .updateCurrentSession({
-//         id: v4(),
-//         content: JSON.stringify({
-//           content: ipt.value,
-//         }),
-//         role: 'user',
-//         date: new Date().toLocaleString(),
-//       })
-//       .then(async () => {
-//         await sessionStore().updateCurrentSession({
-//           date: new Date().toLocaleString(),
-//           id: v4(),
-//           role: 'machine',
-//           content: '...',
-//         })
-//       })
-//       .then(dispatch)
-//   } catch (e) {
-//     console.error(e)
-//   }
-//   userInput.value = ''
-// }
+}, 1000)
 
 const dispatch = async () => {
-  const de = await sessionStore().getCurrentSession(await sessionStore().getSessionIndex())
+  const session = await sessionStore().getCurrentSession(await sessionStore().getSessionIndex())
   const histories: string[] = []
-  de?.forEach((item) => {
+  session?.forEach((item) => {
     if (item.role === 'user') {
       histories.push(JSON.parse(item.content).content)
     } else {
@@ -187,23 +202,12 @@ const dispatch = async () => {
   handleStream(slice)
 }
 
-// 放入本地缓存 && 流式结果
-const parseChunk = (chunk: string) => {
-  const postProcessData = JSON.parse(chunk)
-  const item = {
-    id: v4(),
-    date: new Date().toLocaleString(),
-    role: 'machine',
-    content: postProcessData,
-  }
-  sessionStore().pushItemToCurrentSession(item)
-}
-
 const handleStream = async (slice: string[]) => {
   const res = await chat({
     prompt: userInput.value,
     system_prompt: '',
     mode: chatMode.value ? 'rag' : 'llm',
+    database_name: databaseName.value,
     collection_name: collectionName.value,
     chat_history: [
       {
@@ -216,27 +220,11 @@ const handleStream = async (slice: string[]) => {
       },
     ],
   })
-  if (res.body) {
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder('utf-8')
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      let chunk
-      try {
-        chunk = decoder.decode(value)
-        parseChunk(chunk)
-      } catch (e) {
-        chunk = decoder.decode(value)
-        const chunks = chunk.split('\n')
-        chunks.forEach((ck) => ck && parseChunk(ck))
-      }
-    }
-    ElNotification({
-      title: '回答完毕',
-      position: 'top-right',
-    })
-  }
+  await decodeChunks(res)
+  ElNotification({
+    title: '回答完毕',
+    position: 'top-right',
+  })
 }
 </script>
 

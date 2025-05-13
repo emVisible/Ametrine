@@ -16,9 +16,8 @@ route_init = APIRouter(prefix="/init")
     tags=[Tags.init],
 )
 async def init_table_user(
-    db: Session = Depends(get_db),
     service: InitService = Depends(InitService),
 ):
     await reset_db()
-    await service.init_traditional_db(db=db)
+    await service.db_init()
     return "初始化成功"

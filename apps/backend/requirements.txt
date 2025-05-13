@@ -18,7 +18,7 @@ pymilvus
 
 # Database Traditional
 sqlalchemy
-psycopg2-binary
+asyncpg
 
 # Backend
 fastapi

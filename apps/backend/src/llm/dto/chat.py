@@ -18,5 +18,6 @@ class LLMChatDto(BaseModel):
 class RAGChatDto(BaseModel):
     prompt: str
     collection_name: str
+    database_name: str
     system_prompt: Optional[str] = None
     chat_history: Optional[List["ChatCompletionMessage"]] = []

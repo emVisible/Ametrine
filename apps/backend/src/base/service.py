@@ -1,4 +1,6 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.exc import NoResultFound
 from fastapi import Depends
 from .dto import UserBase
 from .database import get_db
@@ -7,7 +9,7 @@ from .auth.service import AuthService
 
 
 class UserService:
-    def __init__(self, client: Session = Depends(get_db)):
+    def __init__(self, client: AsyncSession = Depends(get_db)):
         self.auth_service = AuthService()
         self.client = client
 
@@ -20,33 +22,38 @@ class UserService:
             role_id=1,
         )
         self.client.add(new_user)
-        self.client.commit()
-        self.client.refresh(new_user)
+        await self.client.commit()
+        await self.client.refresh(new_user)
         return new_user
 
     async def get_user_by_id(self, user_id: int):
-        return self.client.query(User).filter(User.id == user_id).first()
+        result = await self.client.execute(select(User).where(User.id == user_id))
+        return result.scalar_one_or_none()
 
     async def get_user_by_name(self, username: str):
-        return self.client.query(User).filter(User.name == username).first()
+        result = await self.client.execute(select(User).where(User.name == username))
+        return result.scalar_one_or_none()
 
     async def get_user_by_email(self, user_email: str):
-        return self.client.query(User).filter(User.email == user_email).first()
+        result = await self.client.execute(select(User).where(User.email == user_email))
+        return result.scalar_one_or_none()
 
-    async def get_user_by_account(self, username: str, password: str):
-        return (
-            self.client.query(User)
-            .filter(
-                User.email == username
-                and User.password == self.auth_service.hash_password(password)
-            )
-            .first()
+    async def get_user_by_account(self, username: str):
+        # hashed = self.auth_service.hash_password(password)
+        result = await self.client.execute(
+            select(User).where((User.email == username) | (User.name == username))
         )
+        return result.scalar_one_or_none()
 
-    async def get_users(self, offset: int | None, limit: int | None):
-        return self.client.query(User).offset(offset=offset).limit(limit=limit).all()
+    async def get_users(self, offset: int = 0, limit: int = 100):
+        result = await self.client.execute(select(User).offset(offset).limit(limit))
+        return result.scalars().all()
 
     async def delete_user(self, user_id: int):
-        instance = self.client.query(User).filter(User.id == user_id).first()
-        self.client.delete(instance=instance)
-        return True
+        result = await self.client.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user:
+            await self.client.delete(user)
+            await self.client.commit()
+            return True
+        return False
