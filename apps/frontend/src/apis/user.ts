@@ -1,8 +1,7 @@
 import { apiEnum } from '@/enum/apiEnum'
 import { CacheEnum } from '@/enum/cacheEnum'
-import { useRouter } from 'vue-router'
 import store from '@/utils/store'
-import { logout, logout_force } from '@/utils/user'
+import { logout_force } from '@/utils/user'
 import { BaseResponse } from './base'
 
 export interface UserType {
@@ -26,7 +25,7 @@ export interface AuthReturnType {
   token_type: string
 }
 
-export async function login(data: UserLoginType): Promise<BaseResponse<AuthReturnType>> {
+export async function login(data: UserLoginType): Promise<AuthReturnType> {
   const params: URLSearchParams = new URLSearchParams() as any
   params.append("username", data.account)
   params.append("password", data.password)
