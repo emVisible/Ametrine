@@ -1,6 +1,5 @@
-# src/base/init/service.py
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.base.auth.service import AuthService
 from src.base.database import get_db
 from src.base.models import Role, User
@@ -25,7 +24,7 @@ class InitService:
             Role(name="manager"),
             Role(name="admin"),
         ]
-        self.session.add_all(roles)  # 同步方法
+        self.session.add_all(roles)
         await self.session.commit()
 
     async def db_user_init(self):
@@ -49,5 +48,5 @@ class InitService:
                 role_id=1,
             ),
         ]
-        self.session.add_all(users)  # 同步方法
+        self.session.add_all(users)
         await self.session.commit()
