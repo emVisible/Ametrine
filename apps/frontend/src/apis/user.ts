@@ -35,8 +35,7 @@ export async function login(data: UserLoginType): Promise<AuthReturnType> {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: params
-  }).then(res => res.json()
-  )
+  }).then(res => res.json())
 }
 
 export function registry(data: UserRegistryType) {

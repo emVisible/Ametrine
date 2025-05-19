@@ -5,7 +5,7 @@ const routes = [
     path: '/',
     name: 'rag',
     component: () => import('@/views/llm/rag.vue'),
-    meta: { auth: true, permission: "student" },
+    meta: { auth: true, permission: "user" },
   },
   {
     path: '/login',

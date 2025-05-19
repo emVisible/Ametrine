@@ -23,7 +23,7 @@ async def init_table_user(
 
 @route_init.post(
     "/test",
-    summary="测试",
+    summary="admin权限测试",
     tags=[Tags.init],
 )
 async def test(

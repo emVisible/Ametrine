@@ -37,14 +37,14 @@ class InitService:
             ),
             User(
                 name="manager",
-                email="teacher@qq.com",
-                password=self.auth_service.hash_password("teacher"),
+                email="manager@qq.com",
+                password=self.auth_service.hash_password("manager"),
                 role_id=2,
             ),
             User(
                 name="user",
-                email="student@qq.com",
-                password=self.auth_service.hash_password("student"),
+                email="user@qq.com",
+                password=self.auth_service.hash_password("user"),
                 role_id=1,
             ),
         ]
