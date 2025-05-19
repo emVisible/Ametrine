@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, status
 from src.logger import Tags
+from src.relation.service import RelationService, get_relation
 
 from .dto import DatabaseCreateDto, DatabaseUniversalDto
 from .service import DatabaseService, get_database_service
@@ -37,12 +38,20 @@ async def details(service: DatabaseService = Depends(get_database_service)):
 async def create(
     dto: DatabaseCreateDto,
     service: DatabaseService = Depends(get_database_service),
+    relation_service: RelationService = Depends(get_relation),
 ):
     db_name = dto.db_name
     tenant_name = dto.tenant_name
     replica_number = dto.replica_number
+    description = dto.description
+    await relation_service.tenantService.create_tenant(
+        name=tenant_name, database_name=db_name, database_description=description
+    )
     return await service.create_database_service(
-        db_name=db_name, tenant_name=tenant_name, replica_number=replica_number
+        db_name=db_name,
+        tenant_name=tenant_name,
+        replica_number=replica_number,
+        description=description,
     )
 
 
@@ -67,9 +76,13 @@ async def get(
     tags=[Tags.vector_db],
 )
 async def delete(
-    dto: DatabaseUniversalDto, service: DatabaseService = Depends(get_database_service)
+    dto: DatabaseUniversalDto,
+    service: DatabaseService = Depends(get_database_service),
+    relation_service: RelationService = Depends(get_relation),
 ):
     db_name = dto.db_name
+    db = await relation_service.databaseService.database_get_service(name=db_name)
+    await relation_service.tenantService.delete_tenant(name=db.tenant.name)
     return await service.database_delete_service(db_name=db_name)
 
 

@@ -7,3 +7,4 @@ class DatabaseCreateDto(BaseModel):
     db_name: str
     tenant_name: str
     replica_number: int
+    description: str

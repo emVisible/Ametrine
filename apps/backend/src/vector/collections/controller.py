@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from src.logger import Tags
+from src.relation.service import RelationService, get_relation
 from src.vector.collections.dto import (
-    CollectionRenameDto,
     CollectionBaseDto,
+    CollectionCreateDto,
+    CollectionRenameDto,
     CollectionUniversalDto,
 )
 from src.vector.collections.service import CollectionService, get_collection_service
@@ -45,13 +47,21 @@ async def get(
     tags=[Tags.vector_db],
 )
 async def create(
-    dto: CollectionUniversalDto,
+    dto: CollectionCreateDto,
     service: CollectionService = Depends(get_collection_service),
+    relation_service: RelationService = Depends(get_relation),
 ):
     collection_name = dto.collection_name
     database_name = dto.database_name
+    description = dto.description
+    db = await relation_service.databaseService.database_get_service(name=database_name)
+    await relation_service.collectionService.collection_create_service(
+        name=collection_name, database_id=db.id, description=description
+    )
     return await service.collection_create_service(
-        collection_name=collection_name, database_name=database_name
+        collection_name=collection_name,
+        database_name=database_name,
+        description=description,
     )
 
 

@@ -1,32 +1,34 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 from src.base.database import get_db
-from src.base.models import Tenant
+
+from .collections.service import CollectionService, get_collection
+from .databases.service import DatabaseService, get_database
+from .documents.service import DocumentService, get_document
+from .tenants.service import TenantService, get_tenant
 
 
-class TenantService:
-    def __init__(self, db: AsyncSession = Depends(get_db)):
+class RelationService:
+    def __init__(
+        self,
+        db: AsyncSession = Depends(get_database),
+        collection_service: CollectionService = Depends(get_collection),
+        database_service: DatabaseService = Depends(get_database),
+        tenant_service: TenantService = Depends(get_tenant),
+        document_service: DocumentService = Depends(get_document),
+    ):
+        self.collectionService = collection_service
+        self.databaseService = database_service
+        self.tenantService = tenant_service
+        self.documentService = document_service
         self.db = db
 
-    async def get_all_tenants(self):
-        result = await self.db.execute(select(Tenant))
-        return result.scalars().all()
 
-    async def get_tenant_by_name(self, name: str):
-        result = await self.db.execute(select(Tenant).where(Tenant.name == name))
-        return result.scalar_one_or_none()
-
-    async def create_tenant(self, name: str, database: str):
-        existing = await self.get_tenant_by_name(name)
-        if existing:
-            raise HTTPException(status_code=400, detail="Tenant already exists")
-        tenant = Tenant(name=name, database=database)
-        self.db.add(tenant)
-        await self.db.commit()
-        await self.db.refresh(tenant)
-        return tenant
-
-
-def get_tenant_service(db: AsyncSession = Depends(get_db)) -> TenantService:
-    return TenantService(db=db)
+def get_relation(db: AsyncSession = Depends(get_db)) -> RelationService:
+    return RelationService(
+        db=db,
+        collection_service=get_collection(db),
+        database_service=get_database(db),
+        tenant_service=get_tenant(db),
+        document_service=get_document(db),
+    )

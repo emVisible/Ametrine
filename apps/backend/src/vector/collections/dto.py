@@ -8,6 +8,9 @@ class CollectionBaseDto(BaseModel):
 class CollectionUniversalDto(CollectionBaseDto):
     collection_name: str
 
+class CollectionCreateDto(CollectionBaseDto):
+    collection_name: str
+    description: str
 
 class CollectionRenameDto(CollectionBaseDto):
     old_name: str
