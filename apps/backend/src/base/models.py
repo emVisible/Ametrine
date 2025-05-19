@@ -1,7 +1,8 @@
 from datetime import datetime
+from uuid import uuid4
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -70,7 +71,7 @@ class Collection(Base):
 class Document(Base):
     __tablename__ = "document"
 
-    id = Column(String, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     title = Column(String, index=True)
     uploader = Column(String, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -89,5 +90,5 @@ class DocumentChunk(Base):
     id = Column(Integer, primary_key=True, index=True)
     content = Column(Text)
 
-    doc_id = Column(String, ForeignKey("document.id"), index=True)
+    doc_id = Column(UUID(as_uuid=True), ForeignKey("document.id"))
     document = relationship("Document", back_populates="chunks")

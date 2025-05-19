@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from src.base.database import get_db
 from src.base.models import Document, DocumentChunk
+from uuid import UUID
 
 
 class DocumentService:
@@ -10,12 +11,11 @@ class DocumentService:
         self.db = db
 
     async def document_create_service(
-        self, id: str, title: str, uploader: str, collection_id: int, meta: dict
+        self, id: UUID, title: str, uploader: str, collection_id: int, meta: dict
     ):
         existing = await self.db.execute(select(Document).where(Document.id == id))
         if existing.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="Document already exists")
-
         document = Document(
             id=id,
             title=title,
@@ -44,19 +44,19 @@ class DocumentService:
         )
         return result.scalar_one_or_none()
 
-    async def chunk_create_service(self, doc_id: str, content: str):
+    async def chunk_create_service(self, doc_id: UUID, content: str):
         chunk = DocumentChunk(
             doc_id=doc_id,
-            content=content,
+            content=content
         )
         self.db.add(chunk)
         await self.db.commit()
         await self.db.refresh(chunk)
         return chunk
 
-    async def chunk_get_by_document_service(self, doc_id: str):
+    async def chunk_get_by_document_service(self, doc_id: UUID, chunk_id: int):
         result = await self.db.execute(
-            select(DocumentChunk).where(DocumentChunk.doc_id == doc_id)
+            select(DocumentChunk).where(DocumentChunk.doc_id == doc_id and chunk_id == chunk_id)
         )
         return result.scalars().all()
 

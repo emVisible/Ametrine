@@ -1,26 +1,37 @@
 from os import getenv
 from pathlib import Path
-from fastapi import UploadFile, HTTPException, Depends
+from uuid import uuid4
+
+from fastapi import Depends, HTTPException, UploadFile
 from pymilvus import MilvusClient
+from src.relation.service import RelationService, get_relation
+from src.utils import use_database_before
+
 from ...middleware import embedding_function
 from ..service import get_milvus_service
 from .loader import process_documents
-from src.utils import use_database_before
 
 
 class DocumentService:
-    def __init__(self, client: MilvusClient = Depends(get_milvus_service)):
+    def __init__(
+        self,
+        client: MilvusClient = Depends(get_milvus_service),
+        relation_service: RelationService = Depends(get_relation),
+    ):
         self.client = client
+        self.relation_service = relation_service
 
     @use_database_before()
-    async def document_query_service(self, database_name:str, collection_name: str, data: str):
+    async def document_query_service(
+        self, database_name: str, collection_name: str, data: str
+    ):
         if not self.client.has_collection(collection_name=collection_name):
             raise HTTPException(status_code=404, detail="Collection not found")
         self.client.load_collection(collection_name=collection_name)
         res = self.client.search(
             collection_name=collection_name,
             data=[embedding_function.embed_query(data)],
-            output_fields=["text", "source"],
+            output_fields=["doc_id", "chunk_id"],
             # filter=filter_field,
             # output_fields=output_fields,
             # timeout=timeout,
@@ -48,13 +59,32 @@ class DocumentService:
             embeddings = embedding_function.embed_documents(
                 [chunk.page_content for chunk in chunks]
             )
+            collection = (
+                await self.relation_service.collectionService.collection_get_service(
+                    name=collection_name
+                )
+            )
+            uuid = uuid4()
+            await self.relation_service.documentService.document_create_service(
+                id=uuid,
+                title=file.filename,
+                uploader="admin",
+                collection_id=collection.id,
+                meta={"source": chunks[0].metadata["source"]},
+            )
             data = []
             for text, embedding in zip(chunks, embeddings):
+                chunk = (
+                    await self.relation_service.documentService.chunk_create_service(
+                        doc_id=uuid,
+                        content=text.page_content,
+                    )
+                )
                 data.append(
                     {
-                        "text": text.page_content,
                         "embedding": [float(x) for x in embedding],
-                        "source": str(tmp_path),
+                        "doc_id": str(uuid),
+                        "chunk_id": chunk.id,
                     }
                 )
             self.client.insert(collection_name=collection_name, data=data)
@@ -68,5 +98,6 @@ class DocumentService:
 
 def get_document_service(
     milvus_service: MilvusClient = Depends(get_milvus_service),
+    relation_service: RelationService = Depends(get_relation),
 ) -> DocumentService:
-    return DocumentService(client=milvus_service)
+    return DocumentService(client=milvus_service, relation_service=relation_service)

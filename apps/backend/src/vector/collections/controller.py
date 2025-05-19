@@ -9,14 +9,12 @@ from src.vector.collections.dto import (
 )
 from src.vector.collections.service import CollectionService, get_collection_service
 
-route_vector_collection = APIRouter(prefix="/collection")
+route_vector_collection = APIRouter(prefix="/collection", tags=[Tags.vector_db])
 
 
 @route_vector_collection.post(
     "/details",
     summary="返回当前数据库中所有collection详细信息",
-    status_code=status.HTTP_200_OK,
-    tags=[Tags.vector_db],
 )
 async def get(
     dto: CollectionBaseDto,
@@ -29,8 +27,6 @@ async def get(
 @route_vector_collection.post(
     "/all",
     summary="返回所有collection",
-    status_code=status.HTTP_200_OK,
-    tags=[Tags.vector_db],
 )
 async def get(
     dto: CollectionBaseDto,
@@ -43,8 +39,6 @@ async def get(
 @route_vector_collection.post(
     "/create",
     summary="创建collection",
-    status_code=status.HTTP_200_OK,
-    tags=[Tags.vector_db],
 )
 async def create(
     dto: CollectionCreateDto,
@@ -68,8 +62,6 @@ async def create(
 @route_vector_collection.post(
     "/rename",
     summary="重命名collection",
-    status_code=status.HTTP_200_OK,
-    tags=[Tags.vector_db],
 )
 async def rename(
     dto: CollectionRenameDto,
@@ -86,8 +78,6 @@ async def rename(
 @route_vector_collection.post(
     "/get",
     summary="获取Collection详细信息",
-    status_code=status.HTTP_200_OK,
-    tags=[Tags.vector_db],
 )
 async def get(
     dto: CollectionUniversalDto,
@@ -103,8 +93,6 @@ async def get(
 @route_vector_collection.delete(
     "/delete",
     summary="删除collection",
-    status_code=status.HTTP_200_OK,
-    tags=[Tags.vector_db],
 )
 async def delete(
     dto: CollectionUniversalDto,
@@ -129,3 +117,13 @@ async def reset(
 ):
     database_name = dto.database_name
     return await service.collection_reset_service(database_name=database_name)
+
+
+@route_vector_collection.post(
+    "/reset/all",
+    summary="重置所有Collection",
+)
+async def reset(
+    service: CollectionService = Depends(get_collection_service),
+):
+    return await service.collection_reset_all_service()

@@ -1,21 +1,18 @@
 from asyncio import Lock, sleep
 from json import dumps
 
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import StreamingResponse
+from src.middleware import llm_model
 from starlette.responses import StreamingResponse
 
-from src.middleware import llm_model
-
-from ..prompt import system_prompt_llm
-from ..logger import Tags
 from ..config import max_model_len
 from ..llm.dto.chat import RAGChatDto
-from ..prompt import system_prompt_llm, system_prompt_rag
 from ..logger import Tags
-from ..llm import service
-from ..vector.documents.service import get_document_service, DocumentService
+from ..prompt import system_prompt_llm, system_prompt_rag
+from ..vector.documents.service import DocumentService, get_document_service
 from .dto.chat import LLMChatDto
+from .service import LLMService, get_llm_service
 
 route_llm = APIRouter(prefix="/llm")
 model_lock = Lock()
@@ -65,7 +62,9 @@ async def chat(dto: LLMChatDto):
     tags=[Tags.llm],
 )
 async def search(
-    dto: RAGChatDto, document_service: DocumentService = Depends(get_document_service)
+    dto: RAGChatDto,
+    document_service: DocumentService = Depends(get_document_service),
+    llm_service: LLMService = Depends(get_llm_service),
 ):
     raw_prompt = dto.prompt
     chat_history = dto.chat_history
@@ -74,9 +73,11 @@ async def search(
     context = await document_service.document_query_service(
         database_name=database_name, collection_name=collection_name, data=raw_prompt
     )
-    context = await service.rerank(question=raw_prompt, context=context)
-    prompt = await service.create_system_static_prompt(
-        question=raw_prompt, context=context
+    output = await llm_service.rerank(
+        question=raw_prompt, context=context, collection_name=collection_name
+    )
+    prompt = await llm_service.create_system_static_prompt(
+        question=raw_prompt, context=output
     )
     if len(prompt) > int(max_model_len):
         prompt = prompt[:max_model_len]

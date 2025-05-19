@@ -96,6 +96,17 @@ class CollectionService:
             self.client.drop_collection(collection_name=collection_name)
         return "Reset OK"
 
+    async def collection_reset_all_service(self):
+        databases = self.client.list_databases()
+        for database_name in databases:
+            if database_name != "default":
+              self.client.use_database(db_name=database_name)
+              collections = self.client.list_collections()
+              for collection_name in collections:
+                  self.client.drop_collection(collection_name=collection_name)
+              self.client.drop_database(db_name=database_name)
+        return "Reset OK"
+
 
 def get_collection_service(
     milvus_service: MilvusClient = Depends(get_milvus_service),

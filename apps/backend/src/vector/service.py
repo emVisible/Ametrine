@@ -1,4 +1,5 @@
 from pymilvus import MilvusClient
+from fastapi import Depends
 
 
 class MilvusService:
@@ -13,3 +14,8 @@ class MilvusService:
 
 def get_milvus_service():
     return MilvusService()
+
+
+class VectorService:
+    def __init__(self, milvus_service: MilvusService = Depends(get_milvus_service)):
+        self.milvus_service = milvus_service
