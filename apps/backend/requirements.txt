@@ -10,13 +10,13 @@ sentence-transformers
 unstructured
 python-docx
 
-# Database Vector
+# Vector Database (Milvus)
 langchain
 langchain_community
 langchain_milvus
 pymilvus
 
-# Database Traditional
+# Traditional Database (PostgreSQL)
 sqlalchemy
 asyncpg
 
