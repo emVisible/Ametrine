@@ -4,7 +4,7 @@ from fastapi import Depends
 from src.middleware import rerank_model
 from src.relation.service import RelationService, get_relation
 
-from ..config import k, min_relevance_score
+from ..config import k, min_relevance_score, p
 from .dto.rearank import RerankResultSchemas
 
 
@@ -57,13 +57,12 @@ class LLMService:
             texts = [
                 item["document"]["text"]
                 for item in document
-                if item["relevance_score"] > 0
+                if item["relevance_score"] > min_relevance_score
             ]
             if len(texts) > 0:
                 res.append(texts[0])
-        # print(res)
         if len(res) > 0:
-            return res[:3]
+            return res[:p]
         return ""
 
     async def create_system_static_prompt(self, question: str, context: list[str]):

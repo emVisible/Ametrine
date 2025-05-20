@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    command: sh -c "yarn install && yarn dev"
+    environment:
+      - NODE_ENV=development
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/backend:/app
+    working_dir: /app
+    command: uvicorn main:app --host 0.0.0.0 --port 3000 --reload
+
+    database:
+      build:
+        context: ./apps/database
+        dockerfile: Dockerfile
+      volumes:
+        - ./apps/database:/app
+      working_dir: /app
+      command: bash standalone_embed.sh start
+
+  xinference:
+    image: registry.cn-beijing.aliyuncs.com/xorbits/xinference:latest
+    ports:
+      - "9997:9997"
+    volumes:
+      - ./apps/backend:/app
+    working_dir: /app
+    environment:
+      - XINFERENCE_MODEL_SRC=modelscope
+    command: >
+      sh -c "
+        xinference-local XINFERENCE_MODEL_SRC=modelscope &&
+        sleep 30 &&
+        xinference launch --model-name qwen2.5-instruct --model-engine Transformers --size-in-billions 7 --model-format pytorch &&
+        xinference launch --model-name bge-m3 --model-type embedding &&
+        xinference launch --model-name bge-reranker-base --model-type rerank &&
+        tail -f /dev/null
+      "

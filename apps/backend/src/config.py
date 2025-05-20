@@ -10,6 +10,7 @@ access_token_expire_minutes = int(getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 # 检索参数
 k = int(getenv("K", "5"))
+p = int(getenv("P", "3"))
 chunk_size = int(getenv("CHUNK_SIZE", "512"))
 chunk_overlap = int(getenv("CHUNK_OVERLAP", "50"))
 max_model_len = int(getenv("MAX_MODEL_LEN", "30000"))

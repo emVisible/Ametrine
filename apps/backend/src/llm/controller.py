@@ -47,7 +47,6 @@ async def chat(dto: LLMChatDto):
                 "stream": True,
             },
         )
-
     return StreamingResponse(
         content=streaming_response_iterator(res),
         media_type="text/event-stream",
@@ -90,7 +89,7 @@ async def search(
             ],
             generate_config={
                 "stream": True,
-                "max_tokens": 30000,
+                "max_tokens": max_model_len,
             },
         )
     return StreamingResponse(

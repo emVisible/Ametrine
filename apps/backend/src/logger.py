@@ -72,6 +72,7 @@ def log_config():
         {"name": "DB_ADDR", "tags": vector},
         {"name": "DOC_ADDR", "tags": vector},
         {"name": "K", "tags": vector},
+        {"name": "P", "tags": vector},
         {"name": "ALLOW_RESET", "tags": vector},
         {"name": "MIN_RELEVANCE_SCORE", "tags": vector},
         {"name": "XINFERENCE_ADDR", "tags": model},
