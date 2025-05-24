@@ -77,7 +77,8 @@ import { v4 } from 'uuid'
 import { onMounted, ref } from 'vue'
 import Message from './message.vue'
 import { getCollectionDetail } from '@/apis/collection'
-import { parseChunk, throttle, decodeChunks } from '@/composables/stream'
+import { parseReferences, throttle, decodeChunks } from '@/composables/stream'
+import { getReferenceData } from '@/apis/rag'
 interface CollectionDetail {
   description: string
   created_timestamp: string
@@ -221,6 +222,11 @@ const handleStream = async (slice: string[]) => {
     ],
   })
   await decodeChunks(res)
+  if (chatMode.value) {
+    const session_id = res.headers.get('X-Session-ID')!
+    const references = (await getReferenceData(session_id)).data
+    await parseReferences(references)
+  }
   ElNotification({
     title: '回答完毕',
     position: 'top-right',

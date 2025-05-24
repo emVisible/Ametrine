@@ -1,11 +1,12 @@
+from fastapi import Depends
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.exc import NoResultFound
-from fastapi import Depends
-from .dto import UserBase
-from .database import get_db
-from .models import User
+
 from .auth.service import AuthService
+from .database import get_db
+from .dto import UserBase
+from .models import User
 
 
 class UserService:
@@ -39,7 +40,6 @@ class UserService:
         return result.scalar_one_or_none()
 
     async def get_user_by_account(self, username: str):
-        # hashed = self.auth_service.hash_password(password)
         result = await self.client.execute(
             select(User).where((User.email == username) | (User.name == username))
         )

@@ -55,14 +55,14 @@ app = FastAPI(
 app.add_exception_handler(StarletteHTTPException, custom_http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 route_prefix = "/api"
-white_list = ["http://127.0.0.1:5173"]
+white_list = ["http://127.0.0.1:8000"]
 app.include_router(route_base, prefix=route_prefix)
 app.include_router(route_auth, prefix=route_prefix)
 app.include_router(route_relation, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_init, prefix=route_prefix)
-app.add_middleware(CORSMiddleware, allow_origins=white_list)
+app.add_middleware(CORSMiddleware, allow_origins=white_list, expose_headers=["X-Session-ID"])
 
 
 async def create_all():

@@ -22,7 +22,6 @@ def use_database_before(default_db="default"):
 def require_roles(roles: List[str]):
     async def _inner(current_user=Depends(get_current_user)):
         user_roles = await permission_map(current_user.role_id)
-        print(user_roles)
         if not any(role in user_roles for role in roles):
             raise ForbiddenException()
         return current_user

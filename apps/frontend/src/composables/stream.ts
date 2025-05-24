@@ -41,3 +41,20 @@ export const decodeChunks = async (res: Response) => {
     }
   }
 }
+export const parseReferences = async (references: any[]) => {
+  const source: string[] = []
+  references.forEach((item) => source.push(item.title))
+  const content = `\n 来源：${source.join(', ')}`
+  sessionStore().pushItemToCurrentSession(
+    {
+      id: v4(),
+      date: new Date().toLocaleString(),
+      role: 'machine',
+      content: `
+      <div style="margin-top: 20px;border-left: 4px solid #a29bfe; padding-left: 12px; opacity: 0.8;">
+        ${content}
+      </div>
+      `,
+    }
+  )
+}

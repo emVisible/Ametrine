@@ -1,4 +1,5 @@
 import { apiEnum } from "@/enum/apiEnum";
+import { BaseResponse } from "./base";
 
 export interface RAGRequestType {
   prompt: string
@@ -28,4 +29,8 @@ export async function ragChat(data: RAGRequestType) {
       collection_name
     }),
   })
+}
+
+export async function getReferenceData(session_id: string):Promise<BaseResponse<any>> {
+  return fetch(apiEnum.GET_REFERENCE_DATA + "?session_id=" + session_id).then((res) => res.json())
 }

@@ -7,7 +7,7 @@ from pymilvus import MilvusClient
 from src.relation.service import RelationService, get_relation
 from src.utils import use_database_before
 
-from ...middleware import embedding_function
+from src.client import embedding_function
 from ..service import get_milvus_service
 from .loader import process_documents
 

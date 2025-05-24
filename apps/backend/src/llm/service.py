@@ -1,7 +1,7 @@
 from asyncio import get_running_loop
 
 from fastapi import Depends
-from src.middleware import rerank_model
+from src.client import rerank_model
 from src.relation.service import RelationService, get_relation
 
 from ..config import k, min_relevance_score, p
@@ -14,13 +14,12 @@ class LLMService:
 
     async def rerank(
         self, question: str, context: list[dict], collection_name: str
-    ) -> str:
+    ) -> list[dict]:
         reranked_data = []
-        print(context)
         for item in context:
             doc_id, chunk_id = item["entity"]["doc_id"], item["entity"]["chunk_id"]
             chunks = await self.relation_service.documentService.chunk_get_by_document_service(
-                doc_id=doc_id, chunk_id=chunk_id
+                doc_id=doc_id, chunk_id=chunk_id, accuracy=True
             )
             part_res = await self.rerank_loop(
                 document=[
@@ -50,23 +49,40 @@ class LLMService:
 
     async def unify_filter(self, data: list[dict], question: str):
         res = []
-        filter_data = [
-            sorted(part["results"], key=lambda x: x["relevance_score"]) for part in data
-        ]
+        filter_data = [part["results"] for part in data]
         for document in filter_data:
-            texts = [
-                item["document"]["text"]
-                for item in document
-                if item["relevance_score"] > min_relevance_score
-            ]
-            if len(texts) > 0:
-                res.append(texts[0])
+            doc = {}
+            for chunk in document:
+                if chunk["relevance_score"] < min_relevance_score:
+                    continue
+                doc["text"] = chunk["document"]["text"]
+                doc["doc_id"] = chunk["metadata"]["doc_id"]
+                doc["chunk_id"] = chunk["metadata"]["chunk_id"]
+
+            res.append(doc) if doc else None
         if len(res) > 0:
             return res[:p]
-        return ""
+        return "## No relevant documents found, please try to rephrase your question."
 
-    async def create_system_static_prompt(self, question: str, context: list[str]):
-        return f"[需要处理的问题]:\n{question}\n[已知文档信息]:\n{context or '(无参考信息, 请按提示要求返回)'}"
+    async def create_system_static_prompt(self, question: str, context: list[dict]):
+        full_text = (
+            "\n".join([item["text"] for item in context if "text" in item])
+            if context
+            else "(无参考信息, 请按提示要求返回)"
+        )
+        return f"[需要处理的问题]:\n{question}\n[已知文档信息]:\n{full_text}"
+
+    async def parse_references(self, output: list[dict]):
+        references = []
+        for item in output:
+            doc_id = item.get("doc_id")
+            document = (
+                await self.relation_service.documentService.document_describe_service(
+                    document_id=doc_id
+                )
+            )
+            references.append(document)
+        return references
 
 
 def get_llm_service(relation_service=Depends(get_relation)) -> LLMService:

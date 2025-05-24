@@ -9,6 +9,13 @@ bitsandbytes
 sentence-transformers
 unstructured
 python-docx
+loguru
+hydra-core
+pytorch-lightning
+lightning
+natsort
+loralib
+soundfile
 
 # Vector Database (Milvus)
 langchain
@@ -19,6 +26,7 @@ pymilvus
 # Traditional Database (PostgreSQL)
 sqlalchemy
 asyncpg
+redis
 
 # Backend
 fastapi

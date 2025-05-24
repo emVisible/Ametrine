@@ -14,7 +14,7 @@ p = int(getenv("P", "3"))
 chunk_size = int(getenv("CHUNK_SIZE", "512"))
 chunk_overlap = int(getenv("CHUNK_OVERLAP", "50"))
 max_model_len = int(getenv("MAX_MODEL_LEN", "30000"))
-min_relevance_score = int(getenv("MIN_RELEVANCE_SCORE", "8"))
+min_relevance_score = float(getenv("MIN_RELEVANCE_SCORE", "0.3"))
 
 # 数据库和文档地址
 db_addr = getenv("DB_ADDR")

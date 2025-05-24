@@ -33,6 +33,9 @@ export const useThemeStore = defineStore('theme-config', {
       localStorage.setItem(THEME_KEY, this.theme)
       applyTheme(this.theme)
     },
+    getTheme(){
+      return this.theme
+    }
   },
   persist: true
 })

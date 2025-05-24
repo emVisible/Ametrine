@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, status
 from src.logger import Tags
 from src.relation.service import RelationService, get_relation
 from src.vector.collections.dto import (

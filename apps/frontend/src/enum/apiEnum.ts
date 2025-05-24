@@ -5,6 +5,7 @@ export enum apiEnum {
   REGISTRY = "/api/user/create",
   LLM_CHAT = "/api/llm/chat",
   RAG_CHAT = "/api/llm/rag",
+  GET_REFERENCE_DATA = "/api/llm/references",
 
   UPLOAD_DOCUMENT = '/api/vector/upload_single',
 
