@@ -6,18 +6,17 @@ from jose import jwt
 from passlib.context import CryptContext
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
-from src.base.models import User
+from src.client import get_relation_db
 from src.config import algorithm, secret_key
-from src.exceptions import JWTException
-
-from ..database import get_db
+from src.middleware.exceptions import JWTException
+from src.models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth", scheme_name="data")
 
 
 class AuthService:
-    def __init__(self, client: Session = Depends(get_db)):
+    def __init__(self, client: Session):
         self.client = client
 
     def hash_password(self, password: str) -> str:
@@ -43,7 +42,7 @@ class AuthService:
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_relation_db)
 ):
     payload: dict = jwt.decode(token=token, key=secret_key, algorithms=algorithm)
     username = payload.get("sub")
@@ -56,10 +55,14 @@ async def get_current_user(
     return user
 
 
-async def permission_map(permission_id: int):
+def permission_map(permission_id: int):
     map = {
         1: ["user"],
         2: ["user", "manager"],
         3: ["user", "manager", "admin"],
     }
     return map[permission_id]
+
+
+def get_auth_service(client: Session = Depends(get_relation_db)):
+    return AuthService(client=client)

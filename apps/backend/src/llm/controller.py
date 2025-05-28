@@ -1,53 +1,41 @@
-from asyncio import Lock, sleep
+from asyncio import Lock
 from json import dumps, loads
+from operator import attrgetter
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from src.client import llm_model, redis_client
-from starlette.responses import StreamingResponse
+from src.client import get_redis
+from src.config import max_model_len
+from src.llm.dto.chat import RAGChat
+from src.middleware.logger import log
+from src.middleware.tags import ControllerTag
+from src.vector.documents.service import DocumentService, get_document_service
 
-from ..config import max_model_len
-from ..llm.dto.chat import RAGChatDto
-from ..logger import Tags, log
-from ..prompt import system_prompt_llm, system_prompt_rag
-from ..vector.documents.service import DocumentService, get_document_service
-from .dto.chat import LLMChatDto
+from .dto.chat import LLMChat
+from .prompt import system_prompt_llm, system_prompt_rag
 from .service import LLMService, get_llm_service
 
-route_llm = APIRouter(prefix="/llm", tags=[Tags.llm])
+route_llm = APIRouter(prefix="/llm", tags=[ControllerTag.llm])
 model_lock = Lock()
 
 
-async def streaming_response_iterator(res):
-    for chunk in res:
-        cache = dumps(chunk["choices"][0]["delta"]["content"]) + "\n"
-        if cache:
-            yield cache
-        if chunk["choices"][0].get("finish_reason") == "stop":
-            break
-        await sleep(0)
-
-
-@route_llm.post("/chat", summary="[LLM] 基础对话, 无检索")
+@route_llm.post("/chat", summary="[LLM] 基础对话")
 @log("Chat")
-async def chat(dto: LLMChatDto):
-    prompt = dto.prompt
-    chat_history = dto.chat_history
+async def chat(dto: LLMChat, service: LLMService = Depends(get_llm_service)):
+    prompt, chat_history = attrgetter("prompt", "chat_history")(dto)
     messages = [
         {"role": "system", "content": system_prompt_llm},
-        {"role": "user", "content": prompt},
         *chat_history,
+        {"role": "user", "content": prompt},
     ]
     async with model_lock:
-        res = llm_model.chat(
+        res = service.llm_model.chat(
             messages=messages,
-            generate_config={
-                "stream": True,
-            },
+            generate_config={"stream": True, "max_tokens": max_model_len},
         )
     return StreamingResponse(
-        content=streaming_response_iterator(res),
+        content=service.streaming_response_iterator(res),
         media_type="text/event-stream",
         status_code=200,
     )
@@ -56,30 +44,26 @@ async def chat(dto: LLMChatDto):
 @route_llm.post("/rag", summary="[RAG] 检索对话")
 @log("RAG")
 async def search(
-    dto: RAGChatDto,
+    dto: RAGChat,
     document_service: DocumentService = Depends(get_document_service),
-    llm_service: LLMService = Depends(get_llm_service),
+    service: LLMService = Depends(get_llm_service),
 ):
-    raw_prompt = dto.prompt
-    chat_history = dto.chat_history
-    database_name = dto.database_name
-    collection_name = dto.collection_name
+    raw_prompt, chat_history, database_name, collection_name = attrgetter(
+        "prompt", "chat_history", "database_name", "collection_name"
+    )(dto)
     context = await document_service.document_query_service(
         database_name=database_name, collection_name=collection_name, data=raw_prompt
     )
-    output = await llm_service.rerank(
+    output = await service.rerank(
         question=raw_prompt, context=context, collection_name=collection_name
     )
-    prompt = await llm_service.create_system_static_prompt(
-        question=raw_prompt, context=output
-    )
-    references = await llm_service.parse_references(output)
+    prompt = service.create_user_prompt(question=raw_prompt, context=output)
+    references = await service.parse_references(output)
     session_id = str(uuid4())
+    redis_client = get_redis()
     redis_client.setex(f"chat_ref:{session_id}", 600, dumps(references))
-    if len(prompt) > int(max_model_len):
-        prompt = prompt[:max_model_len]
     async with model_lock:
-        res = llm_model.chat(
+        res = service.llm_model.chat(
             messages=[
                 {"role": "system", "content": system_prompt_rag},
                 *chat_history,
@@ -91,7 +75,7 @@ async def search(
             },
         )
     response = StreamingResponse(
-        content=streaming_response_iterator(res),
+        content=service.streaming_response_iterator(res),
         media_type="text/event-stream",
         status_code=200,
     )
@@ -101,6 +85,6 @@ async def search(
 
 @route_llm.get("/references")
 async def get_references(session_id: str):
-    ref_json = redis_client.get(f"chat_ref:{session_id}")
+    ref_json = get_redis().get(f"chat_ref:{session_id}")
     references = loads(ref_json)
     return references

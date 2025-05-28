@@ -14,14 +14,17 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from src.base.auth.controller import route_auth
 from src.base.controller import route_base
-from src.base.database import engine
 from src.base.init.controller import route_init
-from src.base.models import Base
-from src.exceptions import custom_http_exception_handler, validation_exception_handler
+from src.client import engine
 from src.llm.controller import route_llm
-from src.logger import config_logger, log_config
+from src.middleware.exceptions import (
+    custom_http_exception_handler,
+    validation_exception_handler,
+)
+from src.middleware.logger import config_logger, log_config
+from src.middleware.response import IResponse
+from src.models import Base
 from src.relation.controller import route_relation
-from src.response import IResponse
 from src.vector.controller import route_vector_milvus
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from torch.cuda import empty_cache, ipc_collect, is_available
@@ -38,6 +41,7 @@ async def lifespan(app: FastAPI):
     if is_available():
         empty_cache()
         ipc_collect()
+        await engine.dispose()
 
 
 load_dotenv("./.env")
@@ -62,7 +66,9 @@ app.include_router(route_relation, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_init, prefix=route_prefix)
-app.add_middleware(CORSMiddleware, allow_origins=white_list, expose_headers=["X-Session-ID"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=white_list, expose_headers=["X-Session-ID"]
+)
 
 
 async def create_all():

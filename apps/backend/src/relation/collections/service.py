@@ -1,26 +1,26 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from src.base.database import get_db
-from src.base.models import Collection
+from src.client import get_relation_db
+from src.models import Collection
 
 
 class CollectionService:
-    def __init__(self, db: AsyncSession = Depends(get_db)):
-        self.db = db
+    def __init__(self, relation_db: AsyncSession):
+        self.relation_db = relation_db
 
     async def collection_get_all_service(self):
-        result = await self.db.execute(select(Collection))
+        result = await self.relation_db.execute(select(Collection))
         return result.scalars().all()
 
     async def collection_get_all_specific_service(self, database_id: int):
-        result = await self.db.execute(
+        result = await self.relation_db.execute(
             select(Collection).where(Collection.database_id == database_id)
         )
         return result.scalars().all()
 
     async def collection_get_service(self, name: str):
-        result = await self.db.execute(
+        result = await self.relation_db.execute(
             select(Collection).where(Collection.name == name)
         )
         return result.scalar_one_or_none()
@@ -34,11 +34,11 @@ class CollectionService:
         collection = Collection(
             name=name, database_id=database_id, description=description
         )
-        self.db.add(collection)
-        await self.db.commit()
-        await self.db.refresh(collection)
+        self.relation_db.add(collection)
+        await self.relation_db.commit()
+        await self.relation_db.refresh(collection)
         return collection
 
 
-def get_collection(db: AsyncSession = Depends(get_db)) -> CollectionService:
-    return CollectionService(db=db)
+def get_collection_service(relation_db: AsyncSession = Depends(get_relation_db)):
+    return CollectionService(relation_db=relation_db)

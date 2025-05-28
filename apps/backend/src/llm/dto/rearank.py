@@ -1,6 +1,7 @@
-from pydantic import BaseModel
 from typing import List, Optional
 from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class Document(BaseModel):
@@ -20,7 +21,7 @@ class Meta(BaseModel):
     warnings: Optional[str] = None
 
 
-class RerankResultSchemas(BaseModel):
+class RerankResult(BaseModel):
     id: UUID
     results: List[Result]
     meta: Meta

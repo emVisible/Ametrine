@@ -1,8 +1,8 @@
-import glob
-import os
-from tqdm import tqdm
-from typing import List
+from glob import glob
 from multiprocessing import Pool
+from os import cpu_count, path
+from typing import List
+
 from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
@@ -19,11 +19,8 @@ from langchain_community.document_loaders import (
     UnstructuredPowerPointLoader,
     UnstructuredWordDocumentLoader,
 )
-from ...config import (
-    chunk_overlap,
-    chunk_size,
-    doc_addr,
-)
+from src.config import chunk_overlap, chunk_size, doc_addr
+from tqdm import tqdm
 
 LOADER_MAPPING = {
     ".csv": (CSVLoader, {}),
@@ -56,14 +53,12 @@ def load_document(file_path: str) -> List[Document]:
 def load_documents(source_dir: str, ignored_files: List[str] = []) -> List[Document]:
     all_files = []
     for ext in LOADER_MAPPING:
-        all_files.extend(
-            glob.glob(os.path.join(source_dir, f"**/*{ext}"), recursive=True)
-        )
+        all_files.extend(glob(path.join(source_dir, f"**/*{ext}"), recursive=True))
     filtered_files = [
         file_path for file_path in all_files if file_path not in ignored_files
     ]
 
-    with Pool(processes=os.cpu_count()) as pool:
+    with Pool(processes=cpu_count()) as pool:
         results = []
         with tqdm(total=len(filtered_files), desc="文档加载中", ncols=80) as pbar:
             for i, docs in enumerate(
@@ -87,7 +82,5 @@ def process_documents(
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, chunk_overlap=chunk_overlap
     )
-    print(documents)
     texts = text_splitter.split_documents(documents)
-    print(f"Chunks分割: {len(texts)} (最大为 {chunk_size} tokens)")
     return texts

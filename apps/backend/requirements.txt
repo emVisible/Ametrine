@@ -32,3 +32,4 @@ redis
 fastapi
 dotenv
 colorlog
+pydantic-settings

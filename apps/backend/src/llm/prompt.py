@@ -1,3 +1,14 @@
+def user_prompt(question: str, reference: str):
+    return f"""
+            我有一个问题需要你回答，请结合下方提供的参考资料来做出准确的回应。
+            如果参考资料中没有足够的信息，请如实说明你无法确认答案。
+            问题：
+            {question}
+            参考资料：
+            {reference}
+            """
+
+
 system_prompt_llm = """
 # 通用智能问答助手指南
 ## 角色定位

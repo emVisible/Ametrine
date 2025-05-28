@@ -4,45 +4,43 @@ from uuid import uuid4
 
 from fastapi import Depends, HTTPException, UploadFile
 from pymilvus import MilvusClient
-from src.relation.service import RelationService, get_relation
-from src.utils import use_database_before
+from src.client import get_milvus_service
+from src.llm.service import LLMService, get_llm_service
+from src.relation.service import RelationService, get_relation_service
+from src.utils import use_vector_database
 
-from src.client import embedding_function
-from ..service import get_milvus_service
 from .loader import process_documents
 
 
 class DocumentService:
     def __init__(
         self,
-        client: MilvusClient = Depends(get_milvus_service),
-        relation_service: RelationService = Depends(get_relation),
+        milvus_service: MilvusClient = Depends(get_milvus_service),
+        relation_service: RelationService = Depends(get_relation_service),
+        llm_service: LLMService = Depends(get_llm_service),
     ):
-        self.client = client
+        self.milvus_service = milvus_service
         self.relation_service = relation_service
+        self.llm_service = llm_service
 
-    @use_database_before()
+    @use_vector_database()
     async def document_query_service(
         self, database_name: str, collection_name: str, data: str
     ):
-        if not self.client.has_collection(collection_name=collection_name):
+        if not self.milvus_service.has_collection(collection_name=collection_name):
             raise HTTPException(status_code=404, detail="Collection not found")
-        self.client.load_collection(collection_name=collection_name)
-        res = self.client.search(
+        self.milvus_service.load_collection(collection_name=collection_name)
+        res = self.milvus_service.search(
             collection_name=collection_name,
-            data=[embedding_function.embed_query(data)],
+            data=[self.llm_service.embedding_model.embed_query(data)],
             output_fields=["doc_id", "chunk_id"],
-            # filter=filter_field,
-            # output_fields=output_fields,
-            # timeout=timeout,
-            # ids=ids,
-            # partition_names=partition_names,
+            timeout=30,
             limit=10,
         )
-        self.client.release_collection(collection_name=collection_name)
+        self.milvus_service.release_collection(collection_name=collection_name)
         return res[0]
 
-    @use_database_before()
+    @use_vector_database()
     async def document_upload_service(
         self, collection_name: str, file: UploadFile, database_name: str
     ):
@@ -56,7 +54,7 @@ class DocumentService:
                 f.write(contents)
 
             chunks = process_documents(is_multiple=False, file_path=str(tmp_path))
-            embeddings = embedding_function.embed_documents(
+            embeddings = self.llm_service.embedding_model.embed_documents(
                 [chunk.page_content for chunk in chunks]
             )
             collection = (
@@ -87,8 +85,8 @@ class DocumentService:
                         "chunk_id": chunk.id,
                     }
                 )
-            self.client.insert(collection_name=collection_name, data=data)
-            return self.client.get_collection_stats(collection_name=collection_name)
+            self.milvus_service.insert(collection_name=collection_name, data=data)
+            return self.milvus_service.get_collection_stats(collection_name=collection_name)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
         # finally:
@@ -98,6 +96,11 @@ class DocumentService:
 
 def get_document_service(
     milvus_service: MilvusClient = Depends(get_milvus_service),
-    relation_service: RelationService = Depends(get_relation),
+    relation_service: RelationService = Depends(get_relation_service),
+    llm_service: LLMService = Depends(get_llm_service),
 ) -> DocumentService:
-    return DocumentService(client=milvus_service, relation_service=relation_service)
+    return DocumentService(
+        milvus_service=milvus_service,
+        relation_service=relation_service,
+        llm_service=llm_service,
+    )

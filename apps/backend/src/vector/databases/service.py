@@ -1,23 +1,17 @@
-from collections.abc import Callable
-
 from fastapi import Depends, HTTPException
 from pymilvus import MilvusClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from src.base.database import get_db
-from src.base.models import Tenant
-
-from ..service import get_milvus_service
+from src.client import get_milvus_service, get_relation_db
 
 
 class DatabaseService:
     def __init__(
         self,
-        client: MilvusClient = Depends(get_milvus_service),
-        pg: AsyncSession = Depends(get_db),
+        milvus_service: MilvusClient,
+        relation_db: AsyncSession,
     ):
-        self.client = client
-        self.pg = pg
+        self.milvus_service = milvus_service
+        self.relation_db = relation_db
 
     async def create_database_service(
         self,
@@ -27,7 +21,7 @@ class DatabaseService:
         description: str = "",
     ):
         try:
-            self.client.create_database(
+            self.milvus_service.create_database(
                 db_name=db_name,
                 properties={
                     "tenant": tenant_name,
@@ -36,39 +30,40 @@ class DatabaseService:
                 },
             )
         except Exception as e:
-            self.client.drop_database(db_name=db_name)
+            if (db_name != "default"):
+              self.milvus_service.drop_database(db_name=db_name)
             raise HTTPException(status_code=400, detail=f"Create {db_name} Error: {e}")
         return f"Create {db_name} (tenant: {tenant_name}) OK"
 
     async def database_get_all_service(self):
-        return self.client.list_databases()
+        return self.milvus_service.list_databases()
 
     async def database_get_all_detail_service(self):
-        databases = self.client.list_databases()
+        databases = self.milvus_service.list_databases()
         res = []
         for db_name in databases:
-            item = self.client.describe_database(db_name=db_name)
+            item = self.milvus_service.describe_database(db_name=db_name)
             res.append(item)
         return res
 
     async def database_get_describe_service(self, db_name: str):
-        return self.client.describe_database(db_name=db_name)
+        return self.milvus_service.describe_database(db_name=db_name)
 
     async def database_delete_service(self, db_name: str):
-        self.client.drop_database(db_name=db_name)
+        self.milvus_service.drop_database(db_name=db_name)
         return f"Delete {db_name} OK"
 
     async def database_reset_service(self):
-        databases = self.client.list_databases()
+        databases = self.milvus_service.list_databases()
         for database in databases:
             if database != "default":
-                self.client.drop_database(db_name=database)
-        await self.pg.execute("DELETE FROM tenant")
-        await self.pg.commit()
+                self.milvus_service.drop_database(db_name=database)
+        await self.relation_db.execute("DELETE FROM tenant")
+        await self.relation_db.commit()
         return f"Reset OK"
 
     async def database_limit_collection_service(self, db_name: str, limit: int):
-        self.client.alter_database_properties(
+        self.milvus_service.alter_database_properties(
             db_name=db_name, properties={"database.max.collections": limit}
         )
         return f"Limit {db_name} to {limit} OK"
@@ -76,6 +71,6 @@ class DatabaseService:
 
 def get_database_service(
     milvus_service: MilvusClient = Depends(get_milvus_service),
-    db: AsyncSession = Depends(get_db),
-) -> DatabaseService:
-    return DatabaseService(client=milvus_service, pg=db)
+    relation_db: AsyncSession = Depends(get_relation_db),
+):
+    return DatabaseService(milvus_service=milvus_service, relation_db=relation_db)

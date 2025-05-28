@@ -1,6 +1,5 @@
 import inspect
 from datetime import datetime
-from enum import Enum
 from functools import wraps
 from logging import DEBUG, INFO, StreamHandler, basicConfig, getLogger
 from os import getenv
@@ -8,6 +7,8 @@ from os.path import abspath, join
 
 from colorlog import ColoredFormatter
 from pydantic import BaseModel
+
+from .tags import LoggerTag
 
 formatter = ColoredFormatter(
     "%(log_color)s%(levelname)-8s%(reset)s %(blue)s%(message)s",
@@ -33,23 +34,7 @@ file_log = basicConfig(
 )
 
 
-class Tags(Enum):
-    dev = "DEV"
-    llm = "LLM"
-    user = "User"
-    auth = "Auth"
-    vector_db = "Vector Database"
-    relation_db = "Relation Database"
-    init = "Initialization"
-
-
-class SystemTags(Enum):
-    project = "[Project]"
-    auth = "[Auth]"
-    vector = "[Vector]"
-    model = "[Model]"
-
-
+# 在控制器中添加的日志装饰器, 用于调试
 def log(text: str, log_args: bool = True):
     def decorator(f):
         is_async = inspect.iscoroutinefunction(f)
@@ -135,33 +120,36 @@ def log(text: str, log_args: bool = True):
     return decorator
 
 
+# 系统启动时在终端中自动输出配置
 def log_config():
-    project = SystemTags.project.value
-    auth = SystemTags.auth.value
-    vector = SystemTags.vector.value
-    model = SystemTags.model.value
+    project = LoggerTag.project.value
+    auth = LoggerTag.auth.value
+    vector = LoggerTag.vector.value
+    model = LoggerTag.model.value
+    relation = LoggerTag.relation.value
     env_path = join(abspath("./"), ".env")
     config_logger.critical(f"[{project}]-[ENV_PATH]-{env_path}")
     configs = [
-        {"name": "ENV_PATH", "tags": project},
-        {"name": "ALGORITHM", "tags": auth},
-        {"name": "SECRECT_KEY", "tags": auth},
-        {"name": "ACCESS_TOKEN_EXPIRE_MINUTES", "tags": auth},
-        {"name": "DB_ADDR", "tags": vector},
-        {"name": "DOC_ADDR", "tags": vector},
-        {"name": "K", "tags": vector},
-        {"name": "P", "tags": vector},
-        {"name": "ALLOW_RESET", "tags": vector},
-        {"name": "MIN_RELEVANCE_SCORE", "tags": vector},
-        {"name": "XINFERENCE_ADDR", "tags": model},
-        {"name": "XINFERENCE_LLM_MODEL_ID", "tags": model},
-        {"name": "XINFERENCE_EMBEDDING_MODEL_ID", "tags": model},
-        {"name": "XINFERENCE_RERANK_MODEL_ID", "tags": model},
-        {"name": "CHUNK_SIZE", "tags": model},
-        {"name": "CHUNK_OVERLAP", "tags": model},
-        {"name": "MAX_MODEL_LEN", "tags": model},
+        {"name": "ENV_PATH", "tag": project},
+        {"name": "ALGORITHM", "tag": auth},
+        {"name": "SECRECT_KEY", "tag": auth},
+        {"name": "ACCESS_TOKEN_EXPIRE_MINUTES", "tag": auth},
+        {"name": "XINFERENCE_ADDR", "tag": model},
+        {"name": "XINFERENCE_LLM_MODEL_ID", "tag": model},
+        {"name": "XINFERENCE_EMBEDDING_MODEL_ID", "tag": model},
+        {"name": "XINFERENCE_RERANK_MODEL_ID", "tag": model},
+        {"name": "DB_ADDR", "tag": vector},
+        {"name": "DOC_ADDR", "tag": vector},
+        {"name": "K", "tag": vector},
+        {"name": "P", "tag": vector},
+        {"name": "MIN_RELEVANCE_SCORE", "tag": vector},
+        {"name": "CHUNK_SIZE", "tag": vector},
+        {"name": "CHUNK_OVERLAP", "tag": vector},
+        {"name": "MAX_MODEL_LEN", "tag": vector},
+        {"name": "POSTGRE_ADDR", "tag": relation},
+        {"name": "POSTGRE_LOG", "tag": relation},
     ]
     for config in configs:
-        tag = config["tags"]
+        tag = config["tag"]
         name = config["name"]
         config_logger.critical(f"[{tag}]-[{name}]: {getenv(name)}")

@@ -1,16 +1,41 @@
-from asyncio import get_running_loop
+from asyncio import get_running_loop, sleep
+from json import dumps
 
 from fastapi import Depends
-from src.client import rerank_model
-from src.relation.service import RelationService, get_relation
+from src.client import (
+    get_embedding_model,
+    get_llm_model,
+    get_rerank_model,
+    get_tokenizer,
+)
+from src.config import k, max_model_len, min_relevance_score, p
+from src.relation.service import RelationService, get_relation_service
 
-from ..config import k, min_relevance_score, p
-from .dto.rearank import RerankResultSchemas
+from .dto.rearank import RerankResult
+from .prompt import user_prompt
 
 
 class LLMService:
-    def __init__(self, relation_service: RelationService = Depends(get_relation)):
+    def __init__(
+        self,
+        llm_model,
+        embedding_model,
+        rerank_model,
+        relation_service: RelationService,
+    ):
+        self.llm_model = llm_model
+        self.embedding_model = embedding_model
+        self.rerank_model = rerank_model
         self.relation_service = relation_service
+
+    async def streaming_response_iterator(self, res):
+        for chunk in res:
+            cache = dumps(chunk["choices"][0]["delta"]["content"]) + "\n"
+            if cache:
+                yield cache
+            if chunk["choices"][0].get("finish_reason") == "stop":
+                break
+            await sleep(0)
 
     async def rerank(
         self, question: str, context: list[dict], collection_name: str
@@ -32,7 +57,7 @@ class LLMService:
                 question=question,
             )
             reranked_data.append(part_res)
-        res = await self.unify_filter(data=reranked_data, question=question)
+        res = self.unify_filter(data=reranked_data, question=question)
         return res
 
     async def rerank_loop(self, document: list[str], question: str):
@@ -40,14 +65,14 @@ class LLMService:
         text_to_meta = {item["text"]: item["metadata"] for item in document}
 
         loop = get_running_loop()
-        res: RerankResultSchemas = await loop.run_in_executor(
-            None, rerank_model.rerank, texts, question, k, None, True
+        res: RerankResult = await loop.run_in_executor(
+            None, self.rerank_model.rerank, texts, question, k, None, True
         )
         for item in res["results"]:
             item["metadata"] = text_to_meta.get(item["document"]["text"])
         return res
 
-    async def unify_filter(self, data: list[dict], question: str):
+    def unify_filter(self, data: list[dict], question: str):
         res = []
         filter_data = [part["results"] for part in data]
         for document in filter_data:
@@ -64,14 +89,6 @@ class LLMService:
             return res[:p]
         return "## No relevant documents found, please try to rephrase your question."
 
-    async def create_system_static_prompt(self, question: str, context: list[dict]):
-        full_text = (
-            "\n".join([item["text"] for item in context if "text" in item])
-            if context
-            else "(无参考信息, 请按提示要求返回)"
-        )
-        return f"[需要处理的问题]:\n{question}\n[已知文档信息]:\n{full_text}"
-
     async def parse_references(self, output: list[dict]):
         references = []
         for item in output:
@@ -84,6 +101,32 @@ class LLMService:
             references.append(document)
         return references
 
+    def create_user_prompt(self, question: str, context: list[dict]):
+        reference = (
+            "\n".join([item["text"] for item in context if "text" in item])
+            if context
+            else "(无参考信息, 请按提示要求返回)"
+        )
+        return self.truncate_prompt(user_prompt(question=question, reference=reference))
 
-def get_llm_service(relation_service=Depends(get_relation)) -> LLMService:
-    return LLMService(relation_service=relation_service)
+    def truncate_prompt(self, prompt: str) -> str:
+        tokenizer = get_tokenizer()
+        tokens = tokenizer.encode(prompt)
+        if len(tokens) > max_model_len:
+            tokens = tokens[:max_model_len]
+            prompt = tokenizer.decode(tokens, clean_up_tokenization_spaces=True)
+        return prompt
+
+
+def get_llm_service(
+    llm_model=Depends(get_llm_model),
+    embedding_model=Depends(get_embedding_model),
+    rerank_model=Depends(get_rerank_model),
+    relation_service=Depends(get_relation_service),
+) -> LLMService:
+    return LLMService(
+        llm_model=llm_model,
+        embedding_model=embedding_model,
+        rerank_model=rerank_model,
+        relation_service=relation_service,
+    )

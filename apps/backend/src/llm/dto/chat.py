@@ -4,19 +4,19 @@ from pydantic import BaseModel
 from typing_extensions import NotRequired, TypedDict
 
 
-class ChatCompletionMessage(TypedDict):
+class ChatMessage(TypedDict):
     role: str
     content: Optional[str]
     user: NotRequired[str]
     tool_calls: NotRequired[List]
 
 
-class LLMChatDto(BaseModel):
+class LLMChat(BaseModel):
     prompt: str
     system_prompt: Optional[str] = None
-    chat_history: Optional[List["ChatCompletionMessage"]] = []
+    chat_history: Optional[List["ChatMessage"]] = []
 
 
-class RAGChatDto(LLMChatDto):
+class RAGChat(LLMChat):
     collection_name: str
     database_name: str

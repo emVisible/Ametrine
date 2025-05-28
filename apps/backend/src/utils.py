@@ -3,15 +3,15 @@ from typing import List
 
 from fastapi import Depends
 from src.base.auth.service import get_current_user, permission_map
-from src.exceptions import ForbiddenException
+from src.middleware.exceptions import ForbiddenException
 
 
-def use_database_before(default_db="default"):
+def use_vector_database(default_db="default"):
     def decorator(func):
         @wraps(func)
         async def wrapper(self, *args, **kwargs):
             database_name = kwargs.get("database_name", default_db)
-            self.client.use_database(database_name)
+            self.milvus_service.use_database(database_name)
             return await func(self, *args, **kwargs)
 
         return wrapper

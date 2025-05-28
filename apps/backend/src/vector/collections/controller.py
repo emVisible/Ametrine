@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, status
-from src.logger import Tags
-from src.relation.service import RelationService, get_relation
+from operator import attrgetter
+
+from fastapi import APIRouter, Depends
+from src.middleware.tags import ControllerTag
+from src.relation.service import RelationService, get_relation_service
 from src.vector.collections.dto import (
     CollectionBaseDto,
     CollectionCreateDto,
@@ -9,7 +11,9 @@ from src.vector.collections.dto import (
 )
 from src.vector.collections.service import CollectionService, get_collection_service
 
-route_vector_collection = APIRouter(prefix="/collection", tags=[Tags.vector_db])
+route_vector_collection = APIRouter(
+    prefix="/collection", tags=[ControllerTag.vector_db]
+)
 
 
 @route_vector_collection.post(
@@ -43,11 +47,12 @@ async def get(
 async def create(
     dto: CollectionCreateDto,
     service: CollectionService = Depends(get_collection_service),
-    relation_service: RelationService = Depends(get_relation),
+    relation_service: RelationService = Depends(get_relation_service),
 ):
-    collection_name = dto.collection_name
-    database_name = dto.database_name
-    description = dto.description
+
+    collection_name, database_name, description = attrgetter(
+        "collection_name", "database_name", "description"
+    )(dto)
     db = await relation_service.databaseService.database_get_service(name=database_name)
     await relation_service.collectionService.collection_create_service(
         name=collection_name, database_id=db.id, description=description
@@ -67,9 +72,9 @@ async def rename(
     dto: CollectionRenameDto,
     service: CollectionService = Depends(get_collection_service),
 ):
-    old_name = dto.old_name
-    new_name = dto.new_name
-    database_name = dto.database_name
+    old_name, new_name, database_name = attrgetter(
+        "old_name", "new_name", "database_name"
+    )(dto)
     return await service.collection_rename_service(
         old_name=old_name, new_name=new_name, database_name=database_name
     )
@@ -83,8 +88,7 @@ async def get(
     dto: CollectionUniversalDto,
     service: CollectionService = Depends(get_collection_service),
 ):
-    collection_name = dto.collection_name
-    database_name = dto.database_name
+    collection_name, database_name = attrgetter("collection_name", "database_name")(dto)
     return await service.collection_get_describe_service(
         collection_name=collection_name, database_name=database_name
     )
@@ -98,19 +102,13 @@ async def delete(
     dto: CollectionUniversalDto,
     service: CollectionService = Depends(get_collection_service),
 ):
-    collection_name = dto.collection_name
-    database_name = dto.database_name
+    collection_name, database_name = attrgetter("collection_name", "database_name")(dto)
     return await service.collection_delete_service(
         collection_name=collection_name, database_name=database_name
     )
 
 
-@route_vector_collection.post(
-    "/reset",
-    summary="重置Collection",
-    status_code=status.HTTP_200_OK,
-    tags=[Tags.vector_db],
-)
+@route_vector_collection.post("/reset", summary="重置Collection")
 async def reset(
     dto: CollectionBaseDto,
     service: CollectionService = Depends(get_collection_service),
@@ -119,10 +117,7 @@ async def reset(
     return await service.collection_reset_service(database_name=database_name)
 
 
-@route_vector_collection.post(
-    "/reset/all",
-    summary="重置所有Collection",
-)
+@route_vector_collection.post("/reset/all", summary="重置所有Collection")
 async def reset(
     service: CollectionService = Depends(get_collection_service),
 ):

@@ -1,31 +1,23 @@
 from fastapi import APIRouter, Depends
-from src.base.database import reset_db
-from src.logger import Tags
+from src.client import reset_relation_db
+from src.middleware.tags import ControllerTag
 from src.utils import require_roles
 
-from .service import InitService
+from .service import InitService, get_init_service
 
-route_init = APIRouter(prefix="/init")
+route_init = APIRouter(prefix="/init", tags=[ControllerTag.init])
 
 
-@route_init.post(
-    "/table",
-    summary="[初始化] 初始化数据库",
-    tags=[Tags.init],
-)
+@route_init.post("/table", summary="[初始化] 初始化数据库")
 async def init_table_user(
-    service: InitService = Depends(InitService),
+    service: InitService = Depends(get_init_service),
 ):
-    await reset_db()
+    await reset_relation_db()
     await service.db_init()
     return "初始化成功"
 
 
-@route_init.post(
-    "/test",
-    summary="admin权限测试",
-    tags=[Tags.init],
-)
+@route_init.post("/test", summary="[测试] admin权限测试")
 async def test(
     user=Depends(require_roles(["admin"])),
 ):

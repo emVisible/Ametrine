@@ -1,17 +1,17 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.base.auth.service import AuthService
-from src.base.database import get_db
-from src.base.models import Role, User
+from src.base.auth.service import AuthService, get_auth_service
+from src.client import get_relation_db
+from src.models import Role, User
 
 
 class InitService:
     def __init__(
         self,
-        db: AsyncSession = Depends(get_db),
-        auth_service: AuthService = Depends(),
+        client: AsyncSession,
+        auth_service: AuthService,
     ):
-        self.session = db
+        self.session = client
         self.auth_service = auth_service
 
     async def db_init(self):
@@ -50,3 +50,10 @@ class InitService:
         ]
         self.session.add_all(users)
         await self.session.commit()
+
+
+def get_init_service(
+    client: AsyncSession = Depends(get_relation_db),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    return InitService(client=client, auth_service=auth_service)
