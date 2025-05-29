@@ -2,7 +2,9 @@ from asyncio import Lock
 from functools import lru_cache
 from typing import AsyncGenerator
 
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import XinferenceEmbeddings
+from langchain_experimental.text_splitter import SemanticChunker
 from pymilvus import MilvusClient
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -11,8 +13,11 @@ from transformers import AutoTokenizer
 from xinference.client import RESTfulClient
 
 from .config import (
+    chunk_overlap,
+    chunk_size,
     postgre_addr,
     postgre_log,
+    semantic_splitter,
     xinference_addr,
     xinference_embedding_model_id,
     xinference_llm_model_id,
@@ -79,4 +84,15 @@ def get_embedding_model():
 def get_tokenizer():
     return AutoTokenizer.from_pretrained(
         "/root/.cache/modelscope/hub/models/qwen/Qwen2___5-0___5B-Instruct"
+    )
+
+
+@lru_cache()
+def get_splitter():
+    if semantic_splitter:
+        return SemanticChunker(
+            get_embedding_model(), breakpoint_threshold_type="gradient"
+        )
+    return RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size, chunk_overlap=chunk_overlap
     )

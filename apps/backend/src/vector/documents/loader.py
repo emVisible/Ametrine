@@ -4,22 +4,13 @@ from os import cpu_count, path
 from typing import List
 
 from langchain.docstore.document import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
-    CSVLoader,
-    EverNoteLoader,
-    PDFMinerLoader,
-    TextLoader,
-    UnstructuredEmailLoader,
-    UnstructuredEPubLoader,
-    UnstructuredExcelLoader,
-    UnstructuredHTMLLoader,
-    UnstructuredMarkdownLoader,
-    UnstructuredODTLoader,
-    UnstructuredPowerPointLoader,
-    UnstructuredWordDocumentLoader,
-)
-from src.config import chunk_overlap, chunk_size, doc_addr
+    CSVLoader, EverNoteLoader, PDFMinerLoader, TextLoader,
+    UnstructuredEmailLoader, UnstructuredEPubLoader, UnstructuredExcelLoader,
+    UnstructuredHTMLLoader, UnstructuredMarkdownLoader, UnstructuredODTLoader,
+    UnstructuredPowerPointLoader, UnstructuredWordDocumentLoader)
+from src.client import get_splitter
+from src.config import doc_addr
 from tqdm import tqdm
 
 LOADER_MAPPING = {
@@ -79,8 +70,7 @@ def process_documents(
         documents = load_document(file_path=file_path)
     if not documents:
         exit(0)
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size, chunk_overlap=chunk_overlap
-    )
-    texts = text_splitter.split_documents(documents)
+    splitter = get_splitter()
+    texts = splitter.split_documents(documents)
+    print(texts)
     return texts

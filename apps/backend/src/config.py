@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     postgre_addr: str = Field(..., alias="POSTGRE_ADDR")
     postgre_log: bool = Field(..., alias="POSTGRE_LOG")
 
+    semantic_splitter: bool = Field(..., alias="SEMANTIC_SPLITTER")
+
     class Config:
         extra = "ignore"
         env_file = ".env"

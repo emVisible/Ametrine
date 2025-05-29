@@ -16,9 +16,9 @@ class VectorService:
         document_service: DocumentService,
     ):
         self.milvus_service = milvus_service
-        self.collectionService = collection_service
-        self.databaseService = database_service
-        self.documentService = document_service
+        self.collection_service = collection_service
+        self.database_service = database_service
+        self.document_service = document_service
 
 
 def get_vector_service(

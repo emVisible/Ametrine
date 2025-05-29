@@ -23,6 +23,9 @@ langchain_community
 langchain_milvus
 pymilvus
 
+# Semantic Text Split
+langchain_experimental
+
 # Traditional Database (PostgreSQL)
 sqlalchemy
 asyncpg

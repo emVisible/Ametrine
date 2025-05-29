@@ -15,9 +15,9 @@ from .loader import process_documents
 class DocumentService:
     def __init__(
         self,
-        milvus_service: MilvusClient = Depends(get_milvus_service),
-        relation_service: RelationService = Depends(get_relation_service),
-        llm_service: LLMService = Depends(get_llm_service),
+        milvus_service: MilvusClient,
+        relation_service: RelationService,
+        llm_service: LLMService,
     ):
         self.milvus_service = milvus_service
         self.relation_service = relation_service
@@ -86,7 +86,9 @@ class DocumentService:
                     }
                 )
             self.milvus_service.insert(collection_name=collection_name, data=data)
-            return self.milvus_service.get_collection_stats(collection_name=collection_name)
+            return self.milvus_service.get_collection_stats(
+                collection_name=collection_name
+            )
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
         # finally:

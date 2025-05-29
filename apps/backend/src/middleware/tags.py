@@ -17,3 +17,4 @@ class LoggerTag(Enum):
     vector = "[Vector]"
     model = "[Model]"
     relation = "[Relation]"
+    preprocess = "[Preprocess]"
