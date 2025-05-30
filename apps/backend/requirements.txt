@@ -26,6 +26,19 @@ pymilvus
 # Semantic Text Split
 langchain_experimental
 
+# Document Load
+pdfminer.six==20221105
+pi-heif
+unstructured-inference
+pdf2image
+pytesseract
+effdet
+google-cloud-vision
+pikepdf
+pypdf
+openpyxl
+python-pptx
+
 # Traditional Database (PostgreSQL)
 sqlalchemy
 asyncpg
