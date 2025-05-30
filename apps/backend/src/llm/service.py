@@ -2,12 +2,8 @@ from asyncio import get_running_loop, sleep
 from json import dumps
 
 from fastapi import Depends
-from src.client import (
-    get_embedding_model,
-    get_llm_model,
-    get_rerank_model,
-    get_tokenizer,
-)
+from src.client import (get_embedding_model, get_llm_model, get_rerank_model,
+                        get_tokenizer)
 from src.config import k, max_model_len, min_relevance_score, p
 from src.relation.service import RelationService, get_relation_service
 
@@ -90,6 +86,8 @@ class LLMService:
         return "## No relevant documents found, please try to rephrase your question."
 
     async def parse_references(self, output: list[dict]):
+        if type(output) == list:
+          return []
         references = []
         for item in output:
             doc_id = item.get("doc_id")
