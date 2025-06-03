@@ -47,5 +47,6 @@ redis
 # Backend
 fastapi
 dotenv
+starlette
 colorlog
 pydantic-settings
