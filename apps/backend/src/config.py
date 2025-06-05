@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     secret_key: str = Field(..., alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(..., alias="ACCESS_TOKEN_EXPIRE_MINUTES")
 
-    xinference_addr: str = Field(..., alias="XINFERENCE_ADDR")
+    xinference_addr: str = Field(..., alias="XINFERENCE_MAIN_ADDR")
+    xinference_vice_addr: str = Field(..., alias="XINFERENCE_VICE_ADDR")
     xinference_llm_model_id: str = Field(..., alias="XINFERENCE_LLM_MODEL_ID")
     xinference_embedding_model_id: str = Field(
         ..., alias="XINFERENCE_EMBEDDING_MODEL_ID"

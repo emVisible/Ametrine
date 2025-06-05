@@ -7,23 +7,17 @@ from langchain_community.embeddings import XinferenceEmbeddings
 from langchain_experimental.text_splitter import SemanticChunker
 from pymilvus import MilvusClient
 from redis import Redis
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
+                                    create_async_engine)
 from sqlalchemy.orm import declarative_base
 from transformers import AutoTokenizer
 from xinference.client import RESTfulClient
 
-from .config import (
-    chunk_overlap,
-    chunk_size,
-    postgre_addr,
-    postgre_log,
-    semantic_splitter,
-    xinference_addr,
-    xinference_embedding_model_id,
-    xinference_llm_model_id,
-    xinference_rerank_model_id,
-    xinference_stt_model_id
-)
+from .config import (chunk_overlap, chunk_size, postgre_addr, postgre_log,
+                     semantic_splitter, xinference_addr,
+                     xinference_embedding_model_id, xinference_llm_model_id,
+                     xinference_rerank_model_id, xinference_stt_model_id,
+                     xinference_vice_addr)
 
 
 # Milvus Client
@@ -62,6 +56,7 @@ def get_redis() -> Redis:
 """ Xinference client """
 model_lock = Lock()
 client = RESTfulClient(base_url=xinference_addr)
+client_vice = RESTfulClient(base_url=xinference_vice_addr)
 
 
 @lru_cache()
@@ -79,9 +74,11 @@ def get_embedding_model():
     return XinferenceEmbeddings(
         server_url=xinference_addr, model_uid=xinference_embedding_model_id
     )
+
+
 @lru_cache()
 def get_stt_model():
-  return client.get_model(model_uid=xinference_stt_model_id)
+    return client_vice.get_model(model_uid=xinference_stt_model_id)
 
 
 @lru_cache()
