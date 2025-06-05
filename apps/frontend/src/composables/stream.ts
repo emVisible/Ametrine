@@ -50,11 +50,11 @@ export const parseReferences = async (references: any[]) => {
       id: v4(),
       date: new Date().toLocaleString(),
       role: 'machine',
-      content: `
+      content: source.length > 0 ? `
       <div style="margin-top: 20px;border-left: 4px solid #a29bfe; padding-left: 12px; opacity: 0.8;">
         ${content}
       </div>
-      `,
+      `: "",
     }
   )
 }

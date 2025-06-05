@@ -86,7 +86,7 @@ class LLMService:
         return "## No relevant documents found, please try to rephrase your question."
 
     async def parse_references(self, output: list[dict]):
-        if type(output) == list:
+        if type(output) == str:
           return []
         references = []
         for item in output:
