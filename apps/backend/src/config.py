@@ -15,6 +15,7 @@ class Settings(BaseSettings):
         ..., alias="XINFERENCE_EMBEDDING_MODEL_ID"
     )
     xinference_rerank_model_id: str = Field(..., alias="XINFERENCE_RERANK_MODEL_ID")
+    xinference_stt_model_id: str = Field(..., alias="XINFERENCE_STT_MODEL_ID")
 
     db_addr: str = Field(..., alias="DB_ADDR")
     doc_addr: str = Field(..., alias="DOC_ADDR")

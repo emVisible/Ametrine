@@ -22,6 +22,7 @@ from .config import (
     xinference_embedding_model_id,
     xinference_llm_model_id,
     xinference_rerank_model_id,
+    xinference_stt_model_id
 )
 
 
@@ -78,6 +79,9 @@ def get_embedding_model():
     return XinferenceEmbeddings(
         server_url=xinference_addr, model_uid=xinference_embedding_model_id
     )
+@lru_cache()
+def get_stt_model():
+  return client.get_model(model_uid=xinference_stt_model_id)
 
 
 @lru_cache()

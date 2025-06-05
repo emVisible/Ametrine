@@ -139,6 +139,7 @@ def log_config():
         {"name": "XINFERENCE_LLM_MODEL_ID", "tag": model},
         {"name": "XINFERENCE_EMBEDDING_MODEL_ID", "tag": model},
         {"name": "XINFERENCE_RERANK_MODEL_ID", "tag": model},
+        {"name": "XINFERENCE_STT_MODEL_ID", "tag": model},
         {"name": "DB_ADDR", "tag": vector},
         {"name": "DOC_ADDR", "tag": vector},
         {"name": "K", "tag": vector},

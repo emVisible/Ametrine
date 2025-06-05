@@ -7,15 +7,7 @@ tiktoken
 protobuf
 bitsandbytes
 sentence-transformers
-unstructured
-python-docx
-loguru
-hydra-core
-pytorch-lightning
-lightning
-natsort
-loralib
-soundfile
+funasr
 
 # Vector Database (Milvus)
 langchain
@@ -29,6 +21,8 @@ langchain_experimental
 # Document Load
 pdfminer.six==20221105
 pi-heif
+unstructured
+python-docx
 unstructured-inference
 pdf2image
 pytesseract

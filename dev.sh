@@ -49,29 +49,30 @@ fi
 
 # 创建 backend 窗口
 tmux new-window -t $SESSION_NAME -n $BACKEND_WINDOW
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.0 "conda activate ametrine" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.0 "cd $BACKEND_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.0 "echo '🚀 启动 xinference-local...'" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.0 "XINFERENCE_MODEL_SRC=modelscope xinference-local" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.0 "source .venv/bin/activate" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.0 "uv run -- env XINFERENCE_MODEL_SRC=modelscope xinference-local" C-m
 
 # 在 backend 窗口中分屏（垂直）运行模型加载命令, 加载完毕后关闭窗口
 tmux split-window -h -t ${SESSION_NAME}:${BACKEND_WINDOW}
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "conda activate ametrine" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "cd $BACKEND_PATH" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "source .venv/bin/activate" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "echo '⏳ 等待 xinference-local 启动完成...'" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "sleep 32" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "xinference launch --model-name qwen2.5-instruct --model-engine Transformers --size-in-billions 0_5 --model-format pytorch" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "xinference launch --model-name bge-m3 --model-type embedding" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "xinference launch --model-name bge-reranker-base --model-type rerank" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "uv run -- xinference launch --model-name qwen3 --model-engine Transformers --size-in-billions 1_7 --model-format pytorch" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "uv run -- xinference launch --model-name bge-m3 --model-type embedding" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "uv run -- xinference launch --model-name bge-reranker-base --model-type rerank" C-m
+
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "echo '🚀 模型加载完成，关闭当前窗口...'" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "exit" C-m
 
 # 启动后端服务, 在/apps/backend下运行uvicorn
 tmux split-window -h -t ${SESSION_NAME}:${BACKEND_WINDOW}
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "sleep 60" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "conda activate ametrine" C-m
 tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "cd $BACKEND_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "uvicorn main:app --port 3000 --reload" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "source .venv/bin/activate" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "sleep 60" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "uv run uvicorn main:app --port 3000 --reload" C-m
+
 
 # 创建独立的 database 窗口
 tmux new-window -t $SESSION_NAME -n $DATABASE_WINDOW
