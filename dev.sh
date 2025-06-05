@@ -1,12 +1,14 @@
 #!/bin/bash
 
 SESSION_NAME="dev"
-FRONTEND_WINDOW="frontend"
+FRONTEND_WINDOW="Frontend"
 FRONTEND_PATH="apps/frontend"
-BACKEND_WINDOW="backend"
+XINFERENCE_WINDOW="Xinference"
+BACKEND_WINDOW="Backend"
 BACKEND_PATH="apps/backend"
-DATABASE_WINDOW="database"
+DATABASE_WINDOW="Milvus"
 DATABASE_PATH="apps/database"
+
 
 # 检查 tmux 是否安装
 if ! command -v tmux &> /dev/null
@@ -47,43 +49,51 @@ else
     fi
 fi
 
-# 创建 backend 窗口
-tmux new-window -t $SESSION_NAME -n $BACKEND_WINDOW
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.0 "cd $BACKEND_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.0 "source .venv/bin/activate" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.0 "uv run -- env XINFERENCE_MODEL_SRC=modelscope xinference-local" C-m
+tmux new-window -t $SESSION_NAME -n $XINFERENCE_WINDOW
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.0 "cd $BACKEND_PATH" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.0 "source .venv/bin/activate" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.0 "uv run -- env XINFERENCE_MODEL_SRC=modelscope xinference-local" C-m
 
 # 在 backend 窗口中分屏（垂直）运行模型加载命令, 加载完毕后关闭窗口
-tmux split-window -h -t ${SESSION_NAME}:${BACKEND_WINDOW}
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "cd $BACKEND_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "source .venv/bin/activate" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "echo '⏳ 等待 xinference-local 启动完成...'" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "sleep 32" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "uv run -- xinference launch --model-name qwen3 --model-engine Transformers --size-in-billions 1_7 --model-format pytorch" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "uv run -- xinference launch --model-name bge-m3 --model-type embedding" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "uv run -- xinference launch --model-name bge-reranker-base --model-type rerank" C-m
+tmux split-window -h -t ${SESSION_NAME}:${XINFERENCE_WINDOW}
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "cd $BACKEND_PATH" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "source .venv/bin/activate" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "echo '⏳ 等待 xinference-local 启动完成...'" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "sleep 20" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "uv run -- xinference launch --model-name qwen3 --model-engine Transformers --size-in-billions 1_7 --model-format pytorch" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "uv run -- xinference launch --model-name bge-m3 --model-type embedding" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "uv run -- xinference launch --model-name bge-reranker-base --model-type rerank" C-m
 
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "echo '🚀 模型加载完成，关闭当前窗口...'" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.1 "exit" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "echo '🚀 模型加载完成，关闭当前窗口...'" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "exit" C-m
 
-# 启动后端服务, 在/apps/backend下运行uvicorn
-tmux split-window -h -t ${SESSION_NAME}:${BACKEND_WINDOW}
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "cd $BACKEND_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "source .venv/bin/activate" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "sleep 60" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW}.2 "uv run uvicorn main:app --port 3000 --reload" C-m
+tmux split-window -h -t ${SESSION_NAME}:${XINFERENCE_WINDOW}
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.2 "cd $BACKEND_PATH" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.2 "source .venv/bin/activate" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.2 "uv run -- env XINFERENCE_MODEL_SRC=modelscope xinference-local --port 9998" C-m
 
+tmux split-window -h -t ${SESSION_NAME}:${XINFERENCE_WINDOW}
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "echo '⏳ 等待 xinference-local 启动完成...'" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "sleep 20" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "uv run -- xinference launch --model-name SenseVoiceSmall --model-type audio --endpoint http://127.0.0.1:9998" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "exit" C-m
+
+# Backend
+tmux new-window -t $SESSION_NAME -n $BACKEND_WINDOW
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW} "cd $BACKEND_PATH" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW} "source .venv/bin/activate" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW} "sleep 60" C-m
+tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW} "uv run -- uvicorn main:app --reload --port 3000" C-m
 
 # 创建独立的 database 窗口
 tmux new-window -t $SESSION_NAME -n $DATABASE_WINDOW
-tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "conda activate ametrine" C-m
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "echo '🚀 启动 Milvus...'" C-m
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "cd $DATABASE_PATH" C-m
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "bash standalone_embed.sh start" C-m
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "echo '🚀 数据库加载完成，请打开localhost:9091/webui页面'" C-m
-tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW}.1 "sleep 32" C-m
-tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW}.1 "exit" C-m
+tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "sleep 32" C-m
+tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "exit" C-m
 
 # 附加到 tmux 会话
-tmux select-window -t ${SESSION_NAME}:${BACKEND_WINDOW}
+tmux select-window -t ${SESSION_NAME}:${XINFERENCE_WINDOW}
 tmux attach-session -t $SESSION_NAME
