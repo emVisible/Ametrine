@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     postgre_log: bool = Field(..., alias="POSTGRE_LOG")
 
     semantic_splitter: bool = Field(..., alias="SEMANTIC_SPLITTER")
+    ocr_agent: str = Field(..., alias="OCR_AGENT")
+    web_search_summary_limit: int = Field(..., alias="WEB_SEARCH_SUMMARY_LIMIT")
+
+    semaphore: int = Field(..., alias="SEMAPHORE")
 
     class Config:
         extra = "ignore"

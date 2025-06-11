@@ -128,6 +128,8 @@ def log_config():
     model = LoggerTag.model.value
     relation = LoggerTag.relation.value
     preprocess = LoggerTag.preprocess.value
+    agent = LoggerTag.agent.value
+    performance = LoggerTag.performance.value
     env_path = join(abspath("./"), ".env")
     config_logger.critical(f"[{project}]-[ENV_PATH]-{env_path}")
     configs = [
@@ -151,6 +153,9 @@ def log_config():
         {"name": "POSTGRE_ADDR", "tag": relation},
         {"name": "POSTGRE_LOG", "tag": relation},
         {"name": "SEMANTIC_SPLITTER", "tag": preprocess},
+        {"name": "OCR_AGENT", "tag": preprocess},
+        {"name": "WEB_SEARCH_SUMMARY_LIMIT", "tag": agent},
+        {"name": "SEMAPHORE", "tag": performance},
     ]
     for config in configs:
         tag = config["tag"]

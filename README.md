@@ -1,12 +1,18 @@
 ## 简介
 
-Ametrine——基于 RAG 的本地知识库系统, 基于 monorepo
+Ametrine——基于 RAG 的本地知识库系统
 
 特性
 
-- 多数据库：指的是 Milvus 中的数据库概念；一个数据库绑定多个集合，对应部门的概念
-- 多租户：一个租户绑定一个集合，对应部门下公开或私有的的知识库类别
-- 集合：一个集合与一个租户绑定(本系统设定), 真正的运行与存储单元
+- 多租户：租户与数据库一一绑定
+- 传统+向量数据库：Milvus + PostgreSQL
+- 二级检索过滤：支持 Rerank Model
+- 预处理：语义切分 + 常用文件格式解析
+- RAG：文档回溯
+- SSE 流式渲染
+- 日夜主题切换
+- 自动滚动
+- 多 Session 历史对话记录(前端存储)
 
 ## 系统要求
 
@@ -18,11 +24,24 @@ Memory: 16G
 
 推荐配置
 OS: Ubuntu 20.04
-GPU: 2080ti 22G | 3090 | ...8G 以上显存
+GPU: 2080ti 22G | 3090 | ...
 Disk: 60G+
 Memory: 32G+
 
-本项目开发使用 3080，开发模式下所需最低显存约为 7G, 测试部署使用 3090x2
+本项目开发使用 3080 或 2080ti，开发模式下所需最低显存约为 10G, 测试部署使用 3090x2
+
+Models
+对于常规开发模式，一张 10G 显存的卡可够用, 以 3080 和 2080ti 为例
+
+- LLM
+  - qwen3 1.7B (dev) 显存占用 5.2G
+- Embedding
+  - bge-m3 显存占用 2.4G
+- Rerank
+  - bge-reranker-base(dev) 显存占用 1.3G
+  - minicpm-reranker(product) 显存占用 12G
+- Audio
+  - SenseVoiceSmall (STT)
 
 ## 依赖安装
 
@@ -43,12 +62,15 @@ yarn
 ### 后端
 
 进入 apps/backend
+推荐使用 uv 安装
 
 ```
-pip install -r requirements.txt
+uv pip install
 ```
 
 ### 数据库
+
+#### PostgreSQL
 
 ubuntu 下安装 PostgreSQL
 
@@ -88,54 +110,53 @@ Vscode 安装插件：Database Client, 可连接到 postgre 上进行可视化�
 
 至此, 后端与 Postgre 的连接可以在 apps/backend/base/database 填入并应正常连接(pip 安装了 psycopg2-binary 的前提下)
 
+#### Redis
+
+```
+sudo apt install redis
+```
+
 ## 项目启动
 
-可以单独启动后, 运行 Ametrine/dev.sh 一键启动
-
-### LLM
-
-启动 xinference
-
-```
-XINFERENCE_MODEL_SRC=modelscope xinference-local
-```
-
-Models
-
-- LLM
-  - qwen2.5-instruct(dev)
-  - glm4-chat-1m(prodct) or other llm
-- Embedding
-  - bge-m3
-- Rerank
-  - bge-reranker-base(dev)
-  - minicpm-reranker(product)
-
-常规开发时可按需使用 rerank 模型
-
-显存占用:
-
-- qwen2.5-instruct 0.5B: 1.4G
-- bge-m3: 2.4G
-- bge-reranker-base: 1.3G; minicpm-reranker: 12G
-
-### 后端
-
-apps/backend 下运行
-
-```
-uvicorn main:app --port 3000 --reload
-```
+可以前端、Xinference、Milvus、后端这四部分单独启动后, 可运行 dev.sh 一键启动
 
 ### 前端
 
-apps/frontend 下运行
+apps/frontend 下进入开发模式
 
 ```
 yarn dev
 ```
 
-### 数据库
+### Xinference
+
+启动 xinference
+
+启动主节点，用于部署 LLM、Embedding、Rerank 模型（仅开发）
+生产模式时，建议 LLM 独占一张 GPU，其余的 Embedding、Rerank、Audio 模型放在另一张 GPU 上
+
+```
+uv run -- env xinference-local
+```
+
+启动子节点，用于部署 Audio 等模型
+
+```
+uv run -- env xinference-local --endpoint 9998
+```
+
+### 后端
+
+apps/backend 下运行
+
+两行命令均可, 建议使用原生 uvicorn 命令
+
+```
+uv run --env uvicorn main:app --port 3000 --reload
+uv run fastapi dev --reload --port 3000
+```
+
+### Milvus
 
 apps/database 下
 启动 milvus, 基于 Docker
@@ -146,5 +167,5 @@ bash standalone_embed.sh
 
 ## 最后
 
-使用中如果遇到什么问题, 欢迎提 issue 或在 discussion 中讨论
-如果项目对你有什么帮助, 就给个 ⭐️ 吧
+使用中如果遇到什么问题, 欢迎提 issue 或在 discussion 中讨论，项目会长期更进，如果项目对你有什么帮助, 就给个 ⭐️ 吧
+致我们终将逝去的青春 🌙

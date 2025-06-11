@@ -14,8 +14,9 @@ env_rag
 
 
 # database
-apps/database/volumes
-apps/database/docs
+apps/database/volumes/*
+apps/database/docs/*
+apps/backend/storage/*
 
 # Logs
 logs

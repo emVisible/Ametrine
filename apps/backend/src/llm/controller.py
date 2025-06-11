@@ -1,11 +1,11 @@
-from asyncio import Lock
+from asyncio import Semaphore
 from json import dumps, loads
 from operator import attrgetter
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from src.client import get_redis
+from src.client import get_redis, get_semaphore, TaskType
 from src.config import max_model_len
 from src.llm.dto.chat import RAGChat
 from src.middleware.logger import log
@@ -17,7 +17,6 @@ from .prompt import system_prompt_llm, system_prompt_rag
 from .service import LLMService, get_llm_service
 
 route_llm = APIRouter(prefix="/llm", tags=[ControllerTag.llm])
-model_lock = Lock()
 
 
 @route_llm.post("/chat", summary="[LLM] 基础对话")
@@ -29,7 +28,7 @@ async def chat(dto: LLMChat, service: LLMService = Depends(get_llm_service)):
         *chat_history,
         {"role": "user", "content": prompt},
     ]
-    async with model_lock:
+    async with get_semaphore(TaskType.LLM):
         res = service.llm_model.chat(
             messages=messages,
             generate_config={"stream": True, "max_tokens": max_model_len},
@@ -47,6 +46,7 @@ async def search(
     dto: RAGChat,
     document_service: DocumentService = Depends(get_document_service),
     service: LLMService = Depends(get_llm_service),
+    redis_client=Depends(get_redis),
 ):
     raw_prompt, chat_history, database_name, collection_name = attrgetter(
         "prompt", "chat_history", "database_name", "collection_name"
@@ -60,9 +60,8 @@ async def search(
     prompt = service.create_user_prompt(question=raw_prompt, context=output)
     references = await service.parse_references(output)
     session_id = str(uuid4())
-    redis_client = get_redis()
     redis_client.setex(f"chat_ref:{session_id}", 600, dumps(references))
-    async with model_lock:
+    async with get_semaphore(TaskType.RAG):
         res = service.llm_model.chat(
             messages=[
                 {"role": "system", "content": system_prompt_rag},
@@ -84,7 +83,7 @@ async def search(
 
 
 @route_llm.get("/references")
-async def get_references(session_id: str):
-    ref_json = get_redis().get(f"chat_ref:{session_id}")
+async def get_references(session_id: str, redis_client=Depends(get_redis)):
+    ref_json = redis_client.get(f"chat_ref:{session_id}")
     references = loads(ref_json)
     return references

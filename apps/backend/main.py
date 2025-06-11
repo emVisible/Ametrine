@@ -12,6 +12,7 @@ from fastapi.openapi.docs import (
 )
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from src.agent.controller import route_agent
 from src.base.auth.controller import route_auth
 from src.base.controller import route_base
 from src.base.init.controller import route_init
@@ -65,6 +66,7 @@ app.include_router(route_auth, prefix=route_prefix)
 app.include_router(route_relation, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
+app.include_router(route_agent, prefix=route_prefix)
 app.include_router(route_init, prefix=route_prefix)
 app.add_middleware(
     CORSMiddleware, allow_origins=white_list, expose_headers=["X-Session-ID"]

@@ -1,9 +1,14 @@
 from asyncio import get_running_loop, sleep
+from transformers import Qwen2Tokenizer
 from json import dumps
 
 from fastapi import Depends
-from src.client import (get_embedding_model, get_llm_model, get_rerank_model,
-                        get_tokenizer)
+from src.client import (
+    get_embedding_model,
+    get_llm_model,
+    get_rerank_model,
+    get_tokenizer,
+)
 from src.config import k, max_model_len, min_relevance_score, p
 from src.relation.service import RelationService, get_relation_service
 
@@ -18,11 +23,13 @@ class LLMService:
         embedding_model,
         rerank_model,
         relation_service: RelationService,
+        tokenizer: Qwen2Tokenizer,
     ):
         self.llm_model = llm_model
         self.embedding_model = embedding_model
         self.rerank_model = rerank_model
         self.relation_service = relation_service
+        self.tokenizer = tokenizer
 
     async def streaming_response_iterator(self, res):
         for chunk in res:
@@ -87,7 +94,7 @@ class LLMService:
 
     async def parse_references(self, output: list[dict]):
         if type(output) == str:
-          return []
+            return []
         references = []
         for item in output:
             doc_id = item.get("doc_id")
@@ -108,11 +115,10 @@ class LLMService:
         return self.truncate_prompt(user_prompt(question=question, reference=reference))
 
     def truncate_prompt(self, prompt: str) -> str:
-        tokenizer = get_tokenizer()
-        tokens = tokenizer.encode(prompt)
+        tokens = self.tokenizer.encode(prompt)
         if len(tokens) > max_model_len:
             tokens = tokens[:max_model_len]
-            prompt = tokenizer.decode(tokens, clean_up_tokenization_spaces=True)
+            prompt = self.tokenizer.decode(tokens, clean_up_tokenization_spaces=True)
         return prompt
 
 
@@ -121,10 +127,12 @@ def get_llm_service(
     embedding_model=Depends(get_embedding_model),
     rerank_model=Depends(get_rerank_model),
     relation_service=Depends(get_relation_service),
+    tokenizer=Depends(get_tokenizer),
 ) -> LLMService:
     return LLMService(
         llm_model=llm_model,
         embedding_model=embedding_model,
         rerank_model=rerank_model,
         relation_service=relation_service,
+        tokenizer=tokenizer,
     )
