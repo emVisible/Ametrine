@@ -41,7 +41,9 @@ Models
   - bge-reranker-base(dev) 显存占用 1.3G
   - minicpm-reranker(product) 显存占用 12G
 - Audio
-  - SenseVoiceSmall (STT)
+  - SenseVoiceSmall (STT) 显存占用 1.2G
+- Image
+  - GOT-OCR2_0 (OCR Model) 显存占用 3G
 
 ## 依赖安装
 

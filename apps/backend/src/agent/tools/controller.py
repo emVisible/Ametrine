@@ -17,7 +17,7 @@ async def lifespan(app):
 
 
 route_agent_tools = APIRouter(
-    prefix="/tools", tags=[ControllerTag.agent_tools], lifespan=lifespan
+    prefix="/tools", tags=[ControllerTag.agent], lifespan=lifespan
 )
 
 

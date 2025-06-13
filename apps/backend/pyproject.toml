@@ -42,5 +42,6 @@ dependencies = [
     "torchvision>=0.22.0",
     "unstructured>=0.17.2",
     "unstructured-inference>=1.0.2",
+    "verovio>=5.3.2",
     "xinference[vllm]>=1.6.1",
 ]

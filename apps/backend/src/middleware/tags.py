@@ -10,7 +10,6 @@ class ControllerTag(Enum):
     relation_db = "Relation Database"
     init = "Initialization"
     agent = "Agent"
-    agent_tools = "Agent Tools"
 
 
 class LoggerTag(Enum):
@@ -21,5 +20,4 @@ class LoggerTag(Enum):
     relation = "[Relation]"
     preprocess = "[Preprocess]"
     agent = "[Agent]"
-    tools = "[AgentTools]"
     performance = "[Performance]"
