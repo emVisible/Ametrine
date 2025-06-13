@@ -5,42 +5,49 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import Tool
 from src.client import get_llm_model_for_agent
 
+from .tools.duckduckgo import DuckDuckGoService, get_duckduckgo_service
 from .tools.playwright import PlaywrightService, get_playwright_service
 from .tools.shell import ShellService, get_shell_service
-from .tools.spider import SpiderService, get_spider_service
+from .tools.wiki import WikiService, get_wiki_service
 
 
 class AgentService:
     def __init__(
         self,
         llm: BaseChatModel,
-        spider_service: SpiderService,
         shell_service: ShellService,
+        wiki_service: WikiService,
         playwrigt_service: PlaywrightService,
+        duckduckgo_service: DuckDuckGoService,
     ):
         self.llm = llm
-        self.spider_service = spider_service
         self.shell_service = shell_service
+        self.wiki_service = wiki_service
         self.playwrigt_service = playwrigt_service
+        self.duckduckgo_service = duckduckgo_service
         self._agent_executor = None
 
     def _get_prompt(self):
         return hub.pull("hwchase17/structured-chat-agent")
 
     def _get_tools(self):
-        return self.playwrigt_service.get_tools() + [
-            # Tool(
-            #     name="Spider",
-            #     func=self.spider_service.search,
-            #     description="For answering questions by searching from the web to get the latest information when necessary.",
-            #     coroutine=self.spider_service.search,
-            # ),
-            # Tool(
-            #     name="Shell",
-            #     func=self.shell_service.run,
-            #     description="Executing shell commands if necessary, except dangerous command.",
-            # ),
-        ]
+        return [
+            Tool(
+                name="Wikipedia",
+                func=self.wiki_service.run,
+                description="For answering questions by searching Wikipedia. ",
+            ),
+            Tool(
+                name="DuckDuckGo",
+                func=self.duckduckgo_service.run,
+                description="For answering questions by searching DuckDuckGo.",
+            ),
+            Tool(
+                name="Shell",
+                func=self.shell_service.run,
+                description="Executing shell commands if necessary, note that except all dangerous command.",
+            ),
+        ] + self.playwrigt_service.get_tools()
 
     def get_agent_executor(self) -> AgentExecutor:
         if self._agent_executor is None:
@@ -57,13 +64,15 @@ class AgentService:
 
 def get_agent_service(
     llm_service: BaseChatModel = Depends(get_llm_model_for_agent),
-    spider_service: SpiderService = Depends(get_spider_service),
     shell_service: ShellService = Depends(get_shell_service),
+    wiki_service: WikiService = Depends(get_wiki_service),
     playwrigt_service: PlaywrightService = Depends(get_playwright_service),
+    duckduckgo_service: PlaywrightService = Depends(get_duckduckgo_service),
 ):
     return AgentService(
         llm=llm_service,
-        spider_service=spider_service,
         shell_service=shell_service,
+        wiki_service=wiki_service,
         playwrigt_service=playwrigt_service,
+        duckduckgo_service=duckduckgo_service,
     )

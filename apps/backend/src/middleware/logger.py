@@ -154,7 +154,6 @@ def log_config():
         {"name": "POSTGRE_LOG", "tag": relation},
         {"name": "SEMANTIC_SPLITTER", "tag": preprocess},
         {"name": "OCR_AGENT", "tag": preprocess},
-        {"name": "WEB_SEARCH_SUMMARY_LIMIT", "tag": agent},
         {"name": "SEMAPHORE", "tag": performance},
     ]
     for config in configs:

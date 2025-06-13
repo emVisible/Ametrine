@@ -1,4 +1,3 @@
-from fastapi import Depends
 from langchain_community.tools.shell import ShellTool
 
 
@@ -10,5 +9,5 @@ class ShellService:
         return self.service.run(command)
 
 
-def get_shell_service() -> ShellService:
+def get_shell_service():
     return ShellService()
