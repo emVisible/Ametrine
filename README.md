@@ -2,17 +2,18 @@
 
 Ametrine——基于 RAG 的本地知识库系统
 
+后端：FastAPI + LangChain + Xinference + Milvus + PostgreSQL, 基于 uv 进行包管理
+
 特性
 
-- 多租户：租户与数据库一一绑定
-- 传统+向量数据库：Milvus + PostgreSQL
-- 二级检索过滤：支持 Rerank Model
-- 预处理：语义切分 + 常用文件格式解析
-- RAG：文档回溯
+- 基于 Milvus 的多租户模式（租户与数据库一一绑定）
+- 传统+向量数据库（Milvus + PostgreSQL）
+- 支持 Rerank Model
+- 文档预处理：语义切分（Semantic） + 常用文件格式解析（Unstructured）
+- 文档回溯
 - SSE 流式渲染
-- 日夜主题切换
-- 自动滚动
-- 多 Session 历史对话记录(前端存储)
+- Agent：支持 Playwright、Wikipedia、DuckDuckGo、Shell
+- 前端：多 Session 历史对话记录 & 自动滚动 & 日夜主题切换 & 配套后台
 
 ## 系统要求
 
