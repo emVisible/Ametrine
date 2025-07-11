@@ -12,7 +12,9 @@ export const throttle = (fn: Function, delay: number) => {
   }
 }
 export const parseChunk = (chunk: string) => {
-  const postProcessData = JSON.parse(chunk)
+
+  // const postProcessData = JSON.parse(chunk)
+  const postProcessData = chunk
   const item = {
     id: v4(),
     date: new Date().toLocaleString(),

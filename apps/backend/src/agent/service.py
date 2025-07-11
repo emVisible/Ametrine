@@ -1,6 +1,10 @@
 from fastapi import Depends
 from langchain import hub
-from langchain.agents import AgentExecutor, create_structured_chat_agent
+from langchain.agents import (
+    AgentExecutor,
+    create_structured_chat_agent,
+    create_react_agent,
+)
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import Tool
 from src.client import get_llm_model_for_agent
@@ -27,8 +31,41 @@ class AgentService:
         self.duckduckgo_service = duckduckgo_service
         self._agent_executor = None
 
+from langchain_core.prompts import PromptTemplate
+
+template = '''Answer the following questions as best you can. You have access to the following tools:
+
+{tools}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!
+
+Question: {input}
+Thought:{agent_scratchpad}'''
+
     def _get_prompt(self):
-        return hub.pull("hwchase17/structured-chat-agent")
+        return PromptTemplate.from_template(template)
+        return f"""
+          请严格按照以下格式回答：
+
+          {Thought}: 你对问题的思考
+          {Action}: 要调用的工具名称（必须是下面提供的工具之一）
+          {ActionInput}: 给工具的输入内容（用双引号括起来）
+
+          如果你不需要调用工具，而是给出最终答案，请使用：
+
+          {FinalAnswer}: 你的最终答案
+      """
 
     def _get_tools(self):
         return [
@@ -53,9 +90,7 @@ class AgentService:
         if self._agent_executor is None:
             prompt = self._get_prompt()
             tools = self._get_tools()
-            agent = create_structured_chat_agent(
-                llm=self.llm, tools=tools, prompt=prompt
-            )
+            agent = create_react_agent(llm=self.llm, tools=tools, prompt=prompt)
             self._agent_executor = AgentExecutor(
                 agent=agent, tools=tools, verbose=True, handle_parsing_errors=True
             )

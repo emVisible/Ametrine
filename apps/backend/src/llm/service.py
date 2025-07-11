@@ -1,6 +1,6 @@
 from asyncio import get_running_loop, sleep
-from transformers import Qwen2Tokenizer
 from json import dumps
+from typing import AsyncIterator
 
 from fastapi import Depends
 from src.client import (
@@ -11,6 +11,7 @@ from src.client import (
 )
 from src.config import k, max_model_len, min_relevance_score, p
 from src.relation.service import RelationService, get_relation_service
+from transformers import Qwen2Tokenizer
 
 from .dto.rearank import RerankResult
 from .prompt import user_prompt
@@ -31,7 +32,7 @@ class LLMService:
         self.relation_service = relation_service
         self.tokenizer = tokenizer
 
-    async def streaming_response_iterator(self, res):
+    async def stream_by_token(self, res):
         for chunk in res:
             cache = dumps(chunk["choices"][0]["delta"]["content"]) + "\n"
             if cache:
@@ -39,6 +40,14 @@ class LLMService:
             if chunk["choices"][0].get("finish_reason") == "stop":
                 break
             await sleep(0)
+
+    async def stream_by_step(self, iterator: AsyncIterator):
+        async for step in iterator:
+            if "output" in step:
+                yield step["output"]
+            elif "action" in step:
+                action_input = step["action"]["tool_input"]
+                yield action_input
 
     async def rerank(
         self, question: str, context: list[dict], collection_name: str

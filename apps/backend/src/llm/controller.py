@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from src.client import get_redis, get_semaphore, TaskType
+from src.client import TaskType, get_redis, get_semaphore
 from src.config import max_model_len
 from src.llm.dto.chat import RAGChat
 from src.middleware.logger import log
@@ -34,7 +34,7 @@ async def chat(dto: LLMChat, service: LLMService = Depends(get_llm_service)):
             generate_config={"stream": True, "max_tokens": max_model_len},
         )
     return StreamingResponse(
-        content=service.streaming_response_iterator(res),
+        content=service.stream_by_token(res),
         media_type="text/event-stream",
         status_code=200,
     )
@@ -74,7 +74,7 @@ async def search(
             },
         )
     response = StreamingResponse(
-        content=service.streaming_response_iterator(res),
+        content=service.stream_by_token(res),
         media_type="text/event-stream",
         status_code=200,
     )

@@ -13,13 +13,22 @@
       <section class="flex-1 flex w-3/4 justify-center items-center my-4">
         <div
           class="relative flex flex-1 h-[50px] bg-bgReverse items-center rounded-lg duration-300 shadow-sm hover:shadow-lg">
+          <section class="h-full flex justify-center items-center rounded-lg ml-2" @click="switchAgent">
+            <DiamondTwo
+              theme="filled"
+              size="24"
+              :fill="currentFill"
+              :strokeWidth="1"
+              class="p-2 hover:bg-bgAddition cursor-pointer transition-all rounded-md"
+              :class="agentMode ? 'opacity-100' : 'opacity-30'" />
+          </section>
           <input
-            class="bg-bgReverse rounded-lg text-text-heavy flex-[8] h-full pl-6 outline-none"
+            class="bg-bgReverse rounded-lg text-text-heavy flex-[8] h-full pl-4 outline-none"
             type="text"
             v-model="userInput"
             placeholder="想了解点什么~"
             @keyup.enter="handleSubmit" />
-          <section class="flex items-center text-text-gentle rounded-lg mr-2" @click="switchMode">
+          <section class="flex items-center text-text-gentle rounded-lg mr-2" @click="switchRAG">
             <span
               v-if="chatMode"
               @click.stop="selectCollection"
@@ -71,7 +80,8 @@ import { chat } from '@/apis/chat'
 import llmStore from '@/store/llmStore'
 import sessionStore from '@/store/sessionStore'
 import { useThemeStore } from '@/store/themeStore'
-import { Components } from '@icon-park/vue-next'
+import { Components, DiamondTwo } from '@icon-park/vue-next'
+import { agentCommunication } from '@/apis/agent'
 import { ElMessage } from 'element-plus'
 import { v4 } from 'uuid'
 import { onMounted, ref } from 'vue'
@@ -87,6 +97,7 @@ const userInput = ref('')
 const dialogFormVisible = ref(false)
 const isEmpty = ref(await sessionStore().isSessionEmpty())
 const chatMode = ref(false)
+const agentMode = ref(false)
 const collections = ref<string[]>([])
 const databases = ref<string[]>([])
 const collectionName = ref('default')
@@ -158,7 +169,11 @@ onMounted(() => {
   const mainWindow = document.getElementById('main-window')
   mainWindow?.scroll({ top: mainWindow?.scrollHeight })
 })
-const switchMode = () => (chatMode.value = !chatMode.value)
+const switchRAG = () => (chatMode.value = !chatMode.value)
+const switchAgent = () => {
+  agentMode.value = !agentMode.value
+  if (chatMode.value) chatMode.value = false
+}
 
 const handleSubmit = throttle(async (e: KeyboardEvent) => {
   const ipt = e.target as HTMLInputElement
@@ -204,23 +219,29 @@ const dispatch = async () => {
 }
 
 const handleStream = async (slice: string[]) => {
-  const res = await chat({
-    prompt: userInput.value,
-    system_prompt: '',
-    mode: chatMode.value ? 'rag' : 'llm',
-    database_name: databaseName.value,
-    collection_name: collectionName.value,
-    chat_history: [
-      {
-        role: 'user',
-        content: `这些是我想要知道的信息: ${userInput.value}.`,
-      },
-      {
-        role: 'user',
-        content: `这些是可参考的信息: ${slice}.`,
-      },
-    ],
-  })
+  let res
+
+  if (agentMode.value) {
+    res = await agentCommunication(userInput.value)
+  } else {
+    res = await chat({
+      prompt: userInput.value,
+      system_prompt: '',
+      mode: chatMode.value ? 'rag' : 'llm',
+      database_name: databaseName.value,
+      collection_name: collectionName.value,
+      chat_history: [
+        {
+          role: 'user',
+          content: `这些是我想要知道的信息: ${userInput.value}.`,
+        },
+        {
+          role: 'user',
+          content: `这些是可参考的信息: ${slice}.`,
+        },
+      ],
+    })
+  }
   await decodeChunks(res)
   if (chatMode.value) {
     const session_id = res.headers.get('X-Session-ID')!
