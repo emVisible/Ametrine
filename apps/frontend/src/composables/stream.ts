@@ -11,10 +11,8 @@ export const throttle = (fn: Function, delay: number) => {
     return fn(...args)
   }
 }
-export const parseChunk = (chunk: string) => {
-
-  // const postProcessData = JSON.parse(chunk)
-  const postProcessData = chunk
+export const parseChunk = (chunk: string, needParse: boolean) => {
+  const postProcessData = needParse ? JSON.parse(chunk) : chunk
   const item = {
     id: v4(),
     date: new Date().toLocaleString(),
@@ -24,7 +22,7 @@ export const parseChunk = (chunk: string) => {
   sessionStore().pushItemToCurrentSession(item)
 }
 
-export const decodeChunks = async (res: Response) => {
+export const decodeChunks = async (res: Response, needParse: boolean) => {
   if (res.body) {
     const reader = res.body.getReader()
     const decoder = new TextDecoder('utf-8')
@@ -34,11 +32,11 @@ export const decodeChunks = async (res: Response) => {
       let chunk
       try {
         chunk = decoder.decode(value)
-        parseChunk(chunk)
+        parseChunk(chunk, needParse)
       } catch (e) {
         chunk = decoder.decode(value)
         const chunks = chunk.split('\n')
-        chunks.forEach((ck) => ck && parseChunk(ck))
+        chunks.forEach((ck) => ck && parseChunk(ck, needParse))
       }
     }
   }

@@ -242,7 +242,7 @@ const handleStream = async (slice: string[]) => {
       ],
     })
   }
-  await decodeChunks(res)
+  await decodeChunks(res, !agentMode.value)
   if (chatMode.value) {
     const session_id = res.headers.get('X-Session-ID')!
     const references = (await getReferenceData(session_id)).data

@@ -14,12 +14,12 @@
         class="w-full pl-3 duration-300 rounded-md shadow-sm my-1 py-4 text-lg text-text-gentle"
         :class="{ 'bg-bgReverse shadow-lg': index === currentIndex, 'text-heavy': index === currentIndex }"
         @click="switchSession(index)">
-        <template #title>{{session.title}} </template>
+        <template #title>{{ session.title }} </template>
         <template #time>
-          {{ session.history[session.history.length - 1]?.date }}
+          {{ session.history?.[session.history.length - 1]?.date || '' }}
         </template>
         <template #length>
-          {{ session.history.length + '条信息' }}
+          {{ (session.history?.length || 0) + '条信息' }}
         </template>
         <template #delete>
           <delete-three @click="sessionStore().deleteSessionCurrent(index)" theme="outline" size="18" fill="#FA5C5C" />
@@ -97,7 +97,6 @@ const background = () => {
   }
 }
 
-
 .card::-webkit-scrollbar-track {
   background-color: #b8bfc259;
   border-radius: 10px;
@@ -112,8 +111,6 @@ const background = () => {
   background-color: #c4c4c4;
   border-radius: 10px;
 }
-
-
 
 .el-button + .el-button {
   margin-left: 0px;

@@ -74,8 +74,8 @@ tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.2 "uv run -- env XINFEREN
 
 tmux split-window -h -t ${SESSION_NAME}:${XINFERENCE_WINDOW}
 tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "echo '⏳ 等待 xinference-local 启动完成...'" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "sleep 48" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "uv run -- xinference launch --model-name SenseVoiceSmall --model-type audio --endpoint http://127.0.0.1:9998" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "sleep 60" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "uv run -- xinference launch --model-name SenseVoiceSmall-0 --model-type audio --endpoint http://127.0.0.1:9998" C-m
 tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "exit" C-m
 
 # Backend
@@ -89,7 +89,7 @@ tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW} "uv run -- uvicorn main:app 
 tmux new-window -t $SESSION_NAME -n $DATABASE_WINDOW
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "echo '🚀 启动 Milvus...'" C-m
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "cd $DATABASE_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "bash standalone_embed.sh start" C-m
+tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "sh standalone_embed.sh start" C-m
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "echo '🚀 数据库加载完成，请打开localhost:9091/webui页面'" C-m
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "sleep 5" C-m
 tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "exit" C-m

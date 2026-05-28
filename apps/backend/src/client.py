@@ -28,6 +28,7 @@ from .config import (
     xinference_rerank_model_id,
     xinference_stt_model_id,
     xinference_vice_addr,
+    tokenizer_addr,
 )
 
 
@@ -69,7 +70,6 @@ client = RESTfulClient(base_url=xinference_addr)
 client_vice = RESTfulClient(base_url=xinference_vice_addr)
 
 
-@lru_cache()
 def get_llm_model():
     return client.get_model(model_uid=xinference_llm_model_id)
 
@@ -98,9 +98,7 @@ def get_stt_model():
 
 @lru_cache()
 def get_tokenizer():
-    return AutoTokenizer.from_pretrained(
-        "/root/.cache/modelscope/hub/models/qwen/Qwen2___5-0___5B-Instruct"
-    )
+    return AutoTokenizer.from_pretrained(tokenizer_addr)
 
 
 @lru_cache()
