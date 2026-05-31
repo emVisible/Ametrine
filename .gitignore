@@ -8,6 +8,8 @@ stats.html
 # backend
 __pycache__
 docs/*
+!docs/refactor/
+!docs/refactor/**
 *.bin
 *.log
 env_rag

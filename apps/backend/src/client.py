@@ -18,6 +18,8 @@ from xinference.client import RESTfulClient
 from .config import (
     chunk_overlap,
     chunk_size,
+    milvus_host,
+    milvus_port,
     postgre_addr,
     postgre_log,
     semantic_splitter,
@@ -34,7 +36,7 @@ from .config import (
 
 # Milvus Client
 async def get_milvus_service():
-    return MilvusClient(host="127.0.0.1", port="19530")
+    return MilvusClient(host=milvus_host, port=milvus_port)
 
 
 # PostgreSQL Client

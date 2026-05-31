@@ -50,7 +50,7 @@ const toggleDrawerShow = () => {
 }
 
 onMounted(async () => {
-  const collections = (await getCollectionNames()).data
+  const collections = (await getCollectionNames({ database_name: 'default' })).data
 
   const res: any = []
   collections.forEach((collectionName: string) => {

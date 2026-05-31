@@ -91,3 +91,95 @@ class DocumentChunk(Base):
 
     doc_id = Column(UUID(as_uuid=True), ForeignKey("document.id"))
     document = relationship("Document", back_populates="chunks")
+
+
+class Conversation(Base):
+    __tablename__ = "conversation"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    title = Column(String, index=True)
+    mode = Column(String, index=True, default="llm")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    meta = Column(JSONB, nullable=True)
+
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=True, index=True)
+    messages = relationship(
+        "Message", back_populates="conversation", cascade="all, delete"
+    )
+    tool_calls = relationship(
+        "ToolCall", back_populates="conversation", cascade="all, delete"
+    )
+
+
+class Message(Base):
+    __tablename__ = "message"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    role = Column(String, index=True)
+    content = Column(Text)
+    status = Column(String, index=True, default="done")
+    model = Column(String, nullable=True)
+    token_usage = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    meta = Column(JSONB, nullable=True)
+
+    conversation_id = Column(
+        UUID(as_uuid=True), ForeignKey("conversation.id"), index=True
+    )
+    conversation = relationship("Conversation", back_populates="messages")
+
+
+class MemoryItem(Base):
+    __tablename__ = "memory_item"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    scope = Column(String, index=True, default="personal")
+    content = Column(Text)
+    sensitivity = Column(String, index=True, default="normal")
+    enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    meta = Column(JSONB, nullable=True)
+
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=True, index=True)
+    source_message_id = Column(UUID(as_uuid=True), ForeignKey("message.id"), nullable=True)
+
+
+class ToolCall(Base):
+    __tablename__ = "tool_call"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    tool_name = Column(String, index=True)
+    input = Column(JSONB, nullable=True)
+    output_summary = Column(Text, nullable=True)
+    status = Column(String, index=True, default="pending")
+    risk_level = Column(String, index=True, default="low")
+    requires_confirmation = Column(Boolean, default=False)
+    confirmed_by = Column(Integer, ForeignKey("user.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    meta = Column(JSONB, nullable=True)
+
+    conversation_id = Column(
+        UUID(as_uuid=True), ForeignKey("conversation.id"), index=True
+    )
+    message_id = Column(UUID(as_uuid=True), ForeignKey("message.id"), nullable=True)
+    conversation = relationship("Conversation", back_populates="tool_calls")
+
+
+class AudioAsset(Base):
+    __tablename__ = "audio_asset"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    purpose = Column(String, index=True)
+    path = Column(String)
+    sha256 = Column(String, index=True)
+    duration_ms = Column(Integer, nullable=True)
+    transcript = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    meta = Column(JSONB, nullable=True)
+
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=True, index=True)
+    message_id = Column(UUID(as_uuid=True), ForeignKey("message.id"), nullable=True)

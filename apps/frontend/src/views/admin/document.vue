@@ -57,6 +57,7 @@ import { getCollectionNames, getDocumentEntireContent } from '@/apis/collection'
 import { getDatabases } from '@/apis/database'
 import UploadDocument from '@/components/rag/uploadDocument.vue'
 import llmStore from '@/store/llmStore'
+import { ElMessage } from 'element-plus'
 interface CollectionDetailData {
   id: string
   name: string

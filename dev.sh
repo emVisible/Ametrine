@@ -59,7 +59,7 @@ tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "cd $BACKEND_PATH" C-m
 tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "source .venv/bin/activate" C-m
 tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "echo '⏳ 等待 xinference-local 启动完成...'" C-m
 tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "sleep 32" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "uv run -- xinference launch --model-name qwen3 --model-engine Transformers --size-in-billions 1_7 --model-format pytorch" C-m
+tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "uv run -- xinference launch --model-name Qwen3-Instruct --model-engine Transformers --size-in-billions 1_7 --model-format pytorch" C-m
 tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "uv run -- xinference launch --model-name bge-m3 --model-type embedding" C-m
 tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "uv run -- xinference launch --model-name bge-reranker-base --model-type rerank" C-m
 

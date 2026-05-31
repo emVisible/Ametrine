@@ -15,11 +15,18 @@ class Settings(BaseSettings):
     xinference_embedding_model_id: str = Field(
         ..., alias="XINFERENCE_EMBEDDING_MODEL_ID"
     )
+    embedding_dimension: int = Field(default=1024, alias="EMBEDDING_DIMENSION")
     xinference_rerank_model_id: str = Field(..., alias="XINFERENCE_RERANK_MODEL_ID")
     xinference_stt_model_id: str = Field(..., alias="XINFERENCE_STT_MODEL_ID")
+    xinference_tts_model_id: str = Field(default="kokoro", alias="XINFERENCE_TTS_MODEL_ID")
     tokenizer_addr: str = Field(..., alias="TOKENIZER_ADDR")
 
     db_addr: str = Field(..., alias="DB_ADDR")
+    milvus_host: str = Field(default="127.0.0.1", alias="MILVUS_HOST")
+    milvus_port: str = Field(default="19530", alias="MILVUS_PORT")
+    milvus_metric_type: str = Field(default="L2", alias="MILVUS_METRIC_TYPE")
+    milvus_index_type: str = Field(default="IVF_FLAT", alias="MILVUS_INDEX_TYPE")
+    milvus_index_nlist: int = Field(default=256, alias="MILVUS_INDEX_NLIST")
     doc_addr: str = Field(..., alias="DOC_ADDR")
     k: int = Field(..., alias="K")
     p: int = Field(..., alias="P")
@@ -34,6 +41,7 @@ class Settings(BaseSettings):
     ocr_agent: str = Field(..., alias="OCR_AGENT")
 
     semaphore: int = Field(..., alias="SEMAPHORE")
+    agent_shell_enabled: bool = Field(default=False, alias="AGENT_SHELL_ENABLED")
 
     class Config:
         extra = "ignore"

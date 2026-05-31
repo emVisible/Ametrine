@@ -8,7 +8,7 @@ export enum apiEnum {
   AGENT_COMMUNICATION = "/api/agent/chat",
   GET_REFERENCE_DATA = "/api/llm/references",
 
-  UPLOAD_DOCUMENT = '/api/vector/upload_single',
+  UPLOAD_DOCUMENT = '/api/vector/document/upload',
 
   DATABASE_GET = "/api/vector/database/get",
   DATABASE_CREATE = "/api/vector/database/create",

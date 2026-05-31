@@ -1,10 +1,13 @@
+from hashlib import sha256
 from os import getenv
 from pathlib import Path
+from time import time
 from uuid import uuid4
 
 from fastapi import Depends, HTTPException, UploadFile
 from pymilvus import MilvusClient
 from src.client import get_milvus_service
+from src.config import xinference_embedding_model_id
 from src.llm.service import LLMService, get_llm_service
 from src.relation.service import RelationService, get_relation_service
 from src.utils import use_vector_database
@@ -29,16 +32,24 @@ class DocumentService:
     ):
         if not self.milvus_service.has_collection(collection_name=collection_name):
             raise HTTPException(status_code=404, detail="Collection not found")
-        self.milvus_service.load_collection(collection_name=collection_name)
-        res = self.milvus_service.search(
-            collection_name=collection_name,
-            data=[self.llm_service.embedding_model.embed_query(data)],
-            output_fields=["doc_id", "chunk_id"],
-            timeout=30,
-            limit=10,
+        try:
+            self.milvus_service.load_collection(collection_name=collection_name)
+            res = self.milvus_service.search(
+                collection_name=collection_name,
+                data=[self.llm_service.embedding_model.embed_query(data)],
+                output_fields=["doc_id", "chunk_id"],
+                timeout=30,
+                limit=10,
+            )
+            return res[0]
+        finally:
+            self.milvus_service.release_collection(collection_name=collection_name)
+
+    def _collection_fields(self, collection_name: str) -> set[str]:
+        collection = self.milvus_service.describe_collection(
+            collection_name=collection_name
         )
-        self.milvus_service.release_collection(collection_name=collection_name)
-        return res[0]
+        return {field["name"] for field in collection.get("fields", [])}
 
     @use_vector_database()
     async def document_upload_service(
@@ -46,10 +57,14 @@ class DocumentService:
     ):
         doc_dir = getenv("DOC_ADDR")
         Path(doc_dir).mkdir(parents=True, exist_ok=True)
-        tmp_path = Path(doc_dir) / file.filename
+        safe_filename = Path(file.filename or "upload.bin").name
+        tmp_path = Path(doc_dir) / f"{uuid4()}-{safe_filename}"
+        document_id = uuid4()
+        document_created = False
 
         try:
             contents = await file.read()
+            digest = sha256(contents).hexdigest()
             with open(tmp_path, "wb") as f:
                 f.write(contents)
 
@@ -62,34 +77,56 @@ class DocumentService:
                     name=collection_name
                 )
             )
-            uuid = uuid4()
             await self.relation_service.documentService.document_create_service(
-                id=uuid,
-                title=file.filename,
+                id=document_id,
+                title=safe_filename,
                 uploader="admin",
                 collection_id=collection.id,
-                meta={"source": chunks[0].metadata["source"]},
+                meta={
+                    "source": chunks[0].metadata["source"],
+                    "stored_path": str(tmp_path),
+                    "sha256": digest,
+                    "index_status": "pending",
+                    "embedding_model": xinference_embedding_model_id,
+                },
             )
+            document_created = True
+            available_fields = self._collection_fields(collection_name=collection_name)
+            created_at = int(time())
             data = []
             for text, embedding in zip(chunks, embeddings):
                 chunk = (
                     await self.relation_service.documentService.chunk_create_service(
-                        doc_id=uuid,
+                        doc_id=document_id,
                         content=text.page_content,
                     )
                 )
-                data.append(
-                    {
-                        "embedding": [float(x) for x in embedding],
-                        "doc_id": str(uuid),
-                        "chunk_id": chunk.id,
-                    }
-                )
+                item = {
+                    "embedding": [float(x) for x in embedding],
+                    "doc_id": str(document_id),
+                    "chunk_id": chunk.id,
+                }
+                if "source_type" in available_fields:
+                    item["source_type"] = "document"
+                if "embedding_model" in available_fields:
+                    item["embedding_model"] = xinference_embedding_model_id
+                if "created_at" in available_fields:
+                    item["created_at"] = created_at
+                data.append(item)
             self.milvus_service.insert(collection_name=collection_name, data=data)
+            await self.relation_service.documentService.document_update_meta_service(
+                document_id=document_id,
+                meta={"index_status": "indexed", "chunk_count": len(chunks)},
+            )
             return self.milvus_service.get_collection_stats(
                 collection_name=collection_name
             )
         except Exception as e:
+            if document_created:
+                await self.relation_service.documentService.document_update_meta_service(
+                    document_id=document_id,
+                    meta={"index_status": "failed", "index_error": str(e)},
+                )
             raise HTTPException(status_code=500, detail=str(e))
         # finally:
         #     if tmp_path.exists():

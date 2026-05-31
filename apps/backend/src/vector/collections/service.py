@@ -3,6 +3,12 @@ from collections.abc import Callable
 from fastapi import Depends
 from pymilvus import CollectionSchema, DataType, FieldSchema, MilvusClient
 from src.client import get_milvus_service
+from src.config import (
+    embedding_dimension,
+    milvus_index_nlist,
+    milvus_index_type,
+    milvus_metric_type,
+)
 from src.utils import use_vector_database
 
 
@@ -54,9 +60,20 @@ class CollectionService:
                 FieldSchema(
                     name="id", dtype=DataType.INT64, is_primary=True, auto_id=True
                 ),
-                FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=1024),
+                FieldSchema(
+                    name="embedding",
+                    dtype=DataType.FLOAT_VECTOR,
+                    dim=embedding_dimension,
+                ),
                 FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=100),
                 FieldSchema(name="chunk_id", dtype=DataType.INT64),
+                FieldSchema(
+                    name="source_type", dtype=DataType.VARCHAR, max_length=40
+                ),
+                FieldSchema(
+                    name="embedding_model", dtype=DataType.VARCHAR, max_length=100
+                ),
+                FieldSchema(name="created_at", dtype=DataType.INT64),
             ],
             description=description,
         )
@@ -64,11 +81,11 @@ class CollectionService:
         index_params = self.milvus_service.prepare_index_params()
         index_params.add_index(
             field_name="embedding",
-            index_type="IVF_FLAT",
+            index_type=milvus_index_type,
             index_name="vector_index",
-            metric_type="L2",
+            metric_type=milvus_metric_type,
             params={
-                "nlist": 256,
+                "nlist": milvus_index_nlist,
             },
         )
         self.milvus_service.create_index(

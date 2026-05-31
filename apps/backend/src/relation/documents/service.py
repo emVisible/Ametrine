@@ -57,6 +57,18 @@ class DocumentService:
             "created_at": document.created_at.isoformat(),
         }
 
+    async def document_update_meta_service(self, document_id: UUID, meta: dict):
+        result = await self.relation_db.execute(
+            select(Document).where(Document.id == document_id)
+        )
+        document = result.scalar_one_or_none()
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        document.meta = {**(document.meta or {}), **meta}
+        await self.relation_db.commit()
+        await self.relation_db.refresh(document)
+        return document
+
     async def chunk_create_service(self, doc_id: UUID, content: str):
         chunk = DocumentChunk(doc_id=doc_id, content=content)
         self.relation_db.add(chunk)
@@ -70,7 +82,8 @@ class DocumentService:
         if accuracy:
             result = await self.relation_db.execute(
                 select(DocumentChunk).where(
-                    DocumentChunk.doc_id == doc_id and DocumentChunk.id == chunk_id
+                    DocumentChunk.doc_id == doc_id,
+                    DocumentChunk.id == chunk_id,
                 )
             )
             return result.scalars().all()

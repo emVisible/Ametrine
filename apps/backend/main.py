@@ -13,9 +13,11 @@ from fastapi.openapi.docs import (
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from src.agent.controller import route_agent
+from src.audio.controller import route_audio
 from src.base.auth.controller import route_auth
 from src.base.controller import route_base
 from src.base.init.controller import route_init
+from src.chat.controller import route_chat
 from src.client import engine
 from src.llm.controller import route_llm
 from src.middleware.exceptions import (
@@ -65,6 +67,8 @@ app.include_router(route_base, prefix=route_prefix)
 app.include_router(route_auth, prefix=route_prefix)
 app.include_router(route_relation, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
+app.include_router(route_chat, prefix=route_prefix)
+app.include_router(route_audio, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_agent, prefix=route_prefix)
 app.include_router(route_init, prefix=route_prefix)

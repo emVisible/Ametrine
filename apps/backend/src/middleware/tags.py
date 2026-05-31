@@ -3,6 +3,8 @@ from enum import Enum
 
 class ControllerTag(Enum):
     dev = "DEV"
+    chat = "Chat"
+    audio = "Audio"
     llm = "LLM"
     user = "User"
     auth = "Auth"
