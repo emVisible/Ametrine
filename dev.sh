@@ -32,6 +32,15 @@ tmux new-session -d -s "$SESSION" -n "frontend"
 tmux send-keys -t "$SESSION:frontend" \
     "cd $FRONTEND_DIR && yarn install && yarn dev" C-m
 
+# ── Database (PostgreSQL + Redis + Milvus) ──
+tmux new-window -t "$SESSION" -n "database"
+tmux send-keys -t "$SESSION:database" \
+    "cd $MILVUS_DIR && docker compose up -d && \
+     echo 'PostgreSQL:  localhost:5432' && \
+     echo 'Redis:       localhost:6379' && \
+     echo 'Milvus:      localhost:19530' && \
+     echo 'Milvus UI:   http://localhost:9091'" C-m
+
 # ── Xinference ──
 tmux new-window -t "$SESSION" -n "xinference"
 
@@ -70,12 +79,6 @@ tmux send-keys -t "$SESSION:backend" \
     "cd $BACKEND_DIR && source .venv/bin/activate && \
      bash $SCRIPT_DIR/wait_for_models.sh -- ${WAIT_MODELS[*]} && \
      uv run -- uvicorn main:app --reload --port 3000" C-m
-
-# ── Milvus ──
-tmux new-window -t "$SESSION" -n "milvus"
-tmux send-keys -t "$SESSION:milvus" \
-    "cd $MILVUS_DIR && bash standalone_embed.sh start && \
-     echo 'Milvus WebUI: http://localhost:9091'" C-m
 
 # ── 浏览器 ──
 tmux new-window -t "$SESSION" -n "browser"
