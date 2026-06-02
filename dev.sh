@@ -1,97 +1,113 @@
 #!/bin/bash
+set -euo pipefail
 
-SESSION_NAME="dev"
-FRONTEND_WINDOW="Frontend"
-FRONTEND_PATH="apps/frontend"
-XINFERENCE_WINDOW="Xinference"
-BACKEND_WINDOW="Backend"
-BACKEND_PATH="apps/backend"
-DATABASE_WINDOW="Milvus"
-DATABASE_PATH="apps/database"
+SESSION="dev"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$PROJECT_DIR/scripts"
 
-# 检查 tmux 是否安装
-if ! command -v tmux &> /dev/null
-then
-    echo "tmux 未安装，请先安装 tmux。"
-    exit 1
+FRONTEND_DIR="$PROJECT_DIR/apps/frontend"
+BACKEND_DIR="$PROJECT_DIR/apps/backend"
+MILVUS_DIR="$PROJECT_DIR/apps/database"
+
+# ── 从 .env 读模型列表 ──
+source <(grep -E '^XINFERENCE_(LLM|EMBEDDING|RERANK|STT)_MODEL_ID=' "$BACKEND_DIR/.env" | sed 's/ //g')
+WAIT_MODELS=()
+[ -n "${XINFERENCE_LLM_MODEL_ID:-}" ] && WAIT_MODELS+=("$XINFERENCE_LLM_MODEL_ID")
+[ -n "${XINFERENCE_EMBEDDING_MODEL_ID:-}" ] && WAIT_MODELS+=("$XINFERENCE_EMBEDDING_MODEL_ID")
+[ -n "${XINFERENCE_RERANK_MODEL_ID:-}" ] && WAIT_MODELS+=("$XINFERENCE_RERANK_MODEL_ID")
+[ -n "${XINFERENCE_STT_MODEL_ID:-}" ] && WAIT_MODELS+=("$XINFERENCE_STT_MODEL_ID")
+
+# ── 检查 tmux ──
+command -v tmux >/dev/null || { echo "需要安装 tmux"; exit 1; }
+
+if tmux has-session -t "$SESSION" 2>/dev/null; then
+    echo "Session '$SESSION' 已存在，附加中..."
+    tmux attach -t "$SESSION"
+    exit 0
 fi
 
-# 创建 session 和 frontend 窗口
-if ! tmux has-session -t $SESSION_NAME 2>/dev/null; then
-    tmux new-session -d -s $SESSION_NAME -n $FRONTEND_WINDOW
-else
-    tmux new-window -t $SESSION_NAME -n $FRONTEND_WINDOW
-fi
+tmux new-session -d -s "$SESSION" -n "frontend"
 
-# Frontend
-if ! command -v node &> /dev/null; then
-    tmux send-keys -t ${SESSION_NAME}:${FRONTEND_WINDOW} "echo '❌ Node.js 未安装，frontend 无法启动'" C-m
-else
-    tmux send-keys -t ${SESSION_NAME}:${FRONTEND_WINDOW} "echo '✅ Node.js 已安装，frontend 正在启动...'" C-m
+# ── Frontend ──
+tmux send-keys -t "$SESSION:frontend" \
+    "cd $FRONTEND_DIR && yarn install && yarn dev" C-m
 
-    if command -v nvm &> /dev/null; then
-        tmux send-keys -t ${SESSION_NAME}:${FRONTEND_WINDOW} "nvm use" C-m
-    fi
+# ── Xinference ──
+tmux new-window -t "$SESSION" -n "xinference"
 
-    if [ -f "$FRONTEND_PATH/package.json" ]; then
-        tmux send-keys -t ${SESSION_NAME}:${FRONTEND_WINDOW} "cd $FRONTEND_PATH && yarn install" C-m
-    else
-        tmux send-keys -t ${SESSION_NAME}:${FRONTEND_WINDOW} "echo '❌ package.json 文件不存在，无法安装依赖'" C-m
-    fi
+# pane 0: 主实例 (9997)
+tmux send-keys -t "$SESSION:xinference.0" \
+    "cd $BACKEND_DIR && source .venv/bin/activate && \
+     rm -rf ~/.xinference/logs/local_* && \
+     uv run -- env XINFERENCE_MODEL_SRC=modelscope xinference-local" C-m
 
-    if ! command -v yarn &> /dev/null; then
-        tmux send-keys -t ${SESSION_NAME}:${FRONTEND_WINDOW} "echo '❌ Yarn 未安装，frontend 无法启动'" C-m
-    elif ! grep -q '"dev":' "$FRONTEND_PATH/package.json"; then
-        tmux send-keys -t ${SESSION_NAME}:${FRONTEND_WINDOW} "echo '❌ package.json 中没有 dev 脚本，无法启动 frontend'" C-m
-    else
-        tmux send-keys -t ${SESSION_NAME}:${FRONTEND_WINDOW} "yarn dev" C-m
-    fi
-fi
+# pane 1: 音频实例 (9998)
+tmux split-window -h -t "$SESSION:xinference"
+tmux send-keys -t "$SESSION:xinference.1" \
+    "cd $BACKEND_DIR && source .venv/bin/activate && \
+     rm -rf ~/.xinference/logs/local_* && \
+     uv run -- env XINFERENCE_MODEL_SRC=modelscope xinference-local --port 9998" C-m
 
-tmux new-window -t $SESSION_NAME -n $XINFERENCE_WINDOW
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.0 "cd $BACKEND_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.0 "source .venv/bin/activate" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.0 "uv run -- env XINFERENCE_MODEL_SRC=modelscope xinference-local" C-m
+# pane 2: 等待 9997 就绪后加载主模型
+tmux split-window -h -t "$SESSION:xinference"
+tmux send-keys -t "$SESSION:xinference.2" \
+    "cd $BACKEND_DIR && source .venv/bin/activate && \
+     bash $SCRIPT_DIR/wait_for_service.sh 127.0.0.1 9997 && \
+     bash $SCRIPT_DIR/load_models.sh $BACKEND_DIR && \
+     exit" C-m
 
-# Xinference
-tmux split-window -h -t ${SESSION_NAME}:${XINFERENCE_WINDOW}
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "cd $BACKEND_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "source .venv/bin/activate" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "echo '⏳ 等待 xinference-local 启动完成...'" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "sleep 32" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "uv run -- xinference launch --model-name Qwen3-Instruct --model-engine Transformers --size-in-billions 1_7 --model-format pytorch" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "uv run -- xinference launch --model-name bge-m3 --model-type embedding" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "uv run -- xinference launch --model-name bge-reranker-base --model-type rerank" C-m
+# pane 3: 等待 9998 就绪后加载音频模型
+tmux split-window -h -t "$SESSION:xinference"
+tmux send-keys -t "$SESSION:xinference.3" \
+    "cd $BACKEND_DIR && source .venv/bin/activate && \
+     bash $SCRIPT_DIR/wait_for_service.sh 127.0.0.1 9998 && \
+     bash $SCRIPT_DIR/load_audio_models.sh $BACKEND_DIR && \
+     exit" C-m
 
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "echo '🚀 模型加载完成，关闭当前窗口...'" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.1 "exit" C-m
+# ── Backend ──
+tmux new-window -t "$SESSION" -n "backend"
+tmux send-keys -t "$SESSION:backend" \
+    "cd $BACKEND_DIR && source .venv/bin/activate && \
+     bash $SCRIPT_DIR/wait_for_models.sh -- ${WAIT_MODELS[*]} && \
+     uv run -- uvicorn main:app --reload --port 3000" C-m
 
-tmux split-window -h -t ${SESSION_NAME}:${XINFERENCE_WINDOW}
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.2 "cd $BACKEND_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.2 "source .venv/bin/activate" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.2 "sleep 16" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.2 "uv run -- env XINFERENCE_MODEL_SRC=modelscope xinference-local --port 9998" C-m
+# ── Milvus ──
+tmux new-window -t "$SESSION" -n "milvus"
+tmux send-keys -t "$SESSION:milvus" \
+    "cd $MILVUS_DIR && bash standalone_embed.sh start && \
+     echo 'Milvus WebUI: http://localhost:9091'" C-m
 
-tmux split-window -h -t ${SESSION_NAME}:${XINFERENCE_WINDOW}
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "echo '⏳ 等待 xinference-local 启动完成...'" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "sleep 60" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "uv run -- xinference launch --model-name SenseVoiceSmall-0 --model-type audio --endpoint http://127.0.0.1:9998" C-m
-tmux send-keys -t ${SESSION_NAME}:${XINFERENCE_WINDOW}.3 "exit" C-m
+# ── 浏览器 ──
+tmux new-window -t "$SESSION" -n "browser"
+tmux send-keys -t "$SESSION:browser" \
+    "echo '等待服务就绪...' && \
+     bash $SCRIPT_DIR/wait_for_service.sh 127.0.0.1 9997 && \
+     bash $SCRIPT_DIR/wait_for_service.sh 127.0.0.1 9998 && \
+     bash $SCRIPT_DIR/wait_for_service.sh 127.0.0.1 3000 && \
+     bash $SCRIPT_DIR/wait_for_service.sh 127.0.0.1 8000 && \
+     bash $SCRIPT_DIR/wait_for_service.sh 127.0.0.1 9091 && \
+     echo '打开浏览器...' && \
+     if command -v wslview &>/dev/null; then
+         wslview http://localhost:9997/ui/#/running_models/LLM && \
+         wslview http://localhost:9998/ui/#/running_models/audio && \
+         wslview http://localhost:3000/docs && \
+         wslview http://127.0.0.1:8000/ && \
+         wslview http://localhost:9091/webui/
+     elif command -v xdg-open &>/dev/null; then
+         xdg-open http://localhost:9997/ui/#/running_models/LLM && \
+         xdg-open http://localhost:9998/ui/#/running_models/audio && \
+         xdg-open http://localhost:3000/docs && \
+         xdg-open http://127.0.0.1:8000/ && \
+         xdg-open http://localhost:9091/webui/
+     else
+         echo '未找到浏览器命令，请手动打开:' && \
+         echo '  http://localhost:9997/ui/#/running_models/LLM' && \
+         echo '  http://localhost:9998/ui/#/running_models/audio' && \
+         echo '  http://localhost:3000/docs' && \
+         echo '  http://127.0.0.1:8000/' && \
+         echo '  http://localhost:9091/webui/'
+     fi && \
+     exit" C-m
 
-# Backend
-tmux new-window -t $SESSION_NAME -n $BACKEND_WINDOW
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW} "cd $BACKEND_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW} "source .venv/bin/activate" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW} "sleep 90" C-m
-tmux send-keys -t ${SESSION_NAME}:${BACKEND_WINDOW} "uv run -- uvicorn main:app --reload --port 3000" C-m
-
-# Milvus
-tmux new-window -t $SESSION_NAME -n $DATABASE_WINDOW
-tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "echo '🚀 启动 Milvus...'" C-m
-tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "cd $DATABASE_PATH" C-m
-tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "sh standalone_embed.sh start" C-m
-tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "echo '🚀 数据库加载完成，请打开localhost:9091/webui页面'" C-m
-tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "sleep 5" C-m
-tmux send-keys -t ${SESSION_NAME}:${DATABASE_WINDOW} "exit" C-m
-
-tmux attach -t $SESSION_NAME
+# ── 附加 ──
+tmux attach -t "$SESSION"
