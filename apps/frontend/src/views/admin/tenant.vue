@@ -14,6 +14,9 @@
           <el-form-item label="数据库名称" required>
             <el-input v-model="newTenant.database" />
           </el-form-item>
+          <el-form-item label="描述" required>
+            <el-input v-model="newTenant.description" />
+          </el-form-item>
         </el-form>
         <template #footer>
           <el-button @click="isDialogVisible = false">取消</el-button>
@@ -34,12 +37,14 @@ export interface Tenant {
   id: string
   tenant_name: string
   database_name: string
+  description: string
 }
 const isDialogVisible = ref(false)
 const tenants = ref<Tenant[]>([])
 const newTenant = ref({
   name: '',
   database: '',
+  description: '',
 })
 
 const openDialog = () => {
@@ -49,6 +54,7 @@ const resetDialog = () => {
   newTenant.value = {
     name: '',
     database: '',
+    description: '',
   }
 }
 const fetchTenants = async () => {
@@ -75,9 +81,9 @@ const searchTenant = async () => {
 
 const createNewTenant = async () => {
   const newData = newTenant.value
-  const response = await createTenant(newData.name, newData.database)
+  const response = await createTenant(newData.name, newData.database, newData.description)
   if (response.ok) {
-    newTenant.value = { name: '', database: '' }
+    newTenant.value = { name: '', database: '', description: '' }
     fetchTenants()
     isDialogVisible.value = false
   }

@@ -2,6 +2,7 @@
   <Datalist type="database" @search="search" @openDialog="openDialog" createTitle="Create">
     <template #default>
       <el-table :data="databases" style="width: 100%">
+        <el-table-column prop="database_id" label="ID" />
         <el-table-column prop="name" label="数据库名称" />
         <el-table-column prop="tenant" label="隶属租户" />
         <el-table-column prop="database.replica.name" label="副本数(Replica)" />
@@ -33,19 +34,14 @@
 </template>
 
 <script setup lang="ts">
-import { createDatabase, getDatabaseDetail, getDatabasesDetail } from '@/apis/database'
+import { createDatabase, DatabaseType, getDatabaseDetail, getDatabases, getDatabasesDetail } from '@/apis/database'
 import Datalist from '@/components/admin/datalist.vue'
 import searchStore from '@/store/searchStore'
 import { onMounted, ref } from 'vue'
 
-export interface DatabaseType {
-  name: string
-  tenant: string
-  'database.replica.name': number
-}
 const isDialogVisible = ref(false)
 const store = searchStore()
-const databases = ref<DatabaseType[]>([])
+const databases = ref<any[]>([])
 const newDatabase = ref({
   tenant: '',
   database_name: '',
@@ -64,7 +60,7 @@ const search = async () => {
   databases.value = [{ ...response.data }]
 }
 const fetchDatabases = async () => {
-  const response = await getDatabasesDetail()
+  const response = await getDatabases()
   databases.value = response.data
 }
 

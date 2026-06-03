@@ -14,6 +14,14 @@ class DatabaseService:
         result = await self.relation_db.execute(select(Database))
         return result.scalars().all()
 
+    async def database_get_by_id_service(self, db_id: int):
+        result = await self.relation_db.execute(
+            select(Database)
+            .where(Database.id == db_id)
+            .options(joinedload(Database.tenant))
+        )
+        return result.scalar_one_or_none().name
+
     async def database_get_service(self, name: str):
         result = await self.relation_db.execute(
             select(Database)

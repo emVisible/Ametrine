@@ -5,6 +5,12 @@ interface CreateDatabaseType {
   tenant_name: string
   replica_number: number
 }
+export interface DatabaseType {
+  database_id: number
+  name: string
+  tenant: string
+  'database.replica.name': number
+}
 
 
 export function getDatabases(): Promise<BaseResponse<string[]>> {
@@ -18,7 +24,7 @@ export function getDatabaseDetail(name: string): Promise<BaseResponse<any>> {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      db_name:name
+      db_name: name
     })
   }).then(res => res.json())
 }
