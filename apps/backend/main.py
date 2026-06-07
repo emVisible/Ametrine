@@ -14,9 +14,8 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from src.agent.controller import route_agent
 from src.audio.controller import route_audio
-from src.base.auth.controller import route_auth
-from src.base.controller import route_base
-from src.base.init.controller import route_init
+from src.user.auth.controller import route_auth
+from src.user.controller import route_base
 from src.chat.controller import route_chat
 from src.client import engine
 from src.llm.controller import route_llm
@@ -62,7 +61,7 @@ app = FastAPI(
 app.add_exception_handler(StarletteHTTPException, custom_http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 route_prefix = "/api"
-white_list = ["http://127.0.0.1:8000"]
+white_list = ["http://127.0.0.1:8000", "http://localhost:8000"]
 app.include_router(route_base, prefix=route_prefix)
 app.include_router(route_auth, prefix=route_prefix)
 app.include_router(route_relation, prefix=route_prefix)
@@ -71,9 +70,13 @@ app.include_router(route_chat, prefix=route_prefix)
 app.include_router(route_audio, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_agent, prefix=route_prefix)
-app.include_router(route_init, prefix=route_prefix)
 app.add_middleware(
-    CORSMiddleware, allow_origins=white_list, expose_headers=["X-Session-ID"]
+    CORSMiddleware,
+    allow_origins=white_list,
+    expose_headers=["X-Session-ID"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

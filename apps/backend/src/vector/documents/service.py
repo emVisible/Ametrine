@@ -10,7 +10,7 @@ from src.client import get_milvus_service
 from src.config import xinference_embedding_model_id
 from src.llm.service import LLMService, get_llm_service
 from src.relation.service import RelationService, get_relation_service
-from src.utils import use_vector_database
+from src.utils.other import use_vector_database
 
 from .loader import process_documents
 

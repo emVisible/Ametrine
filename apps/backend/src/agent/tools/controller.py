@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends
 from src.middleware.tags import ControllerTag
-from src.utils import require_roles
+from src.utils.other import require_roles
 
 from .playwright import PlaywrightService, get_playwright_service
 from .shell import ShellService, get_shell_service

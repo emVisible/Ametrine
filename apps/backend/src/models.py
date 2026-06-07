@@ -1,7 +1,16 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    BigInteger,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -19,13 +28,46 @@ class Role(Base):
 class User(Base):
     __tablename__ = "user"
 
+    # ─── 主键与基础字段 ───
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    password = Column(String)
+    name = Column(String(30), unique=True, index=True, nullable=False)
+    password = Column(String(256), nullable=False)
 
+    email = Column(String(255), unique=True, index=True, nullable=True)
+    avatar_url = Column(String(500), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+
+    # ─── 角色 ───
+    role_id = Column(Integer, ForeignKey("role.id"), default=1)
     role = relationship("Role", back_populates="members")
-    role_id = Column(Integer, ForeignKey("role.id"))
+
+    # ─── 多租户隔离 ───
+    tenant_id = Column(Integer, ForeignKey("tenant.id"), nullable=True, index=True)
+    tenant = relationship("Tenant", back_populates="users")
+
+    # ─── LLM 配额 ───
+    daily_token_limit = Column(Integer, default=100000)
+    daily_token_used = Column(Integer, default=0)
+    monthly_token_limit = Column(Integer, default=3000000)
+    monthly_token_used = Column(Integer, default=0)
+    total_token_used = Column(BigInteger, default=0)
+
+    # ─── Agent 个性化 ───
+    preferences = Column(JSONB, default=dict)
+    system_prompt = Column(Text, nullable=True)
+
+    # ─── RAG 隔离 ───
+    milvus_collection_prefix = Column(String(64), nullable=True)
+
+    # ─── 关联 ───
+    conversations = relationship("Conversation", back_populates="user")
+    memory_items = relationship("MemoryItem", back_populates="user")
+    audio_assets = relationship("AudioAsset", back_populates="user")
 
 
 class Tenant(Base):
@@ -36,6 +78,7 @@ class Tenant(Base):
 
     database_id = Column(Integer, ForeignKey("database.id"), unique=True)
     database = relationship("Database", back_populates="tenant", cascade="all, delete")
+    users = relationship("User", back_populates="tenant")
 
 
 class Database(Base):
@@ -100,10 +143,13 @@ class Conversation(Base):
     title = Column(String, index=True)
     mode = Column(String, index=True, default="llm")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     archived_at = Column(DateTime(timezone=True), nullable=True)
     meta = Column(JSONB, nullable=True)
 
+    user = relationship("User", back_populates="conversations")
     user_id = Column(Integer, ForeignKey("user.id"), nullable=True, index=True)
     messages = relationship(
         "Message", back_populates="conversation", cascade="all, delete"
@@ -140,11 +186,16 @@ class MemoryItem(Base):
     sensitivity = Column(String, index=True, default="normal")
     enabled = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     meta = Column(JSONB, nullable=True)
 
+    user = relationship("User", back_populates="memory_items")
     user_id = Column(Integer, ForeignKey("user.id"), nullable=True, index=True)
-    source_message_id = Column(UUID(as_uuid=True), ForeignKey("message.id"), nullable=True)
+    source_message_id = Column(
+        UUID(as_uuid=True), ForeignKey("message.id"), nullable=True
+    )
 
 
 class ToolCall(Base):
@@ -181,5 +232,6 @@ class AudioAsset(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     meta = Column(JSONB, nullable=True)
 
+    user = relationship("User", back_populates="audio_assets")
     user_id = Column(Integer, ForeignKey("user.id"), nullable=True, index=True)
     message_id = Column(UUID(as_uuid=True), ForeignKey("message.id"), nullable=True)

@@ -18,13 +18,15 @@ async def create_tenant(
     )
 
 
-@route_tenant.get("/all", summary="获取所有Tenant名称列表")
+@route_tenant.get("/all", summary="获取所有Tenant")
 async def get_all_tenants(service: TenantService = Depends(get_tenant_service)):
     return await service.get_all_tenants()
 
 
-@route_tenant.get("/get", summary="获取Tenant详细信息")
+@route_tenant.post("/search", summary="查询Tenant详细信息")
 async def get_tenant_detail(
-    name: str, service: TenantService = Depends(get_tenant_service)
+    value: str = Body(..., embed=True),
+    service: TenantService = Depends(get_tenant_service),
 ):
-    return await service.get_tenant_by_name(name)
+    print(value)
+    return await service.get_tenant_by_name(value)

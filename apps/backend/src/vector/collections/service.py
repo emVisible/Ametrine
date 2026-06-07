@@ -9,7 +9,7 @@ from src.config import (
     milvus_index_type,
     milvus_metric_type,
 )
-from src.utils import use_vector_database
+from src.utils.other import use_vector_database
 
 
 class CollectionService:
@@ -67,9 +67,7 @@ class CollectionService:
                 ),
                 FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=100),
                 FieldSchema(name="chunk_id", dtype=DataType.INT64),
-                FieldSchema(
-                    name="source_type", dtype=DataType.VARCHAR, max_length=40
-                ),
+                FieldSchema(name="source_type", dtype=DataType.VARCHAR, max_length=40),
                 FieldSchema(
                     name="embedding_model", dtype=DataType.VARCHAR, max_length=100
                 ),

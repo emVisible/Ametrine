@@ -27,11 +27,11 @@ class TenantService:
             )
         return res
 
-    async def get_tenant_by_name(self, name: str):
+    async def get_tenant_by_name(self, value: str):
         result = await self.relation_db.execute(
-            select(Tenant).where(Tenant.name == name)
+            select(Tenant).where(Tenant.name.contains(value))
         )
-        return result.scalar_one_or_none()
+        return result.scalars().all()
 
     async def delete_tenant(self, name: str):
         existing = await self.get_tenant_by_name(name)

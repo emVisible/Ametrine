@@ -30,7 +30,7 @@ tmux new-session -d -s "$SESSION" -n "frontend"
 
 # ── Frontend ──
 tmux send-keys -t "$SESSION:frontend" \
-    "cd $FRONTEND_DIR && yarn install && yarn dev" C-m
+    "cd $FRONTEND_DIR && fnm use 25 && pnpm i && pnpm dev" C-m
 
 # ── Database (PostgreSQL + Redis + Milvus) ──
 tmux new-window -t "$SESSION" -n "database"
