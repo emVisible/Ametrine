@@ -1,15 +1,16 @@
 import inspect
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from logging import DEBUG, INFO, StreamHandler, basicConfig, getLogger
-from os import getenv
 from os.path import abspath, join
 
 from colorlog import ColoredFormatter
 from pydantic import BaseModel
 
 from .tags import LoggerTag
+from ..config import settings
 
+# ─── 日志格式 ───
 formatter = ColoredFormatter(
     "%(log_color)s%(levelname)-8s%(reset)s %(blue)s%(message)s",
     log_colors={
@@ -20,21 +21,86 @@ formatter = ColoredFormatter(
         "CRITICAL": "bold_red",
     },
 )
+
 config_logger = getLogger("fastapi")
 config_logger.handlers.clear()
 console_handler = StreamHandler()
 console_handler.setFormatter(formatter)
 config_logger.setLevel(DEBUG)
 config_logger.addHandler(console_handler)
+config_logger.propagate = False
 
-file_log = basicConfig(
+basicConfig(
     filename="ametrine.log",
     level=INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
 
-# 在控制器中添加的日志装饰器, 用于调试
+# ─── 配置项 → 标签映射 ───
+# 每个 LoggerTag 对应的配置 alias 列表
+_TAG_CONFIG_MAP = {
+    LoggerTag.project: [
+        "ENV_PATH",
+    ],
+    LoggerTag.auth: [
+        "ALGORITHM",
+        "SECRET_KEY",
+        "ACCESS_TOKEN_EXPIRE_MINUTES",
+    ],
+    LoggerTag.model: [
+        "XINFERENCE_MAIN_ADDR",
+        "XINFERENCE_VICE_ADDR",
+        "XINFERENCE_LLM_MODEL_ID",
+        "XINFERENCE_EMBEDDING_MODEL_ID",
+        "EMBEDDING_DIMENSION",
+        "XINFERENCE_RERANK_MODEL_ID",
+        "XINFERENCE_STT_MODEL_ID",
+        "XINFERENCE_TTS_MODEL_ID",
+        "TOKENIZER_ADDR",
+    ],
+    LoggerTag.audio: [
+        "XINFERENCE_STT_MODEL_ID",
+        "XINFERENCE_TTS_MODEL_ID",
+    ],
+    LoggerTag.vector: [
+        "MILVUS_HOST",
+        "MILVUS_PORT",
+        "MILVUS_METRIC_TYPE",
+        "MILVUS_INDEX_TYPE",
+        "MILVUS_INDEX_NLIST",
+        "DB_ADDR",
+        "DOC_ADDR",
+        "K",
+        "P",
+        "MIN_RELEVANCE_SCORE",
+        "CHUNK_SIZE",
+        "CHUNK_OVERLAP",
+        "MAX_MODEL_LEN",
+    ],
+    LoggerTag.relation: [
+        "POSTGRE_ADDR",
+        "POSTGRE_LOG",
+    ],
+    LoggerTag.preprocess: [
+        "SEMANTIC_SPLITTER",
+        "OCR_AGENT",
+    ],
+    LoggerTag.agent: [
+        "AGENT_SHELL_ENABLED",
+    ],
+    LoggerTag.performance: [
+        "SEMAPHORE",
+    ],
+    LoggerTag.network: [
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "NO_PROXY",
+    ],
+}
+
+
+# ─── 请求日志装饰器 ───
 def log(text: str, log_args: bool = True):
     def decorator(f):
         is_async = inspect.iscoroutinefunction(f)
@@ -46,7 +112,7 @@ def log(text: str, log_args: bool = True):
                 arg, (str, int, float, bool)
             ):
                 if isinstance(arg, BaseModel):
-                    return f"{type(arg).__name__}({arg.dict()})"
+                    return f"{type(arg).__name__}({arg.model_dump()})"
                 else:
                     attrs = {
                         k: v
@@ -59,7 +125,7 @@ def log(text: str, log_args: bool = True):
         def format_args(args: tuple, kwargs: dict) -> str:
             try:
                 arg_names = inspect.getfullargspec(f).args
-            except:
+            except Exception:
                 arg_names = []
 
             args_info = []
@@ -78,7 +144,7 @@ def log(text: str, log_args: bool = True):
             args: tuple = (),
             kwargs: dict = {},
         ):
-            duration = (datetime.now() - start).total_seconds()
+            duration = (datetime.now(timezone.utc) - start).total_seconds()
             base_msg = f"{text}\n ⏳Time: {duration:.3f}s"
 
             if log_args:
@@ -95,7 +161,7 @@ def log(text: str, log_args: bool = True):
 
         @wraps(f)
         async def async_wrapper(*args, **kwargs):
-            start = datetime.now()
+            start = datetime.now(timezone.utc)
             try:
                 result = await f(*args, **kwargs)
                 log_execution(start, args=args, kwargs=kwargs)
@@ -106,7 +172,7 @@ def log(text: str, log_args: bool = True):
 
         @wraps(f)
         def sync_wrapper(*args, **kwargs):
-            start = datetime.now()
+            start = datetime.now(timezone.utc)
             try:
                 result = f(*args, **kwargs)
                 log_execution(start, args=args, kwargs=kwargs)
@@ -120,43 +186,32 @@ def log(text: str, log_args: bool = True):
     return decorator
 
 
-# 系统启动时在终端中自动输出配置
+# ─── 启动配置打印 ───
 def log_config():
-    project = LoggerTag.project.value
-    auth = LoggerTag.auth.value
-    vector = LoggerTag.vector.value
-    model = LoggerTag.model.value
-    relation = LoggerTag.relation.value
-    preprocess = LoggerTag.preprocess.value
-    agent = LoggerTag.agent.value
-    performance = LoggerTag.performance.value
+    """从 Settings 实例自动读取所有配置并分组打印"""
     env_path = join(abspath("./"), ".env")
-    config_logger.critical(f"[{project}]-[ENV_PATH]-{env_path}")
-    configs = [
-        {"name": "ENV_PATH", "tag": project},
-        {"name": "ALGORITHM", "tag": auth},
-        {"name": "SECRECT_KEY", "tag": auth},
-        {"name": "ACCESS_TOKEN_EXPIRE_MINUTES", "tag": auth},
-        {"name": "XINFERENCE_ADDR", "tag": model},
-        {"name": "XINFERENCE_LLM_MODEL_ID", "tag": model},
-        {"name": "XINFERENCE_EMBEDDING_MODEL_ID", "tag": model},
-        {"name": "XINFERENCE_RERANK_MODEL_ID", "tag": model},
-        {"name": "XINFERENCE_STT_MODEL_ID", "tag": model},
-        {"name": "DB_ADDR", "tag": vector},
-        {"name": "DOC_ADDR", "tag": vector},
-        {"name": "K", "tag": vector},
-        {"name": "P", "tag": vector},
-        {"name": "MIN_RELEVANCE_SCORE", "tag": vector},
-        {"name": "CHUNK_SIZE", "tag": vector},
-        {"name": "CHUNK_OVERLAP", "tag": vector},
-        {"name": "MAX_MODEL_LEN", "tag": vector},
-        {"name": "POSTGRE_ADDR", "tag": relation},
-        {"name": "POSTGRE_LOG", "tag": relation},
-        {"name": "SEMANTIC_SPLITTER", "tag": preprocess},
-        {"name": "OCR_AGENT", "tag": preprocess},
-        {"name": "SEMAPHORE", "tag": performance},
-    ]
-    for config in configs:
-        tag = config["tag"]
-        name = config["name"]
-        config_logger.critical(f"[{tag}]-[{name}]: {getenv(name)}")
+    config_logger.critical(
+        f"[{LoggerTag.project.value}]-[ENV_PATH]: {env_path}"
+    )
+
+    # Settings 字段名 → alias 的映射
+    field_aliases = {
+        field_name: field.alias
+        for field_name, field in settings.model_fields.items()
+    }
+
+    for tag, aliases in _TAG_CONFIG_MAP.items():
+        for alias in aliases:
+            # 从 settings 取值
+            value = getattr(settings, alias.lower(), None)
+            # 敏感信息脱敏
+            if alias in ("SECRET_KEY",):
+                display_value = f"{str(value)[:4]}****" if value else "None"
+            elif alias in ("POSTGRE_ADDR", "DB_ADDR"):
+                # 数据库连接串隐藏密码
+                display_value = str(value).replace("://", "://****@") if value else "None"
+            else:
+                display_value = value
+            config_logger.critical(
+                f"[{tag.value}]-[{alias}]: {display_value}"
+            )

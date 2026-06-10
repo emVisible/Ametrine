@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from os import path
+from os import path, getenv, environ
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -12,6 +12,8 @@ from fastapi.openapi.docs import (
 )
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from torch.cuda import empty_cache, ipc_collect, is_available
 from src.agent.controller import route_agent
 from src.audio.controller import route_audio
 from src.user.auth.controller import route_auth
@@ -28,8 +30,7 @@ from src.middleware.response import IResponse
 from src.models import Base
 from src.relation.controller import route_relation
 from src.vector.controller import route_vector_milvus
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from torch.cuda import empty_cache, ipc_collect, is_available
+from src.audio.controller import route_audio
 
 
 @asynccontextmanager
@@ -47,6 +48,11 @@ async def lifespan(app: FastAPI):
 
 
 load_dotenv("./.env")
+for key in ("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"):
+    value = getenv(key)
+    if value:
+        environ[key] = value
+
 log_config()
 app = FastAPI(
     title="Ametrine",
@@ -70,6 +76,8 @@ app.include_router(route_chat, prefix=route_prefix)
 app.include_router(route_audio, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_agent, prefix=route_prefix)
+app.include_router(route_audio, prefix=route_prefix)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=white_list,

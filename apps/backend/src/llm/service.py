@@ -41,13 +41,29 @@ class LLMService:
                 break
             await sleep(0)
 
+
     async def stream_by_step(self, iterator: AsyncIterator):
         async for step in iterator:
             if "output" in step:
-                yield step["output"]
+                event = dumps({"type": "text", "content": step["output"]}) + "\n"
+                yield event
             elif "action" in step:
-                action_input = step["action"]["tool_input"]
-                yield action_input
+                action = step["action"]
+                event = (
+                    dumps(
+                        {
+                            "type": "tool_call",
+                            "tool": action.tool,
+                            "input": action.tool_input,
+                        }
+                    )
+                    + "\n"
+                )
+                yield event
+            elif "thought" in step:
+                event = dumps({"type": "thought", "content": step["thought"]}) + "\n"
+                yield event
+        yield dumps({"type": "done"}) + "\n"
 
     async def rerank(
         self, question: str, context: list[dict], collection_name: str
@@ -95,7 +111,7 @@ class LLMService:
                 doc["text"] = chunk["document"]["text"]
                 doc["doc_id"] = chunk["metadata"]["doc_id"]
                 doc["chunk_id"] = chunk["metadata"]["chunk_id"]
-
+                doc["relevance_score"] = chunk["relevance_score"]  # ← 保留评分
             res.append(doc) if doc else None
         if len(res) > 0:
             return res[:p]
@@ -112,7 +128,10 @@ class LLMService:
                     document_id=doc_id
                 )
             )
-            references.append(document)
+            if document:
+                document["relevance_score"] = item.get("relevance_score", 0)
+                document["chunk_id"] = item.get("chunk_id")
+                references.append(document)
         return references
 
     def create_user_prompt(self, question: str, context: list[dict]):

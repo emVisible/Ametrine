@@ -1,26 +1,28 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import Response
 from src.middleware.tags import ControllerTag
-
-from .dto import SpeechRequest
 from .service import AudioService, get_audio_service
 
 route_audio = APIRouter(prefix="/audio", tags=[ControllerTag.audio])
 
 
-@route_audio.post("/transcriptions", summary="[Audio] ASR transcription")
-async def transcriptions(
+@route_audio.post("/transcribe")
+async def transcribe(
     file: UploadFile = File(...),
     service: AudioService = Depends(get_audio_service),
 ):
-    return await service.transcribe(file=file)
+    text = await service.transcribe(file)
+    return {"text": text}
 
 
-@route_audio.post("/speech", summary="[Audio] TTS speech")
+@route_audio.post("/speech")
 async def speech(
-    dto: SpeechRequest,
+    text: str = Form(...),
     service: AudioService = Depends(get_audio_service),
 ):
-    content = await service.speech(dto=dto)
-    media_type = "audio/mpeg" if dto.response_format == "mp3" else "application/octet-stream"
-    return Response(content=content, media_type=media_type)
+    audio_bytes = await service.synthesize(text)
+    return Response(
+        content=audio_bytes,
+        media_type="audio/wav",
+        headers={"Content-Disposition": "inline"},
+    )

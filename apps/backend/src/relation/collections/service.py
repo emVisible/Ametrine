@@ -39,6 +39,13 @@ class CollectionService:
         await self.relation_db.refresh(collection)
         return collection
 
+    async def collection_delete_service(self, name: str):
+        collection = await self.collection_get_service(name)
+        if not collection:
+            raise HTTPException(status_code=404, detail="Collection not found")
+        await self.relation_db.delete(collection)
+        await self.relation_db.commit()
+
 
 def get_collection_service(relation_db: AsyncSession = Depends(get_relation_db)):
     return CollectionService(relation_db=relation_db)

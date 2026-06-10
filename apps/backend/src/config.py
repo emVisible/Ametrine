@@ -5,6 +5,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    http_proxy: str = Field(default="", alias="HTTP_PROXY")
+    https_proxy: str = Field(default="", alias="HTTPS_PROXY")
+    no_proxy: str = Field(default="localhost,127.0.0.1,.local", alias="NO_PROXY")
+
     algorithm: str = Field(..., alias="ALGORITHM")
     secret_key: str = Field(..., alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(..., alias="ACCESS_TOKEN_EXPIRE_MINUTES")
@@ -18,7 +22,9 @@ class Settings(BaseSettings):
     embedding_dimension: int = Field(default=1024, alias="EMBEDDING_DIMENSION")
     xinference_rerank_model_id: str = Field(..., alias="XINFERENCE_RERANK_MODEL_ID")
     xinference_stt_model_id: str = Field(..., alias="XINFERENCE_STT_MODEL_ID")
-    xinference_tts_model_id: str = Field(default="kokoro", alias="XINFERENCE_TTS_MODEL_ID")
+    xinference_tts_model_id: str = Field(
+        default="ChatTTS", alias="XINFERENCE_TTS_MODEL_ID"
+    )
     tokenizer_addr: str = Field(..., alias="TOKENIZER_ADDR")
 
     db_addr: str = Field(..., alias="DB_ADDR")

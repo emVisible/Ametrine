@@ -1,7 +1,7 @@
 import asyncio
 from asyncio import Semaphore
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Form
 from fastapi.responses import StreamingResponse
 from langchain.callbacks.base import AsyncCallbackHandler
 from langchain_core.messages import AIMessage
@@ -18,10 +18,9 @@ route_agent.include_router(route_agent_tools)
 agent_sem = Semaphore(10)
 
 
-
 @route_agent.post("/chat")
 async def communication(
-    query: str,
+    query: str = Form(...),
     service: AgentService = Depends(get_agent_service),
     llm_service: LLMService = Depends(get_llm_service),
 ):

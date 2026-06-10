@@ -17,9 +17,11 @@ class ControllerTag(Enum):
 class LoggerTag(Enum):
     project = "[Project]"
     auth = "[Auth]"
-    vector = "[Vector]"
     model = "[Model]"
+    audio = "[Audio]"
+    vector = "[Vector]"
     relation = "[Relation]"
     preprocess = "[Preprocess]"
     agent = "[Agent]"
     performance = "[Performance]"
+    network = "[Network]"

@@ -1,4 +1,4 @@
-from asyncio import Semaphore
+from asyncio import Semaphore, get_running_loop
 from enum import Enum
 from functools import lru_cache
 from typing import AsyncGenerator, Dict
@@ -14,6 +14,7 @@ from sqlalchemy.orm import declarative_base
 from src.config import xinference_addr, xinference_llm_model_id
 from transformers import AutoTokenizer
 from xinference.client import RESTfulClient
+from xinference.client.handlers import AudioModelHandle
 
 from .config import (
     chunk_overlap,
@@ -29,6 +30,7 @@ from .config import (
     xinference_llm_model_id,
     xinference_rerank_model_id,
     xinference_stt_model_id,
+    xinference_tts_model_id,
     xinference_vice_addr,
     tokenizer_addr,
 )
@@ -76,9 +78,12 @@ def get_llm_model():
     return client.get_model(model_uid=xinference_llm_model_id)
 
 
-@lru_cache()
 def get_llm_model_for_agent():
-    return ChatXinference(server_url=xinference_addr, model_uid=xinference_llm_model_id)
+    return ChatXinference(
+        server_url=xinference_addr,
+        model_uid=xinference_llm_model_id,
+        streaming=True,  # 关键：显式启用流式
+    )
 
 
 @lru_cache()
@@ -94,8 +99,13 @@ def get_embedding_model():
 
 
 @lru_cache()
-def get_stt_model():
+def get_stt_handle() -> AudioModelHandle:
     return client_vice.get_model(model_uid=xinference_stt_model_id)
+
+
+@lru_cache()
+def get_tts_handle() -> AudioModelHandle:
+    return client_vice.get_model(model_uid=xinference_tts_model_id)
 
 
 @lru_cache()

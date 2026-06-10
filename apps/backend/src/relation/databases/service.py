@@ -40,6 +40,13 @@ class DatabaseService:
         await self.relation_db.refresh(database)
         return database
 
+    async def database_delete_service(self, name: str):
+        db = await self.database_get_service(name)
+        if not db:
+            raise HTTPException(status_code=404, detail="Database not found")
+        await self.relation_db.delete(db)
+        await self.relation_db.commit()
+
 
 def get_database_service(relation_db: AsyncSession = Depends(get_relation_db)):
     return DatabaseService(relation_db=relation_db)

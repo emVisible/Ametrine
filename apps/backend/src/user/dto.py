@@ -1,3 +1,4 @@
+# src/user/dto.py
 from datetime import datetime
 from typing import Optional
 
@@ -27,16 +28,16 @@ class UserRead(BaseModel):
     name: str
     email: Optional[str] = None
     avatar_url: Optional[str] = None
-    is_active: bool
+    is_active: bool = True               
     role_id: int
     tenant_id: Optional[int] = None
     preferences: Optional[dict] = None
     system_prompt: Optional[str] = None
-    daily_token_used: int
-    daily_token_limit: int
-    monthly_token_used: int
-    monthly_token_limit: int
-    total_token_used: int
+    daily_token_used: int = 0
+    daily_token_limit: int = 100000
+    monthly_token_used: int = 0
+    monthly_token_limit: int = 3000000
+    total_token_used: int = 0
     created_at: Optional[datetime] = None
     last_login_at: Optional[datetime] = None
 

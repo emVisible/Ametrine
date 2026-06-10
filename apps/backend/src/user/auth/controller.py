@@ -40,7 +40,10 @@ async def login(
 @route_auth.get("/current")
 async def current_user(current_user=Depends(get_current_user)):
     return {
+        "id": current_user.id,
         "name": current_user.name,
         "email": current_user.email,
         "permissions": permission_map(current_user.role_id),
+        "daily_token_used": current_user.daily_token_used,
+        "daily_token_limit": current_user.daily_token_limit,
     }

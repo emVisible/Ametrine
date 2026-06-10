@@ -1,7 +1,7 @@
 from functools import lru_cache
-
 from langchain_community.agent_toolkits import PlayWrightBrowserToolkit
 from playwright.async_api import async_playwright
+from src.config import settings
 
 
 class PlaywrightService:
@@ -12,7 +12,12 @@ class PlaywrightService:
 
     async def init(self):
         self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch(headless=True)
+
+        launch_args = {"headless": True}
+        proxy = settings.https_proxy or settings.http_proxy
+        if proxy:
+            launch_args["proxy"] = {"server": proxy}
+        self.browser = await self.playwright.chromium.launch(**launch_args)
         self.toolkit = PlayWrightBrowserToolkit.from_browser(async_browser=self.browser)
 
     def get_tools(self):

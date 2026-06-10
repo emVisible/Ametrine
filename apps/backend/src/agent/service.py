@@ -37,13 +37,11 @@ class AgentService:
 
     def __init__(
         self,
-        llm: BaseChatModel,
         shell_service: ShellService,
         wiki_service: WikiService,
         playwrigt_service: PlaywrightService,
         duckduckgo_service: DuckDuckGoService,
     ):
-        self.llm = llm
         self.shell_service = shell_service
         self.wiki_service = wiki_service
         self.playwrigt_service = playwrigt_service
@@ -74,24 +72,27 @@ class AgentService:
 
     def get_agent_executor(self) -> AgentExecutor:
         if self._agent_executor is None:
+            llm = get_llm_model_for_agent()
             prompt = self._get_prompt()
             tools = self._get_tools()
-            agent = create_react_agent(llm=self.llm, tools=tools, prompt=prompt)
+            agent = create_react_agent(llm=llm, tools=tools, prompt=prompt)
             self._agent_executor = AgentExecutor(
-                agent=agent, tools=tools, verbose=True, handle_parsing_errors=True
+                agent=agent,
+                tools=tools,
+                verbose=True,
+                handle_parsing_errors=True,
+                max_iterations=5,
             )
         return self._agent_executor
 
 
 def get_agent_service(
-    llm_service: BaseChatModel = Depends(get_llm_model_for_agent),
     shell_service: ShellService = Depends(get_shell_service),
     wiki_service: WikiService = Depends(get_wiki_service),
     playwrigt_service: PlaywrightService = Depends(get_playwright_service),
     duckduckgo_service: PlaywrightService = Depends(get_duckduckgo_service),
 ):
     return AgentService(
-        llm=llm_service,
         shell_service=shell_service,
         wiki_service=wiki_service,
         playwrigt_service=playwrigt_service,
