@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { authAPI } from '../api/auth'
 import useAuthStore from '../stores/useAuthStore'
+import type { CurrentUser } from '../types/user'
 
 export function useLogin() {
   const login = useAuthStore((state) => state.login)
@@ -27,7 +28,7 @@ export function useLogin() {
 export function useCurrentUser() {
   const token = useAuthStore((state) => state.token)
 
-  return useQuery({
+  return useQuery<CurrentUser>({
     queryKey: ['currentUser'],
     queryFn: authAPI.getCurrentUser,
     enabled: !!token, // 没登录就不发请求

@@ -19,9 +19,12 @@ export interface User {
 }
 
 export interface CurrentUser {
+  id: number
   name: string
   email: string
   permissions: string[]
+  daily_token_used: number
+  daily_token_limit: number
 }
 
 export interface UserListResponse {

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @theme {
   --color-positive-low: #eaca9e;
@@ -11,24 +12,24 @@
 }
 
 @font-face {
-  font-family: 'LXGW WenKai';
-  src: url('./assets/fonts/LXGWWenKai-Light.ttf') format('truetype');
+  font-family: "LXGW WenKai";
+  src: url("./assets/fonts/LXGWWenKai-Light.ttf") format("truetype");
   font-weight: 300;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'LXGW WenKai';
-  src: url('./assets/fonts/LXGWWenKai-Regular.ttf') format('truetype');
+  font-family: "LXGW WenKai";
+  src: url("./assets/fonts/LXGWWenKai-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'LXGW WenKai';
-  src: url('./assets/fonts/LXGWWenKai-Medium.ttf') format('truetype');
+  font-family: "LXGW WenKai";
+  src: url("./assets/fonts/LXGWWenKai-Medium.ttf") format("truetype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -36,30 +37,30 @@
 
 /* ========== 霞鹜文楷等宽 ========== */
 @font-face {
-  font-family: 'LXGW WenKai Mono';
-  src: url('./assets/fonts/LXGWWenKaiMono-Light.ttf') format('truetype');
+  font-family: "LXGW WenKai Mono";
+  src: url("./assets/fonts/LXGWWenKaiMono-Light.ttf") format("truetype");
   font-weight: 300;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'LXGW WenKai Mono';
-  src: url('./assets/fonts/LXGWWenKaiMono-Regular.ttf') format('truetype');
+  font-family: "LXGW WenKai Mono";
+  src: url("./assets/fonts/LXGWWenKaiMono-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'LXGW WenKai Mono';
-  src: url('./assets/fonts/LXGWWenKaiMono-Medium.ttf') format('truetype');
+  font-family: "LXGW WenKai Mono";
+  src: url("./assets/fonts/LXGWWenKaiMono-Medium.ttf") format("truetype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @theme {
-  --font-sans: 'LXGW WenKai', sans-serif;
-  --font-mono: 'LXGW WenKai Mono', monospace;
+  --font-sans: "LXGW WenKai", sans-serif;
+  --font-mono: "LXGW WenKai Mono", monospace;
 }

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { apiClient } from '../api/client'
 import useAuthStore from '../stores/useAuthStore'
 import { useNavigate } from 'react-router'
-import type { User } from '../types/user'
+import type { User, UserListResponse } from '../types/user'
 
 
 export default function AdminPage() {
@@ -12,10 +12,11 @@ export default function AdminPage() {
   const logout = useAuthStore((state) => state.logout)
   const navigate = useNavigate()
 
-  const { data: users, isLoading } = useQuery({
+  const { data: result, isLoading } = useQuery({
     queryKey: ['users'],
-    queryFn: () => apiClient<User[]>('/user/all'),
+    queryFn: () => apiClient<UserListResponse>('/user/all'),
   })
+  const users = result?.users || []
 
   const handleLogout = () => {
     logout()

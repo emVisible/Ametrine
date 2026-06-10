@@ -1,18 +1,13 @@
 // src/stores/useAuthStore.ts
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-
-interface User {
-  name: string
-  email: string
-  permissions: string[]
-}
+import type { CurrentUser } from '../types/user'
 
 interface AuthState {
-  user: User | null
+  user: CurrentUser | null
   token: string | null
   isAuthenticated: boolean
-  login: (data: { user?: User; token?: string }) => void
+  login: (data: { user?: CurrentUser; token?: string }) => void
   logout: () => void
 }
 
