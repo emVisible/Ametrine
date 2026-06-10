@@ -1,9 +1,12 @@
+code_collection.txt
 # frontend
 node_modules
 dist
 dist-ssr
 stats.html
 *.local
+sample.mp3
+*.ttf
 
 # backend
 __pycache__
