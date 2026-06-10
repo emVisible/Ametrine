@@ -14,8 +14,10 @@ echo "加载模型: LLM=$LLM (${LLM_SIZE}B), EMBEDDING=$EMBEDDING, RERANK=$RERAN
 
 if [ -n "$LLM" ]; then
     echo "加载 $LLM ..."
-    uv run -- xinference launch --model-name "$LLM" --model-engine Transformers \
-        --size-in-billions "$LLM_SIZE" --model-format pytorch
+    uv run -- xinference launch --model-name "$LLM" --model-engine vLLM \
+        --size-in-billions "$LLM_SIZE" --model-format pytorch \
+        --max_model_len 32768
+
 fi
 
 if [ -n "$EMBEDDING" ]; then
