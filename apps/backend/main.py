@@ -31,6 +31,7 @@ from src.models import Base
 from src.relation.controller import route_relation
 from src.vector.controller import route_vector_milvus
 from src.audio.controller import route_audio
+from src.conversation.controller import route_conversation
 
 
 @asynccontextmanager
@@ -77,6 +78,7 @@ app.include_router(route_audio, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_agent, prefix=route_prefix)
 app.include_router(route_audio, prefix=route_prefix)
+app.include_router(route_conversation, prefix=route_prefix)
 
 app.add_middleware(
     CORSMiddleware,

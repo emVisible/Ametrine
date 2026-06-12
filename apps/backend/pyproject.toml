@@ -10,6 +10,7 @@ dependencies = [
     "bcrypt==4",
     "bitsandbytes>=0.46.0",
     "colorlog>=6.9.0",
+    "compressed-tensors>=0.9.1",
     "ddgs>=9.14.4",
     "dotenv>=0.9.9",
     "google-cloud-vision>=3.10.1",

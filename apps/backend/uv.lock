@@ -446,6 +446,7 @@ dependencies = [
     { name = "bcrypt" },
     { name = "bitsandbytes" },
     { name = "colorlog" },
+    { name = "compressed-tensors" },
     { name = "ddgs" },
     { name = "dotenv" },
     { name = "google-cloud-vision" },
@@ -492,6 +493,7 @@ requires-dist = [
     { name = "bcrypt", specifier = "==4" },
     { name = "bitsandbytes", specifier = ">=0.46.0" },
     { name = "colorlog", specifier = ">=6.9.0" },
+    { name = "compressed-tensors", specifier = ">=0.9.1" },
     { name = "ddgs", specifier = ">=9.14.4" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "google-cloud-vision", specifier = ">=3.10.1" },
@@ -1024,9 +1026,9 @@ name = "compressed-tensors"
 version = "0.9.1"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
 dependencies = [
-    { name = "pydantic", marker = "sys_platform == 'linux'" },
-    { name = "torch", marker = "sys_platform == 'linux'" },
-    { name = "transformers", marker = "sys_platform == 'linux'" },
+    { name = "pydantic" },
+    { name = "torch" },
+    { name = "transformers" },
 ]
 sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/40/e0/d9529aae2d2425d214e5a50497df4532d3f9e21c8d2023037c701f8a37d3/compressed-tensors-0.9.1.tar.gz", hash = "sha256:3cf5cd637f0186c184dd5bbbbf941356b1225199b49c6a45bf0909d65907f686", size = 63060, upload-time = "2025-01-23T18:41:01.813Z" }
 wheels = [
