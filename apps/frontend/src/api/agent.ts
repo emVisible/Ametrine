@@ -1,3 +1,5 @@
+import useAuthStore from "../stores/useAuthStore"
+
 // src/api/agent.ts
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
 
@@ -31,7 +33,11 @@ export async function streamAgent(
     },
     body: formData,
   })
-
+  if (response.status === 401) {
+    useAuthStore.getState().logout()
+    window.location.href = '/login'
+    throw new Error('登录已过期，请重新登录')
+  }
   if (!response.ok) {
     throw new Error(`Agent 请求失败: ${response.status}`)
   }

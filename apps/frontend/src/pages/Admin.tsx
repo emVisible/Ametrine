@@ -2,55 +2,20 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { apiClient } from '../api/client'
-import useAuthStore from '../stores/useAuthStore'
-import { useNavigate } from 'react-router'
 import type { User, UserListResponse } from '../types/user'
 
 
 export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const logout = useAuthStore((state) => state.logout)
-  const navigate = useNavigate()
-
   const { data: result, isLoading } = useQuery({
     queryKey: ['users'],
     queryFn: () => apiClient<UserListResponse>('/user/all'),
   })
   const users = result?.users || []
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 顶部导航 */}
-      <nav className="bg-gray-900 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-3">
-              <span className="text-red-500 font-bold text-lg">Admin</span>
-              <span className="text-gray-300 text-lg">管理面板</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="text-sm text-gray-300 hover:text-white transition-colors"
-              >
-                返回仪表盘
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                退出登录
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 统计卡片 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

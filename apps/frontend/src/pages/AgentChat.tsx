@@ -109,30 +109,7 @@ export default function AgentChatPage() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
-      {/* 顶部 */}
-      <nav className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0">
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-900">
-            🤖 Agent Chat
-          </h1>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/chat')}
-              className="text-sm text-gray-600 hover:text-gray-900"
-            >
-              LLM Chat
-            </button>
-            <button
-              onClick={() => navigate('/rag')}
-              className="text-sm text-gray-600 hover:text-gray-900"
-            >
-              RAG Chat
-            </button>
-          </div>
-        </div>
-      </nav>
-
+    <div className="h-full bg-gray-50 flex flex-col">
       {/* 消息列表 */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-3xl mx-auto space-y-4">
@@ -167,8 +144,8 @@ export default function AgentChatPage() {
                           <div className="flex items-center justify-between mb-1">
                             <span className="font-medium text-indigo-700">{action.tool}</span>
                             <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${action.status === 'done'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-yellow-100 text-yellow-700'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-yellow-100 text-yellow-700'
                               }`}>
                               {action.status === 'done' ? '完成' : '运行中'}
                             </span>

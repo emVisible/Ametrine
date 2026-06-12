@@ -26,9 +26,9 @@ export const router = createBrowserRouter([
           { path: '/dashboard', element: <Dashboard /> },
           { path: '/profile', element: <ProfilePage /> },
           { path: '/settings', element: <SettingsPage /> },
-          { path: '/chat', element: <ChatPage /> },
-          { path: '/rag', element: <RAGChatPage /> },
-          { path: '/agent', element: <AgentChatPage /> },
+          { path: '/chat/:convId?', element: <ChatPage /> },
+          { path: '/rag/:convId?', element: <RAGChatPage /> },
+          { path: '/agent/:convId?', element: <AgentChatPage /> },
           { path: '/admin/vector', element: <AdminVectorPage /> },
           {
             element: <ProtectedRoute requiredRoles={['admin']} />,

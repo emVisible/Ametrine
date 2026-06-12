@@ -1,4 +1,5 @@
 // src/api/rag.ts
+import useAuthStore from '../stores/useAuthStore';
 import { apiClient } from './client'
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
@@ -37,6 +38,11 @@ export const documentAPI = {
       method: 'POST',
       body: formData,
     })
+    if (response.status === 401) {
+      useAuthStore.getState().logout()
+      window.location.href = '/login'
+      throw new Error('登录已过期，请重新登录')
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: '上传失败' }))

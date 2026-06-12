@@ -11,15 +11,12 @@ export function useLogin() {
   return useMutation({
     mutationFn: authAPI.login,
     onSuccess: async (data) => {
-      // 存 token 到 Zustand
-      console.log('登录返回的数据:', data)  // 再加一行日志
+      console.log('登录返回的数据:', data)
       login({ token: data.access_token })
 
-      // 拿到 token 后立即获取用户信息
       const user = await authAPI.getCurrentUser()
       login({ user, token: data.access_token })
 
-      // 刷新所有 React Query 缓存
       queryClient.invalidateQueries()
     },
   })
@@ -27,11 +24,23 @@ export function useLogin() {
 
 export function useCurrentUser() {
   const token = useAuthStore((state) => state.token)
+  const logout = useAuthStore((state) => state.logout)
 
   return useQuery<CurrentUser>({
     queryKey: ['currentUser'],
-    queryFn: authAPI.getCurrentUser,
-    enabled: !!token, // 没登录就不发请求
+    queryFn: async () => {
+      try {
+        return await authAPI.getCurrentUser()
+      } catch (error: any) {
+        if (error.message?.includes('401') || error.message?.includes('过期')) {
+          logout()
+          window.location.href = '/login'
+        }
+        throw error
+      }
+    },
+    enabled: !!token,
     staleTime: 5 * 60 * 1000,
+    retry: false,  // 401 不重试
   })
 }

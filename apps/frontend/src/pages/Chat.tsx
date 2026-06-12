@@ -1,33 +1,71 @@
 // src/pages/Chat.tsx
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useParams, useNavigate } from 'react-router'
 import { streamChat } from '../api/chat'
 import Markdown from '../components/Markdown'
-import useAuthStore from '../stores/useAuthStore'
-import { useNavigate } from 'react-router'
 import VoiceInput from '../components/VoiceInput'
 import SpeakButton from '../components/SpeakButton'
+import useSessionStore, { type HistoryMessage } from '../stores/sessionStore'
+import { useQuery } from '@tanstack/react-query'
+import { conversationAPI } from '../api/converstion'
 
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  isStreaming?: boolean
-}
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([])
+  const { convId: routeConvId } = useParams<{ convId?: string }>()
+  const navigate = useNavigate()
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const logout = useAuthStore((state) => state.logout)
-  const navigate = useNavigate()
 
-  // 自动滚到底部
+  // Session Store
+  const currentSessionId = useSessionStore((s) => s.currentSessionId)
+  const createSession = useSessionStore((s) => s.createSession)
+  const switchSession = useSessionStore((s) => s.switchSession)
+  const addMessage = useSessionStore((s) => s.addMessage)
+  const appendToLastMessage = useSessionStore((s) => s.appendToLastMessage)
+  const getCurrentSession = useSessionStore((s) => s.getCurrentSession)
+  const { data: remoteMessages } = useQuery({
+    queryKey: ['messages', currentSessionId],
+    queryFn: () => conversationAPI.getMessages(currentSessionId!),
+    enabled: !!currentSessionId,
+  })
+  const session = getCurrentSession()
+  const messages = session?.messages || []
+
+  // 初始化：URL 有 convId 则切换，没有则新建
+  useEffect(() => {
+    if (routeConvId) {
+      switchSession(routeConvId)
+    } else if (!currentSessionId) {
+      const id = createSession('llm')
+      navigate(`/chat/${id}`, { replace: true })
+    }
+  }, [])
+  useEffect(() => {
+    if (remoteMessages?.length && session?.messages.length === 0) {
+      useSessionStore.setState((state) => ({
+        sessions: state.sessions.map((s) =>
+          s.id === currentSessionId
+            ? {
+              ...s,
+              messages: remoteMessages.map((m: any) => ({
+                role: m.role,
+                content: m.content,
+                date: m.created_at,
+              })),
+            }
+            : s
+        ),
+      }))
+    }
+  }, [remoteMessages])
+
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // 自动调整输入框高度
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
@@ -37,88 +75,45 @@ export default function ChatPage() {
 
   const handleSubmit = async () => {
     const prompt = input.trim()
-    if (!prompt || isStreaming) return
+    if (!prompt || isStreaming || !currentSessionId) return
 
-    const userMessage: Message = { role: 'user', content: prompt }
-    const assistantMessage: Message = { role: 'assistant', content: '', isStreaming: true }
-
-    setMessages((prev) => [...prev, userMessage, assistantMessage])
+    // 用户消息
+    addMessage({ role: 'user', content: prompt })
+    // AI 占位消息
+    addMessage({ role: 'assistant', content: '' })
     setInput('')
     setIsStreaming(true)
 
-    const chatHistory = messages
-      .filter((m) => !m.isStreaming)
-      .map((m) => ({ role: m.role, content: m.content }))
+    const historyMessages = session?.messages
+      .filter((m) => m.role !== 'assistant' || m.content)
+      .map((m) => ({ role: m.role, content: m.content })) || []
 
     await streamChat(
-      { prompt, chat_history: chatHistory },
-      (token) => {
-        setMessages((prev) => {
-          const updated = prev.map((msg, idx) => {
-            if (idx === prev.length - 1 && msg.role === 'assistant') {
-              return { ...msg, content: msg.content + token }
-            }
-            return msg
-          })
-          return updated
-        })
-      },
+      { prompt, chat_history: historyMessages },
+      (token) => appendToLastMessage(token),
       () => {
-        setMessages((prev) => {
-          const updated = [...prev]
-          const last = updated[updated.length - 1]
-          if (last.role === 'assistant') {
-            last.isStreaming = false
-          }
-          return [...updated]
-        })
+        // 流式结束，存 AI 完整回复
+        const session = useSessionStore.getState()
+          .sessions.find((s) => s.id === currentSessionId)
+        const lastMsg = session?.messages.at(-1)
+        if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content) {
+          conversationAPI.addMessage(currentSessionId!, 'assistant', lastMsg.content)
+            .catch(console.error)
+        }
         setIsStreaming(false)
       },
       (error) => {
-        setMessages((prev) => {
-          const updated = [...prev]
-          const last = updated[updated.length - 1]
-          if (last.role === 'assistant') {
-            last.content = `错误: ${error.message}`
-            last.isStreaming = false
-          }
-          return [...updated]
-        })
+        appendToLastMessage(`\n\n错误: ${error.message}`)
         setIsStreaming(false)
       },
     )
   }
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
-      {/* 顶部导航 */}
-      < nav className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0" >
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-900">LLM Chat</h1>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="text-sm text-gray-600 hover:text-gray-900"
-            >
-              仪表盘
-            </button>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-800"
-            >
-              退出
-            </button>
-          </div>
-        </div>
-      </ nav>
-
+    <div className="h-full bg-gray-50 flex flex-col">
       {/* 消息列表 */}
-      < div className="flex-1 overflow-y-auto px-4 py-6" >
+      <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-4xl mx-auto space-y-6">
           {messages.length === 0 && (
             <div className="text-center text-gray-400 mt-20">
@@ -142,14 +137,13 @@ export default function ChatPage() {
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                 ) : (
                   <div className="flex justify-between items-start">
-
                     <div className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-1 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:before:content-none prose-code:after:content-none">
                       <Markdown content={msg.content} />
-                      {msg.isStreaming && (
+                      {isStreaming && i === messages.length - 1 && (
                         <span className="inline-block w-2 h-4 bg-indigo-600 animate-pulse ml-0.5 align-middle" />
                       )}
                     </div>
-                    {!msg.isStreaming && msg.content && (
+                    {!isStreaming && msg.content && (
                       <SpeakButton text={msg.content} />
                     )}
                   </div>
@@ -159,10 +153,10 @@ export default function ChatPage() {
           ))}
           <div ref={messagesEndRef} />
         </div>
-      </ div>
+      </div>
 
       {/* 输入框 */}
-      < div className="border-t border-gray-200 bg-white flex-shrink-0" >
+      <div className="border-t border-gray-200 bg-white flex-shrink-0">
         <div className="max-w-3xl mx-auto px-4 py-3">
           <div className="flex gap-3 items-center">
             <VoiceInput
@@ -197,7 +191,7 @@ export default function ChatPage() {
             </button>
           </div>
         </div>
-      </ div>
-    </div >
+      </div>
+    </div>
   )
 }

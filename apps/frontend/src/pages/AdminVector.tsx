@@ -2,35 +2,14 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { databaseAPI, collectionAPI, documentAPI } from '../api/rag'
-import useAuthStore from '../stores/useAuthStore'
-import { useNavigate } from 'react-router'
 
 export default function AdminVectorPage() {
   const [activeTab, setActiveTab] = useState<'databases' | 'collections' | 'documents'>('databases')
-  const logout = useAuthStore((state) => state.logout)
-  const navigate = useNavigate()
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-900">知识库管理</h1>
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/rag')} className="text-sm text-indigo-600 hover:text-indigo-800">
-              RAG Chat
-            </button>
-            <button onClick={() => navigate('/dashboard')} className="text-sm text-gray-600 hover:text-gray-900">
-              仪表盘
-            </button>
-            <button onClick={() => { logout(); navigate('/login') }} className="text-sm text-red-600 hover:text-red-800">
-              退出
-            </button>
-          </div>
-        </div>
-      </nav>
-
       <div className="border-b border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="justify-between max-w-7xl mx-auto px-4">
           <div className="flex gap-6">
             {[
               { key: 'databases', label: '数据库' },
@@ -40,11 +19,10 @@ export default function AdminVectorPage() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className={`py-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.key
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
+                className={`py-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.key
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
               >
                 {tab.label}
               </button>
@@ -121,9 +99,8 @@ function DatabaseManager() {
                   <p className="text-sm text-gray-500 mt-1">{db.description || '暂无描述'}</p>
                   {db.tenant && <p className="text-xs text-gray-400 mt-1">租户: {db.tenant.name}</p>}
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  db.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                }`}>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${db.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}>
                   {db.is_active ? '活跃' : '停用'}
                 </span>
               </div>
@@ -324,13 +301,12 @@ function DocumentManager() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        doc.meta?.index_status === 'indexed'
-                          ? 'bg-green-100 text-green-700'
-                          : doc.meta?.index_status === 'pending'
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${doc.meta?.index_status === 'indexed'
+                        ? 'bg-green-100 text-green-700'
+                        : doc.meta?.index_status === 'pending'
                           ? 'bg-yellow-100 text-yellow-700'
                           : 'bg-red-100 text-red-700'
-                      }`}>
+                        }`}>
                         {doc.meta?.index_status || '未知'}
                       </span>
                       <button onClick={() => setViewingChunks(viewingChunks === doc.id ? null : doc.id)}

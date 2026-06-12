@@ -1,3 +1,4 @@
+// src/api/client.ts
 import useAuthStore from "../stores/useAuthStore"
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
@@ -33,6 +34,14 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
   }
 
   const response = await fetch(`${API_BASE}${endpoint}`, config)
+
+  if (response.status === 401) {
+    // token 过期，强制退出
+    useAuthStore.getState().logout()
+    // 跳转到登录页
+    window.location.href = '/login'
+    throw new Error('登录已过期，请重新登录')
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: '请求失败' }))
