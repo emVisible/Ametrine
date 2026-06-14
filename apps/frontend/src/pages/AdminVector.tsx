@@ -2,14 +2,33 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { databaseAPI, collectionAPI, documentAPI } from '../api/rag'
+import { tenantAPI } from '../api/tenant'
+import useAuthStore from '../stores/useAuthStore'
+import { useNavigate } from 'react-router'
 
 export default function AdminVectorPage() {
   const [activeTab, setActiveTab] = useState<'databases' | 'collections' | 'documents'>('databases')
+  const logout = useAuthStore((state) => state.logout)
+  const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-full bg-gray-50 flex flex-col">
+      <nav className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+          <h1 className="text-lg font-semibold text-gray-900">知识库管理</h1>
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate('/rag')} className="text-sm text-indigo-600 hover:text-indigo-800">
+              RAG Chat
+            </button>
+            <button onClick={() => { logout(); navigate('/login') }} className="text-sm text-red-600 hover:text-red-800">
+              退出
+            </button>
+          </div>
+        </div>
+      </nav>
+
       <div className="border-b border-gray-200 bg-white">
-        <div className="justify-between max-w-7xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-6">
             {[
               { key: 'databases', label: '数据库' },
@@ -20,8 +39,8 @@ export default function AdminVectorPage() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as typeof activeTab)}
                 className={`py-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.key
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
               >
                 {tab.label}
@@ -31,10 +50,12 @@ export default function AdminVectorPage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {activeTab === 'databases' && <DatabaseManager />}
-        {activeTab === 'collections' && <CollectionManager />}
-        {activeTab === 'documents' && <DocumentManager />}
+      <main className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="max-w-7xl mx-auto">
+          {activeTab === 'databases' && <DatabaseManager />}
+          {activeTab === 'collections' && <CollectionManager />}
+          {activeTab === 'documents' && <DocumentManager />}
+        </div>
       </main>
     </div>
   )
@@ -46,19 +67,26 @@ function DatabaseManager() {
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null)
 
   const { data: databases, isLoading } = useQuery({
     queryKey: ['pg-databases'],
     queryFn: databaseAPI.getAll,
   })
 
+  const { data: tenants } = useQuery({
+    queryKey: ['tenants'],
+    queryFn: tenantAPI.getAll,
+  })
+
   const createMutation = useMutation({
-    mutationFn: () => databaseAPI.create({ name, description }),
+    mutationFn: () => databaseAPI.create({ name, description, tenant_id: selectedTenantId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pg-databases'] })
       setShowCreate(false)
       setName('')
       setDescription('')
+      setSelectedTenantId(null)
     },
   })
 
@@ -76,12 +104,42 @@ function DatabaseManager() {
 
       {showCreate && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
-          <input placeholder="知识库名称" value={name} onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg text-sm" />
-          <input placeholder="描述" value={description} onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg text-sm" />
-          <button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}
-            className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">知识库名称</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如：技术文档库"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="简要描述该知识库的内容"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">归属租户</label>
+            <select
+              value={selectedTenantId ?? ''}
+              onChange={(e) => setSelectedTenantId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">不绑定（全局知识库）</option>
+              {tenants?.map((t: any) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => createMutation.mutate()}
+            disabled={createMutation.isPending || !name}
+            className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50"
+          >
             {createMutation.isPending ? '创建中...' : '确认创建'}
           </button>
         </div>
@@ -97,7 +155,9 @@ function DatabaseManager() {
                 <div>
                   <h3 className="font-medium text-gray-900">{db.name}</h3>
                   <p className="text-sm text-gray-500 mt-1">{db.description || '暂无描述'}</p>
-                  {db.tenant && <p className="text-xs text-gray-400 mt-1">租户: {db.tenant.name}</p>}
+                  <p className="text-xs text-gray-400 mt-1">
+                    租户: {db.tenant_name || '未绑定'}
+                  </p>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${db.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                   }`}>
@@ -106,6 +166,9 @@ function DatabaseManager() {
               </div>
             </div>
           ))}
+          {databases?.length === 0 && (
+            <p className="text-center text-gray-400 py-8">暂无知识库</p>
+          )}
         </div>
       )}
     </div>
@@ -145,11 +208,14 @@ function CollectionManager() {
     <div>
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">选择知识库</label>
-        <select value={selectedDbId ?? ''} onChange={(e) => setSelectedDbId(Number(e.target.value) || null)}
-          className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+        <select
+          value={selectedDbId ?? ''}
+          onChange={(e) => setSelectedDbId(Number(e.target.value) || null)}
+          className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
           <option value="">-- 选择知识库 --</option>
           {databases?.map((db: any) => (
-            <option key={db.id} value={db.id}>{db.name}</option>
+            <option key={db.id} value={db.id}>{db.name}{db.tenant_name ? ` (${db.tenant_name})` : ''}</option>
           ))}
         </select>
       </div>
@@ -158,20 +224,33 @@ function CollectionManager() {
         <>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold">集合列表</h2>
-            <button onClick={() => setShowCreate(!showCreate)}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
+            <button
+              onClick={() => setShowCreate(!showCreate)}
+              className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+            >
               {showCreate ? '取消' : '创建集合'}
             </button>
           </div>
 
           {showCreate && (
             <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
-              <input placeholder="集合名称" value={name} onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm" />
-              <input placeholder="描述" value={description} onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm" />
-              <button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}
-                className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50">
+              <input
+                placeholder="集合名称"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <input
+                placeholder="描述"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                onClick={() => createMutation.mutate()}
+                disabled={createMutation.isPending || !name}
+                className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
                 {createMutation.isPending ? '创建中...' : '确认创建'}
               </button>
             </div>
@@ -187,6 +266,9 @@ function CollectionManager() {
                   <p className="text-sm text-gray-500 mt-1">{col.description || '暂无描述'}</p>
                 </div>
               ))}
+              {collections?.length === 0 && (
+                <p className="text-center text-gray-400 py-8">暂无集合</p>
+              )}
             </div>
           )}
         </>
@@ -237,6 +319,7 @@ function DocumentManager() {
     try {
       await documentAPI.upload(file, selectedCol.name, selectedDb.name)
       setUploadStatus('上传成功！')
+      setTimeout(() => setUploadStatus(''), 3000)
       // 刷新文档列表
       window.location.reload()
     } catch (error) {
@@ -249,8 +332,11 @@ function DocumentManager() {
       <div className="mb-6 grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">知识库</label>
-          <select value={selectedDbId ?? ''} onChange={(e) => { setSelectedDbId(Number(e.target.value) || null); setSelectedColId(null) }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+          <select
+            value={selectedDbId ?? ''}
+            onChange={(e) => { setSelectedDbId(Number(e.target.value) || null); setSelectedColId(null) }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
             <option value="">-- 选择知识库 --</option>
             {databases?.map((db: any) => (
               <option key={db.id} value={db.id}>{db.name}</option>
@@ -259,8 +345,12 @@ function DocumentManager() {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">集合</label>
-          <select value={selectedColId ?? ''} onChange={(e) => setSelectedColId(Number(e.target.value) || null)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" disabled={!selectedDbId}>
+          <select
+            value={selectedColId ?? ''}
+            onChange={(e) => setSelectedColId(Number(e.target.value) || null)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            disabled={!selectedDbId}
+          >
             <option value="">-- 选择集合 --</option>
             {collections?.map((col: any) => (
               <option key={col.id} value={col.id}>{col.name}</option>
@@ -272,21 +362,28 @@ function DocumentManager() {
       {selectedDbId && selectedColId && (
         <>
           <div className="bg-white rounded-xl border-2 border-dashed border-gray-300 p-8 text-center mb-6">
-            <input ref={fileInputRef} type="file" onChange={handleUpload} className="hidden"
-              accept=".pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx,.ppt,.pptx,.html,.epub,.odt,.eml" />
-            <button onClick={() => fileInputRef.current?.click()}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleUpload}
+              className="hidden"
+              accept=".pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx,.ppt,.pptx,.html,.epub,.odt,.eml"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
               选择文件上传
             </button>
             <p className="mt-2 text-sm text-gray-500">支持 PDF、Word、TXT、Markdown、CSV 等格式</p>
             {uploadStatus && (
-              <p className={`mt-2 text-sm ${uploadStatus.includes('成功') ? 'text-green-600' : 'text-red-600'}`}>
+              <p className={`mt-2 text-sm ${uploadStatus.includes('成功') ? 'text-green-600' : 'text-red-600'
+                }`}>
                 {uploadStatus}
               </p>
             )}
           </div>
 
-          {/* 文档列表 */}
           {isLoading ? (
             <div className="text-center py-8 text-gray-500">加载中...</div>
           ) : (
@@ -302,21 +399,22 @@ function DocumentManager() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${doc.meta?.index_status === 'indexed'
-                        ? 'bg-green-100 text-green-700'
-                        : doc.meta?.index_status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-red-100 text-red-700'
+                          ? 'bg-green-100 text-green-700'
+                          : doc.meta?.index_status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-red-100 text-red-700'
                         }`}>
                         {doc.meta?.index_status || '未知'}
                       </span>
-                      <button onClick={() => setViewingChunks(viewingChunks === doc.id ? null : doc.id)}
-                        className="text-xs text-indigo-600 hover:text-indigo-800">
+                      <button
+                        onClick={() => setViewingChunks(viewingChunks === doc.id ? null : doc.id)}
+                        className="text-xs text-indigo-600 hover:text-indigo-800"
+                      >
                         {viewingChunks === doc.id ? '收起分块' : '查看分块'}
                       </button>
                     </div>
                   </div>
 
-                  {/* 分块详情 */}
                   {viewingChunks === doc.id && (
                     <div className="mt-3 space-y-2 max-h-60 overflow-y-auto">
                       {chunks?.map((chunk: any, i: number) => (
@@ -329,6 +427,9 @@ function DocumentManager() {
                   )}
                 </div>
               ))}
+              {documents?.length === 0 && (
+                <p className="text-center text-gray-400 py-8">暂无文档，请上传</p>
+              )}
             </div>
           )}
         </>

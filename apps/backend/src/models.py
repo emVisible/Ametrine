@@ -70,13 +70,14 @@ class User(Base):
     audio_assets = relationship("AudioAsset", back_populates="user")
 
 
+# src/models.py — Tenant
 class Tenant(Base):
     __tablename__ = "tenant"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
 
-    database_id = Column(Integer, ForeignKey("database.id"), unique=True)
+    database_id = Column(Integer, ForeignKey("database.id"), unique=True, nullable=True)
     database = relationship("Database", back_populates="tenant", cascade="all, delete")
     users = relationship("User", back_populates="tenant")
 

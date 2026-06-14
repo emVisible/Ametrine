@@ -3,24 +3,53 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 from src.client import get_relation_db
-from src.models import Database
+from src.models import Database, Tenant
 
 
 class DatabaseService:
     def __init__(self, relation_db: AsyncSession):
         self.relation_db = relation_db
 
+    async def database_create_service(self, name: str, description: str, tenant_id: int = None):
+        existing = await self.database_get_service(name)
+        if existing:
+            raise HTTPException(status_code=400, detail="Database already exists")
+
+        database = Database(name=name, description=description)
+        self.relation_db.add(database)
+        await self.relation_db.flush()
+
+        if tenant_id:
+            result = await self.relation_db.execute(
+                select(Tenant).where(Tenant.id == tenant_id)
+            )
+            tenant = result.scalar_one_or_none()
+            if tenant:
+                tenant.database_id = database.id
+
+        await self.relation_db.commit()
+        await self.relation_db.refresh(database)
+        return database
+
     async def database_get_all_service(self):
         result = await self.relation_db.execute(select(Database))
-        return result.scalars().all()
-
-    async def database_get_by_id_service(self, db_id: int):
-        result = await self.relation_db.execute(
-            select(Database)
-            .where(Database.id == db_id)
-            .options(joinedload(Database.tenant))
-        )
-        return result.scalar_one_or_none().name
+        databases = result.scalars().all()
+        res = []
+        for db in databases:
+            tenant_result = await self.relation_db.execute(
+                select(Tenant).where(Tenant.database_id == db.id)
+            )
+            tenant = tenant_result.scalar_one_or_none()
+            res.append(
+                {
+                    "id": db.id,
+                    "name": db.name,
+                    "description": db.description,
+                    "is_active": db.is_active,
+                    "tenant_name": tenant.name if tenant else None,
+                }
+            )
+        return res
 
     async def database_get_service(self, name: str):
         result = await self.relation_db.execute(
@@ -28,17 +57,27 @@ class DatabaseService:
             .where(Database.name == name)
             .options(joinedload(Database.tenant))
         )
-        return result.scalar_one_or_none()
+        db = result.scalar_one_or_none()
+        if not db:
+            return None
+        return {
+            "id": db.id,
+            "name": db.name,
+            "description": db.description,
+            "is_active": db.is_active,
+            "tenant_name": db.tenant.name if db.tenant else None,
+        }
 
-    async def database_create_service(self, name: str, description: str):
-        existing = await self.database_get_service(name)
-        if existing:
-            raise HTTPException(status_code=400, detail="Database already exists")
-        database = Database(name=name, description=description)
-        self.relation_db.add(database)
-        await self.relation_db.commit()
-        await self.relation_db.refresh(database)
-        return database
+    async def database_get_by_id_service(self, db_id: int):
+        if db_id is None:
+            return None
+        result = await self.relation_db.execute(
+            select(Database)
+            .where(Database.id == db_id)
+            .options(joinedload(Database.tenant))
+        )
+        db = result.scalar_one_or_none()
+        return db.name if db else None
 
     async def database_delete_service(self, name: str):
         db = await self.database_get_service(name)

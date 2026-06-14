@@ -12,6 +12,7 @@ import RAGChatPage from './pages/RAGChat'
 import AdminPage from './pages/Admin'
 import AdminVectorPage from './pages/AdminVector'
 import AgentChatPage from './pages/AgentChat'
+import AdminTenantPage from './pages/AdminTenant'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
           { path: '/rag/:convId?', element: <RAGChatPage /> },
           { path: '/agent/:convId?', element: <AgentChatPage /> },
           { path: '/admin/vector', element: <AdminVectorPage /> },
+          { path: '/admin/tenant', element: <AdminTenantPage /> },
           {
             element: <ProtectedRoute requiredRoles={['admin']} />,
             children: [

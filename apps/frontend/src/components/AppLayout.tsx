@@ -35,7 +35,7 @@ export default function AppLayout() {
     const routeMap = { llm: 'chat', rag: 'rag', agent: 'agent' }
     navigate(`/${routeMap[mode]}/${id}`, { replace: true })
   }, [createSession, navigate])
-  
+
 
   const handleDeleteSession = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation()
@@ -63,6 +63,7 @@ export default function AppLayout() {
   const otherNavItems: NavItem[] = [
     { path: '/dashboard', label: '仪表盘', icon: '📊' },
     { path: '/admin/vector', label: '知识库', icon: '📚' },
+    { path: '/admin/tenant', label: '租户', icon: '🏢' },
   ]
 
   if (user?.permissions?.includes('admin')) {

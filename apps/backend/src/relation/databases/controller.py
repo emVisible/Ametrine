@@ -1,7 +1,9 @@
-# src/relation/databases/controller.py
 from fastapi import APIRouter, Body, Depends, HTTPException
 from src.middleware.tags import ControllerTag
-from src.vector.databases.service import DatabaseService as VectorDatabaseService, get_database_service as get_vector_database_service
+from src.vector.databases.service import (
+    DatabaseService as VectorDatabaseService,
+    get_database_service as get_vector_database_service,
+)
 from .service import DatabaseService, get_database_service
 
 route_database = APIRouter(prefix="/database", tags=[ControllerTag.relation_db])
@@ -11,11 +13,14 @@ route_database = APIRouter(prefix="/database", tags=[ControllerTag.relation_db])
 async def create(
     name: str = Body(..., embed=True),
     description: str = Body(..., embed=True),
+    tenant_id: int = Body(None, embed=True),
     service: DatabaseService = Depends(get_database_service),
     vector_db_service: VectorDatabaseService = Depends(get_vector_database_service),
 ):
     # 1. 先写 PG
-    result = await service.database_create_service(name=name, description=description)
+    result = await service.database_create_service(
+        name=name, description=description, tenant_id=tenant_id
+    )
 
     # 2. 同步到 Milvus
     try:

@@ -8,7 +8,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
 export const databaseAPI = {
   getAll: () => apiClient<any[]>('/relation/database/all'),
   get: (name: string) => apiClient<any>(`/relation/database/get?name=${name}`),
-  create: (data: { name: string; description: string }) =>
+  create: (data: { name: string; description: string; tenant_id?: number | null }) =>
     apiClient('/relation/database/create', { method: 'POST', body: data }),
 }
 

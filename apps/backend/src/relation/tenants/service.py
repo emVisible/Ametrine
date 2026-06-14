@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 from src.client import get_relation_db
 from src.models import Database, Tenant
 from ..databases.service import DatabaseService, get_database_service
@@ -13,63 +13,68 @@ class TenantService:
         self.database = database_service
 
     async def get_all_tenants(self):
+        result = await self.relation_db.execute(select(Tenant))
+        tenants = result.scalars().all()
         res = []
-        tenants = await self.relation_db.execute(select(Tenant))
-        for tenant in tenants.scalars().all():
+        for tenant in tenants:
+            database_name = None
+            if tenant.database_id:
+                database_name = await self.database.database_get_by_id_service(
+                    tenant.database_id
+                )
             res.append(
                 {
                     "id": tenant.id,
                     "name": tenant.name,
-                    "database": await self.database.database_get_by_id_service(
-                        tenant.database_id
-                    ),
+                    "database": database_name,
                 }
             )
         return res
 
-    async def get_tenant_by_name(self, value: str):
+    async def get_tenant_by_id(self, tenant_id: int):
+        result = await self.relation_db.execute(
+            select(Tenant).where(Tenant.id == tenant_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_tenant_by_name(self, name: str):
+        result = await self.relation_db.execute(
+            select(Tenant).where(Tenant.name == name)
+        )
+        return result.scalar_one_or_none()
+
+    async def search_tenants(self, value: str):
         result = await self.relation_db.execute(
             select(Tenant).where(Tenant.name.contains(value))
         )
         return result.scalars().all()
 
-    async def delete_tenant(self, name: str):
-        existing = await self.get_tenant_by_name(name)
-        if not existing:
+    async def delete_tenant(self, tenant_id: int):
+        tenant = await self.get_tenant_by_id(tenant_id)
+        if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
-        await self.relation_db.delete(existing)
+        await self.relation_db.delete(tenant)
         try:
             await self.relation_db.commit()
-            await self.relation_db.flush()
         except IntegrityError:
             await self.relation_db.rollback()
-            raise HTTPException(status_code=400, detail=f"Relation Error")
-        return existing
-
-    async def create_tenant(
-        self, name: str, database_name: str, database_description: str
-    ):
-        # 如果tenant存在, 报错
-        existing = await self.get_tenant_by_name(name)
-        if existing is not None:
-            raise HTTPException(status_code=400, detail="Tenant already exists")
-        # 如果绑定的数据库不存在, 创建数据库
-        result = await self.relation_db.execute(
-            select(Database).where(Database.name == database_name)
-        )
-        database = result.scalar_one_or_none()
-        if not database:
-            database = await self.database.database_create_service(
-                name=database_name, description=database_description
+            raise HTTPException(
+                status_code=400, detail="关联数据删除失败，请先清理相关资源"
             )
-        tenant = Tenant(name=name, database_id=database.id)
+        return {"message": f"Tenant {tenant.name} 已删除"}
+
+    async def create_tenant(self, name: str):
+        existing = await self.get_tenant_by_name(name)
+        if existing:
+            raise HTTPException(status_code=400, detail="Tenant already exists")
+        tenant = Tenant(name=name)
         self.relation_db.add(tenant)
         try:
             await self.relation_db.commit()
-            await self.relation_db.flush()
+            await self.relation_db.refresh(tenant)
         except IntegrityError:
             await self.relation_db.rollback()
-            raise HTTPException(status_code=400, detail=f"Relation Error")
+            raise HTTPException(status_code=400, detail="创建租户失败")
         return tenant
 
 
