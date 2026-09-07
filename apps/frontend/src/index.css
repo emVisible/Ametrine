@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-positive-low: #eaca9e;
@@ -63,4 +64,20 @@
 @theme {
   --font-sans: "LXGW WenKai", sans-serif;
   --font-mono: "LXGW WenKai Mono", monospace;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+html,
+body {
+  overscroll-behavior: none;
 }

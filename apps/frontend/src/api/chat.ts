@@ -52,11 +52,22 @@ export async function streamRAG(
   onComplete: (references?: unknown[]) => void,
   onError: (error: Error) => void,
 ): Promise<void> {
+  const token = useAuthStore.getState().token
   const response = await fetch(`${API_BASE}/llm/rag`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(dto),
   })
+  // 403 权限错误直接走 onError
+  if (response.status === 403) {
+    const errorData = await response.json().catch(() => ({ message: '无权访问' }))
+    onError(new Error(errorData.message || errorData.detail || '无权访问该知识库'))
+    return  // ← 直接返回，不读流
+  }
+
 
   if (!response.ok) {
     throw new Error(`请求失败: ${response.status}`)

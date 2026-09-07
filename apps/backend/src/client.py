@@ -1,4 +1,4 @@
-from asyncio import Semaphore, get_running_loop
+from asyncio import Semaphore
 from enum import Enum
 from functools import lru_cache
 from typing import AsyncGenerator, Dict
@@ -30,21 +30,20 @@ from .config import (
     xinference_llm_model_id,
     xinference_rerank_model_id,
     xinference_stt_model_id,
-    xinference_tts_model_id,
-    xinference_vice_addr,
     tokenizer_addr,
 )
 
-
-# Milvus Client
-async def get_milvus_service():
-    return MilvusClient(host=milvus_host, port=milvus_port)
-
-
-# PostgreSQL Client
 engine = create_async_engine(postgre_addr, echo=bool(postgre_log))
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 Base = declarative_base()
+
+client = RESTfulClient(base_url=xinference_addr)
+
+_semaphore_pool: Dict[int, Semaphore] = {}
+
+
+async def get_milvus_service():
+    return MilvusClient(host=milvus_host, port=milvus_port)
 
 
 async def get_relation_db() -> AsyncGenerator[AsyncSession, None]:
@@ -58,7 +57,6 @@ async def reset_relation_db():
         await conn.run_sync(Base.metadata.create_all)
 
 
-# Redis Client
 @lru_cache()
 def get_redis() -> Redis:
     client = Redis(host="127.0.0.1", port=6379, db=0, decode_responses=True)
@@ -69,21 +67,8 @@ def get_redis() -> Redis:
     return client
 
 
-# Xinference Clients
-client = RESTfulClient(base_url=xinference_addr)
-client_vice = RESTfulClient(base_url=xinference_vice_addr)
-
-
 def get_llm_model():
     return client.get_model(model_uid=xinference_llm_model_id)
-
-
-def get_llm_model_for_agent():
-    return ChatXinference(
-        server_url=xinference_addr,
-        model_uid=xinference_llm_model_id,
-        streaming=True,  # 关键：显式启用流式
-    )
 
 
 @lru_cache()
@@ -100,12 +85,7 @@ def get_embedding_model():
 
 @lru_cache()
 def get_stt_handle() -> AudioModelHandle:
-    return client_vice.get_model(model_uid=xinference_stt_model_id)
-
-
-@lru_cache()
-def get_tts_handle() -> AudioModelHandle:
-    return client_vice.get_model(model_uid=xinference_tts_model_id)
+    return client.get_model(model_uid=xinference_stt_model_id)
 
 
 @lru_cache()
@@ -124,14 +104,9 @@ def get_splitter():
     )
 
 
-# performance
-_semaphore_pool: Dict[int, Semaphore] = {}
-
-
 class TaskType(str, Enum):
     LLM = "llm"
     RAG = "rag"
-    AGENT = "agent"
 
     @property
     def weight(self) -> float:
@@ -139,10 +114,6 @@ class TaskType(str, Enum):
             return 1.0
         elif self == TaskType.RAG:
             return 0.8
-        elif self == TaskType.AGENT:
-            return 0.4
-        else:
-            return 1.0
 
 
 def get_semaphore(task_type: TaskType) -> Semaphore:

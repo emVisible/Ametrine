@@ -95,8 +95,6 @@ const useSessionStore = create<SessionState>()(
           ),
         }))
       },
-
-
       addMessage: (message) => {
         set((state) => {
           const session = state.sessions.find((s) => s.id === state.currentSessionId)

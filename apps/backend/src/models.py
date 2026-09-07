@@ -10,6 +10,7 @@ from sqlalchemy import (
     String,
     Text,
     BigInteger,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
@@ -28,7 +29,6 @@ class Role(Base):
 class User(Base):
     __tablename__ = "user"
 
-    # ─── 主键与基础字段 ───
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(30), unique=True, index=True, nullable=False)
     password = Column(String(256), nullable=False)
@@ -42,29 +42,23 @@ class User(Base):
     )
     last_login_at = Column(DateTime(timezone=True), nullable=True)
 
-    # ─── 角色 ───
     role_id = Column(Integer, ForeignKey("role.id"), default=1)
     role = relationship("Role", back_populates="members")
 
-    # ─── 多租户隔离 ───
     tenant_id = Column(Integer, ForeignKey("tenant.id"), nullable=True, index=True)
     tenant = relationship("Tenant", back_populates="users")
 
-    # ─── LLM 配额 ───
     daily_token_limit = Column(Integer, default=100000)
     daily_token_used = Column(Integer, default=0)
     monthly_token_limit = Column(Integer, default=3000000)
     monthly_token_used = Column(Integer, default=0)
     total_token_used = Column(BigInteger, default=0)
 
-    # ─── Agent 个性化 ───
     preferences = Column(JSONB, default=dict)
     system_prompt = Column(Text, nullable=True)
 
-    # ─── RAG 隔离 ───
     milvus_collection_prefix = Column(String(64), nullable=True)
 
-    # ─── 关联 ───
     conversations = relationship("Conversation", back_populates="user")
     memory_items = relationship("MemoryItem", back_populates="user")
     audio_assets = relationship("AudioAsset", back_populates="user")
@@ -236,3 +230,62 @@ class AudioAsset(Base):
     user = relationship("User", back_populates="audio_assets")
     user_id = Column(Integer, ForeignKey("user.id"), nullable=True, index=True)
     message_id = Column(UUID(as_uuid=True), ForeignKey("message.id"), nullable=True)
+
+
+class UserDatabasePermission(Base):
+    __tablename__ = "user_database_permission"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    database_id = Column(
+        Integer, ForeignKey("database.id", ondelete="CASCADE"), nullable=False
+    )
+    can_read = Column(Boolean, default=True)
+    can_write = Column(Boolean, default=False)
+    can_manage = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", backref="database_permissions")
+    database = relationship("Database", backref="user_permissions")
+
+
+class TenantMember(Base):
+    __tablename__ = "tenant_member"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(
+        Integer, ForeignKey("tenant.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id = Column(Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String, default="member")  # owner, admin, member
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    tenant = relationship("Tenant", backref="members")
+    user = relationship("User", backref="tenant_memberships")
+
+    __table_args__ = (UniqueConstraint("tenant_id", "user_id"),)
+
+
+class Whisper(Base):
+    __tablename__ = "whisper"
+
+    id = Column(Integer, primary_key=True, index=True)
+    volume = Column(String(50), nullable=False, index=True)
+    sequence = Column(Integer, nullable=False)
+    content = Column(Text, nullable=False)
+    depth = Column(Integer, default=1)
+    category = Column(String(50), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WhisperConfig(Base):
+    __tablename__ = "whisper_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mode = Column(String(50), unique=True, nullable=False)
+    active_volumes = Column(JSONB, default=list)
+    max_depth = Column(Integer, default=3)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

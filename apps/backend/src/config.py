@@ -14,7 +14,6 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(..., alias="ACCESS_TOKEN_EXPIRE_MINUTES")
 
     xinference_addr: str = Field(..., alias="XINFERENCE_MAIN_ADDR")
-    xinference_vice_addr: str = Field(..., alias="XINFERENCE_VICE_ADDR")
     xinference_llm_model_id: str = Field(..., alias="XINFERENCE_LLM_MODEL_ID")
     xinference_embedding_model_id: str = Field(
         ..., alias="XINFERENCE_EMBEDDING_MODEL_ID"
@@ -22,9 +21,6 @@ class Settings(BaseSettings):
     embedding_dimension: int = Field(default=1024, alias="EMBEDDING_DIMENSION")
     xinference_rerank_model_id: str = Field(..., alias="XINFERENCE_RERANK_MODEL_ID")
     xinference_stt_model_id: str = Field(..., alias="XINFERENCE_STT_MODEL_ID")
-    xinference_tts_model_id: str = Field(
-        default="ChatTTS", alias="XINFERENCE_TTS_MODEL_ID"
-    )
     tokenizer_addr: str = Field(..., alias="TOKENIZER_ADDR")
 
     db_addr: str = Field(..., alias="DB_ADDR")
@@ -47,7 +43,6 @@ class Settings(BaseSettings):
     ocr_agent: str = Field(..., alias="OCR_AGENT")
 
     semaphore: int = Field(..., alias="SEMAPHORE")
-    agent_shell_enabled: bool = Field(default=False, alias="AGENT_SHELL_ENABLED")
 
     class Config:
         extra = "ignore"

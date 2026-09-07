@@ -3,7 +3,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.client import get_relation_db
-from src.models import Database, Tenant
+from src.models import TenantMember, Tenant
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.client import get_relation_db
 from ..databases.service import DatabaseService, get_database_service
 
 
@@ -76,6 +79,49 @@ class TenantService:
             await self.relation_db.rollback()
             raise HTTPException(status_code=400, detail="创建租户失败")
         return tenant
+
+    async def get_members(self, tenant_id: int):
+        result = await self.relation_db.execute(
+            select(TenantMember).where(TenantMember.tenant_id == tenant_id)
+        )
+        members = result.scalars().all()
+        return [
+            {
+                "user_id": m.user_id,
+                "role": m.role,
+                "created_at": m.created_at.isoformat(),
+            }
+            for m in members
+        ]
+
+    async def add_member(self, tenant_id: int, user_id: int, role: str = "member"):
+        existing = await self.relation_db.execute(
+            select(TenantMember).where(
+                TenantMember.user_id == user_id,
+                TenantMember.tenant_id == tenant_id,
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="用户已在该租户中")
+
+        member = TenantMember(user_id=user_id, tenant_id=tenant_id, role=role)
+        self.relation_db.add(member)
+        await self.relation_db.commit()
+        return {"message": "已加入租户"}
+
+    async def remove_member(self, tenant_id: int, user_id: int):
+        result = await self.relation_db.execute(
+            select(TenantMember).where(
+                TenantMember.user_id == user_id,
+                TenantMember.tenant_id == tenant_id,
+            )
+        )
+        member = result.scalar_one_or_none()
+        if not member:
+            raise HTTPException(status_code=404, detail="用户不在此租户中")
+        await self.relation_db.delete(member)
+        await self.relation_db.commit()
+        return {"message": "已移出租户"}
 
 
 def get_tenant_service(

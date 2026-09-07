@@ -5,6 +5,7 @@ from src.vector.databases.service import (
     get_database_service as get_vector_database_service,
 )
 from .service import DatabaseService, get_database_service
+from src.user.auth.service import get_current_user
 
 route_database = APIRouter(prefix="/database", tags=[ControllerTag.relation_db])
 
@@ -65,3 +66,12 @@ async def all(service: DatabaseService = Depends(get_database_service)):
 @route_database.get("/get", summary="获取Database详细信息")
 async def get(name: str, service: DatabaseService = Depends(get_database_service)):
     return await service.database_get_service(name=name)
+
+
+
+@route_database.get("/mine", summary="获取当前用户可访问的数据库")
+async def my_databases(
+    current_user=Depends(get_current_user),
+    service: DatabaseService = Depends(get_database_service),
+):
+    return await service.database_get_all_for_user(current_user.id)

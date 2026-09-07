@@ -1,8 +1,8 @@
-from contextlib import asynccontextmanager
 from os import path, getenv, environ
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter, Depends
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import (
@@ -14,13 +14,17 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from torch.cuda import empty_cache, ipc_collect, is_available
-from src.agent.controller import route_agent
+from pymilvus import MilvusClient
+from redis import Redis
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.audio.controller import route_audio
-from src.user.auth.controller import route_auth
-from src.user.controller import route_base
 from src.chat.controller import route_chat
-from src.client import engine
+from src.client import engine, get_milvus_service, get_redis, get_relation_db
+from src.conversation.controller import route_conversation
 from src.llm.controller import route_llm
+from src.llm.whisper.controller import route_whisper
 from src.middleware.exceptions import (
     custom_http_exception_handler,
     validation_exception_handler,
@@ -29,9 +33,10 @@ from src.middleware.logger import config_logger, log_config
 from src.middleware.response import IResponse
 from src.models import Base
 from src.relation.controller import route_relation
+from src.user.auth.controller import route_auth
+from src.user.controller import route_base
+from src.user.permissions.controller import route_user_permission
 from src.vector.controller import route_vector_milvus
-from src.audio.controller import route_audio
-from src.conversation.controller import route_conversation
 
 
 @asynccontextmanager
@@ -68,17 +73,19 @@ app = FastAPI(
 app.add_exception_handler(StarletteHTTPException, custom_http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 route_prefix = "/api"
-white_list = ["http://127.0.0.1:8000", "http://localhost:8000"]
+white_list = ["http://127.0.0.1:8000", "http://localhost:8000", "*"]
 app.include_router(route_base, prefix=route_prefix)
 app.include_router(route_auth, prefix=route_prefix)
 app.include_router(route_relation, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_chat, prefix=route_prefix)
 app.include_router(route_audio, prefix=route_prefix)
+app.include_router(route_whisper, prefix="/api")
 app.include_router(route_llm, prefix=route_prefix)
-app.include_router(route_agent, prefix=route_prefix)
 app.include_router(route_audio, prefix=route_prefix)
 app.include_router(route_conversation, prefix=route_prefix)
+app.include_router(route_user_permission, prefix="/api")
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -127,3 +134,36 @@ async def redoc_html():
         title=app.title + " - ReDoc",
         redoc_js_url="/static/redoc/redoc.standalone.js",
     )
+
+
+@app.get("/health")
+async def health(
+    db: AsyncSession = Depends(get_relation_db),
+    redis: Redis = Depends(get_redis),
+    milvus: MilvusClient = Depends(get_milvus_service),
+):
+    status = {
+        "status": "ok",
+        "version": "0.1.0",
+        "services": {},
+    }
+    try:
+        await db.execute(text("SELECT 1"))
+        status["services"]["postgres"] = "ok"
+    except Exception as e:
+        status["services"]["postgres"] = f"error: {str(e)}"
+        status["status"] = "degraded"
+    try:
+        redis.ping()
+        status["services"]["redis"] = "ok"
+    except Exception as e:
+        status["services"]["redis"] = f"error: {str(e)}"
+        status["status"] = "degraded"
+    try:
+        milvus.list_databases()
+        status["services"]["milvus"] = "ok"
+    except Exception as e:
+        status["services"]["milvus"] = f"error: {str(e)}"
+        status["status"] = "degraded"
+
+    return status

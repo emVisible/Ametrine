@@ -7,13 +7,21 @@ import {
 } from '@tanstack/react-query'
 import { router } from './router';
 import './index.css'
+import { ToastProvider } from './components/Toast';
+import { ThemeProvider } from './components/ThemeProvider'
+
 
 const queryClient = new QueryClient()
+
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router}></RouterProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <RouterProvider router={router}></RouterProvider>
+        </ ToastProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,
 )

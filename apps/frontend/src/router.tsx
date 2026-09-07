@@ -1,18 +1,10 @@
 // src/router.tsx
 import { createBrowserRouter, Navigate } from 'react-router'
 import AppLayout from './components/AppLayout'
+import { LazyPage } from './components/LazyPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import LoginPage from './pages/Login'
 import RegisterPage from './pages/Register'
-import Dashboard from './pages/Dashboard'
-import ProfilePage from './pages/Profile'
-import SettingsPage from './pages/Settings'
-import ChatPage from './pages/Chat'
-import RAGChatPage from './pages/RAGChat'
-import AdminPage from './pages/Admin'
-import AdminVectorPage from './pages/AdminVector'
-import AgentChatPage from './pages/AgentChat'
-import AdminTenantPage from './pages/AdminTenant'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -21,21 +13,20 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        element: <AppLayout />,  // 全局侧边栏布局
+        element: <AppLayout />,
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
-          { path: '/dashboard', element: <Dashboard /> },
-          { path: '/profile', element: <ProfilePage /> },
-          { path: '/settings', element: <SettingsPage /> },
-          { path: '/chat/:convId?', element: <ChatPage /> },
-          { path: '/rag/:convId?', element: <RAGChatPage /> },
-          { path: '/agent/:convId?', element: <AgentChatPage /> },
-          { path: '/admin/vector', element: <AdminVectorPage /> },
-          { path: '/admin/tenant', element: <AdminTenantPage /> },
+          { path: '/dashboard', element: LazyPage(() => import('./pages/Dashboard')) },
+          { path: '/profile', element: LazyPage(() => import('./pages/Profile')) },
+          { path: '/settings', element: LazyPage(() => import('./pages/Settings')) },
+          { path: '/chat/:convId?', element: LazyPage(() => import('./pages/Chat')) },
+          { path: '/rag/:convId?', element: LazyPage(() => import('./pages/RAGChat')) },
+          { path: '/admin/vector', element: LazyPage(() => import('./pages/AdminVector')) },
+          { path: '/admin/tenant', element: LazyPage(() => import('./pages/AdminTenant')) },
           {
             element: <ProtectedRoute requiredRoles={['admin']} />,
             children: [
-              { path: '/admin', element: <AdminPage /> },
+              { path: '/admin', element: LazyPage(() => import('./pages/Admin')) },
             ],
           },
         ],

@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# 用法: wait_for_models.sh [--endpoint URL]... -- model1 model2 ...
 ENDPOINTS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -12,7 +11,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ ${#ENDPOINTS[@]} -eq 0 ]; then
-    ENDPOINTS=("http://127.0.0.1:9997/v1/models" "http://127.0.0.1:9998/v1/models")
+    ENDPOINTS=("http://127.0.0.1:9997/v1/models")
 fi
 
 TARGET_MODELS=("$@")

@@ -50,18 +50,11 @@ _TAG_CONFIG_MAP = {
     ],
     LoggerTag.model: [
         "XINFERENCE_MAIN_ADDR",
-        "XINFERENCE_VICE_ADDR",
         "XINFERENCE_LLM_MODEL_ID",
         "XINFERENCE_EMBEDDING_MODEL_ID",
         "EMBEDDING_DIMENSION",
         "XINFERENCE_RERANK_MODEL_ID",
-        "XINFERENCE_STT_MODEL_ID",
-        "XINFERENCE_TTS_MODEL_ID",
         "TOKENIZER_ADDR",
-    ],
-    LoggerTag.audio: [
-        "XINFERENCE_STT_MODEL_ID",
-        "XINFERENCE_TTS_MODEL_ID",
     ],
     LoggerTag.vector: [
         "MILVUS_HOST",
@@ -190,14 +183,11 @@ def log(text: str, log_args: bool = True):
 def log_config():
     """从 Settings 实例自动读取所有配置并分组打印"""
     env_path = join(abspath("./"), ".env")
-    config_logger.critical(
-        f"[{LoggerTag.project.value}]-[ENV_PATH]: {env_path}"
-    )
+    config_logger.critical(f"[{LoggerTag.project.value}]-[ENV_PATH]: {env_path}")
 
     # Settings 字段名 → alias 的映射
     field_aliases = {
-        field_name: field.alias
-        for field_name, field in settings.model_fields.items()
+        field_name: field.alias for field_name, field in settings.model_fields.items()
     }
 
     for tag, aliases in _TAG_CONFIG_MAP.items():
@@ -209,9 +199,9 @@ def log_config():
                 display_value = f"{str(value)[:4]}****" if value else "None"
             elif alias in ("POSTGRE_ADDR", "DB_ADDR"):
                 # 数据库连接串隐藏密码
-                display_value = str(value).replace("://", "://****@") if value else "None"
+                display_value = (
+                    str(value).replace("://", "://****@") if value else "None"
+                )
             else:
                 display_value = value
-            config_logger.critical(
-                f"[{tag.value}]-[{alias}]: {display_value}"
-            )
+            config_logger.critical(f"[{tag.value}]-[{alias}]: {display_value}")

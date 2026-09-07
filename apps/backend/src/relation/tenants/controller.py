@@ -43,3 +43,30 @@ async def delete_tenant(
     service: TenantService = Depends(get_tenant_service),
 ):
     return await service.delete_tenant(tenant_id)
+
+
+@route_tenant.get("/{tenant_id}/members", summary="获取租户成员")
+async def get_members(
+    tenant_id: int,
+    service: TenantService = Depends(get_tenant_service),
+):
+    return await service.get_members(tenant_id)
+
+
+@route_tenant.post("/{tenant_id}/members/{user_id}", summary="添加成员")
+async def add_member(
+    tenant_id: int,
+    user_id: int,
+    role: str = Body("member", embed=True),
+    service: TenantService = Depends(get_tenant_service),
+):
+    return await service.add_member(tenant_id, user_id, role)
+
+
+@route_tenant.delete("/{tenant_id}/members/{user_id}", summary="移除成员")
+async def remove_member(
+    tenant_id: int,
+    user_id: int,
+    service: TenantService = Depends(get_tenant_service),
+):
+    return await service.remove_member(tenant_id, user_id)

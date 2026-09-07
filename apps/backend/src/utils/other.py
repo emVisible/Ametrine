@@ -2,9 +2,8 @@ from inspect import isawaitable
 from functools import wraps
 from typing import List
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from src.user.auth.service import permission_map, get_current_user
-from src.middleware.exceptions import ForbiddenException
 
 
 def use_vector_database(default_db="default"):
@@ -24,7 +23,9 @@ def require_roles(roles: List[str]):
     async def _inner(current_user=Depends(get_current_user)):
         user_roles = await maybe_await(permission_map(current_user.role_id))
         if not any(role in user_roles for role in roles):
-            raise ForbiddenException()
+            raise HTTPException(
+                status_code=403, detail="You don't have enough permissions"
+            )
         return current_user
 
     return _inner

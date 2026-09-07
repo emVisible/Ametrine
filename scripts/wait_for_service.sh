@@ -3,7 +3,7 @@ set -euo pipefail
 
 HOST="${1:-127.0.0.1}"
 PORT="${2:-9997}"
-TIMEOUT="${3:-120}"
+TIMEOUT="${3:-180}"
 
 echo "等待 $HOST:$PORT ..."
 elapsed=0

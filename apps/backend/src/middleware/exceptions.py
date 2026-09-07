@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Request
+from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from src.middleware.response import BaseResponse
@@ -23,13 +23,3 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             code=422, message="参数校验错误", data=exc.errors()
         ).model_dump(),
     )
-
-
-class JWTException(HTTPException):
-    def __init__(self):
-        super().__init__(status_code=401, detail="JWT token error")
-
-
-class ForbiddenException(HTTPException):
-    def __init__(self):
-        super().__init__(status_code=403, detail="You don't have enough permissions")

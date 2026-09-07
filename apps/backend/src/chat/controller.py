@@ -2,7 +2,6 @@ from json import dumps, loads
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from src.agent.service import AgentService, get_agent_service
 from src.client import TaskType, get_semaphore
 from src.config import max_model_len
 from src.llm.prompt import system_prompt_llm, system_prompt_rag
@@ -93,33 +92,7 @@ async def _stream_rag(
         yield _event("error", message=str(exc))
 
 
-def _agent_action_payload(action):
-    if isinstance(action, dict):
-        return {
-            "tool": action.get("tool"),
-            "tool_input": action.get("tool_input"),
-            "log": action.get("log"),
-        }
-    return {
-        "tool": getattr(action, "tool", None),
-        "tool_input": getattr(action, "tool_input", None),
-        "log": getattr(action, "log", None),
-    }
 
-
-async def _stream_agent(dto: ChatRequest, service: AgentService):
-    try:
-        async with get_semaphore(TaskType.AGENT):
-            executor = service.get_agent_executor()
-            iterator = executor.astream(input={"input": dto.message or ""})
-            async for step in iterator:
-                if "action" in step:
-                    yield _event("tool_call", data=_agent_action_payload(step["action"]))
-                elif "output" in step:
-                    yield _event("token", content=step["output"])
-        yield _event("done", conversation_id=dto.conversation_id)
-    except Exception as exc:
-        yield _event("error", message=str(exc))
 
 
 async def _collect_stream(stream):
@@ -179,7 +152,6 @@ async def chat(
     dto: ChatRequest,
     llm_service: LLMService = Depends(get_llm_service),
     document_service: DocumentService = Depends(get_document_service),
-    agent_service: AgentService = Depends(get_agent_service),
     history_service: ChatHistoryService = Depends(get_chat_history_service),
 ):
     conversation = await history_service.ensure_conversation(
@@ -197,8 +169,6 @@ async def chat(
 
     if dto.mode == "rag":
         stream = _stream_rag(dto, document_service=document_service, service=llm_service)
-    elif dto.mode == "agent":
-        stream = _stream_agent(dto, service=agent_service)
     else:
         stream = _stream_llm(dto, service=llm_service)
 

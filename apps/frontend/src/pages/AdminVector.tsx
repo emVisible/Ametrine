@@ -1,47 +1,32 @@
 // src/pages/AdminVector.tsx
-import { useState, useRef } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { databaseAPI, collectionAPI, documentAPI } from '../api/rag'
-import { tenantAPI } from '../api/tenant'
-import useAuthStore from '../stores/useAuthStore'
-import { useNavigate } from 'react-router'
+import { useState, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { databaseAPI, collectionAPI, documentAPI } from "../api/rag";
+import { tenantAPI } from "../api/tenant";
 
 export default function AdminVectorPage() {
-  const [activeTab, setActiveTab] = useState<'databases' | 'collections' | 'documents'>('databases')
-  const logout = useAuthStore((state) => state.logout)
-  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<
+    "databases" | "collections" | "documents"
+  >("databases");
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-900">知识库管理</h1>
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/rag')} className="text-sm text-indigo-600 hover:text-indigo-800">
-              RAG Chat
-            </button>
-            <button onClick={() => { logout(); navigate('/login') }} className="text-sm text-red-600 hover:text-red-800">
-              退出
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      <div className="border-b border-gray-200 bg-white">
+    <div className="h-full bg-gray-50 dark:bg-gray-950 flex flex-col">
+      <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-6">
             {[
-              { key: 'databases', label: '数据库' },
-              { key: 'collections', label: '集合' },
-              { key: 'documents', label: '文档' },
+              { key: "databases", label: "数据库" },
+              { key: "collections", label: "集合" },
+              { key: "documents", label: "文档" },
             ].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className={`py-3 px-1 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.key
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
+                className={`py-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.key
+                    ? "border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
               >
                 {tab.label}
               </button>
@@ -52,170 +37,201 @@ export default function AdminVectorPage() {
 
       <main className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-7xl mx-auto">
-          {activeTab === 'databases' && <DatabaseManager />}
-          {activeTab === 'collections' && <CollectionManager />}
-          {activeTab === 'documents' && <DocumentManager />}
+          {activeTab === "databases" && <DatabaseManager />}
+          {activeTab === "collections" && <CollectionManager />}
+          {activeTab === "documents" && <DocumentManager />}
         </div>
       </main>
     </div>
-  )
+  );
 }
 
-// ─── 数据库管理 ───
 function DatabaseManager() {
-  const queryClient = useQueryClient()
-  const [showCreate, setShowCreate] = useState(false)
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null)
+  const queryClient = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null);
 
   const { data: databases, isLoading } = useQuery({
-    queryKey: ['pg-databases'],
+    queryKey: ["pg-databases"],
     queryFn: databaseAPI.getAll,
-  })
-
+  });
   const { data: tenants } = useQuery({
-    queryKey: ['tenants'],
+    queryKey: ["tenants"],
     queryFn: tenantAPI.getAll,
-  })
+  });
 
   const createMutation = useMutation({
-    mutationFn: () => databaseAPI.create({ name, description, tenant_id: selectedTenantId }),
+    mutationFn: () =>
+      databaseAPI.create({ name, description, tenant_id: selectedTenantId }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pg-databases'] })
-      setShowCreate(false)
-      setName('')
-      setDescription('')
-      setSelectedTenantId(null)
+      queryClient.invalidateQueries({ queryKey: ["pg-databases"] });
+      setShowCreate(false);
+      setName("");
+      setDescription("");
+      setSelectedTenantId(null);
     },
-  })
+  });
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">知识库列表</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          知识库列表
+        </h2>
         <button
           onClick={() => setShowCreate(!showCreate)}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+          className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white text-sm rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600"
         >
-          {showCreate ? '取消' : '创建知识库'}
+          {showCreate ? "取消" : "创建知识库"}
         </button>
       </div>
 
       {showCreate && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4 space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">知识库名称</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              知识库名称
+            </label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="例如：技术文档库"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              描述
+            </label>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="简要描述该知识库的内容"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">归属租户</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              归属租户
+            </label>
             <select
-              value={selectedTenantId ?? ''}
-              onChange={(e) => setSelectedTenantId(e.target.value ? Number(e.target.value) : null)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={selectedTenantId ?? ""}
+              onChange={(e) =>
+                setSelectedTenantId(
+                  e.target.value ? Number(e.target.value) : null,
+                )
+              }
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">不绑定（全局知识库）</option>
               {tenants?.map((t: any) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
               ))}
             </select>
           </div>
           <button
             onClick={() => createMutation.mutate()}
             disabled={createMutation.isPending || !name}
-            className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50"
+            className="px-4 py-2 bg-green-600 dark:bg-green-500 text-white text-sm rounded-lg hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50"
           >
-            {createMutation.isPending ? '创建中...' : '确认创建'}
+            {createMutation.isPending ? "创建中..." : "确认创建"}
           </button>
         </div>
       )}
 
       {isLoading ? (
-        <div className="text-center py-8 text-gray-500">加载中...</div>
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          加载中...
+        </div>
       ) : (
         <div className="grid gap-3">
           {databases?.map((db: any) => (
-            <div key={db.id} className="bg-white rounded-xl border border-gray-200 p-4">
+            <div
+              key={db.id}
+              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4"
+            >
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-medium text-gray-900">{db.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">{db.description || '暂无描述'}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    租户: {db.tenant_name || '未绑定'}
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                    {db.name}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {db.description || "暂无描述"}
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    租户: {db.tenant_name || "未绑定"}
                   </p>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${db.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                  {db.is_active ? '活跃' : '停用'}
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${db.is_active ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"}`}
+                >
+                  {db.is_active ? "活跃" : "停用"}
                 </span>
               </div>
             </div>
           ))}
           {databases?.length === 0 && (
-            <p className="text-center text-gray-400 py-8">暂无知识库</p>
+            <p className="text-center text-gray-400 dark:text-gray-500 py-8">
+              暂无知识库
+            </p>
           )}
         </div>
       )}
     </div>
-  )
+  );
 }
 
-// ─── 集合管理 ───
 function CollectionManager() {
-  const queryClient = useQueryClient()
-  const [showCreate, setShowCreate] = useState(false)
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [selectedDbId, setSelectedDbId] = useState<number | null>(null)
+  const queryClient = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedDbId, setSelectedDbId] = useState<number | null>(null);
 
   const { data: databases } = useQuery({
-    queryKey: ['pg-databases'],
+    queryKey: ["pg-databases"],
     queryFn: databaseAPI.getAll,
-  })
-
+  });
   const { data: collections, isLoading } = useQuery({
-    queryKey: ['pg-collections', selectedDbId],
+    queryKey: ["pg-collections", selectedDbId],
     queryFn: () => collectionAPI.getByDatabase(selectedDbId!),
     enabled: !!selectedDbId,
-  })
+  });
 
   const createMutation = useMutation({
-    mutationFn: () => collectionAPI.create({ name, database_id: selectedDbId!, description }),
+    mutationFn: () =>
+      collectionAPI.create({ name, database_id: selectedDbId!, description }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pg-collections', selectedDbId] })
-      setShowCreate(false)
-      setName('')
-      setDescription('')
+      queryClient.invalidateQueries({
+        queryKey: ["pg-collections", selectedDbId],
+      });
+      setShowCreate(false);
+      setName("");
+      setDescription("");
     },
-  })
+  });
 
   return (
     <div>
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">选择知识库</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          选择知识库
+        </label>
         <select
-          value={selectedDbId ?? ''}
+          value={selectedDbId ?? ""}
           onChange={(e) => setSelectedDbId(Number(e.target.value) || null)}
-          className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-64 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="">-- 选择知识库 --</option>
           {databases?.map((db: any) => (
-            <option key={db.id} value={db.id}>{db.name}{db.tenant_name ? ` (${db.tenant_name})` : ''}</option>
+            <option key={db.id} value={db.id}>
+              {db.name}
+              {db.tenant_name ? ` (${db.tenant_name})` : ""}
+            </option>
           ))}
         </select>
       </div>
@@ -223,137 +239,157 @@ function CollectionManager() {
       {selectedDbId && (
         <>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">集合列表</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              集合列表
+            </h2>
             <button
               onClick={() => setShowCreate(!showCreate)}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+              className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white text-sm rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600"
             >
-              {showCreate ? '取消' : '创建集合'}
+              {showCreate ? "取消" : "创建集合"}
             </button>
           </div>
 
           {showCreate && (
-            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 space-y-3">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4 space-y-3">
               <input
                 placeholder="集合名称"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <input
                 placeholder="描述"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <button
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending || !name}
-                className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50"
+                className="px-4 py-2 bg-green-600 dark:bg-green-500 text-white text-sm rounded-lg hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50"
               >
-                {createMutation.isPending ? '创建中...' : '确认创建'}
+                {createMutation.isPending ? "创建中..." : "确认创建"}
               </button>
             </div>
           )}
 
           {isLoading ? (
-            <div className="text-center py-8 text-gray-500">加载中...</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              加载中...
+            </div>
           ) : (
             <div className="grid gap-3">
               {collections?.map((col: any) => (
-                <div key={col.id} className="bg-white rounded-xl border border-gray-200 p-4">
-                  <h3 className="font-medium text-gray-900">{col.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">{col.description || '暂无描述'}</p>
+                <div
+                  key={col.id}
+                  className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4"
+                >
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                    {col.name}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {col.description || "暂无描述"}
+                  </p>
                 </div>
               ))}
               {collections?.length === 0 && (
-                <p className="text-center text-gray-400 py-8">暂无集合</p>
+                <p className="text-center text-gray-400 dark:text-gray-500 py-8">
+                  暂无集合
+                </p>
               )}
             </div>
           )}
         </>
       )}
     </div>
-  )
+  );
 }
 
-// ─── 文档管理 ───
 function DocumentManager() {
-  const [selectedDbId, setSelectedDbId] = useState<number | null>(null)
-  const [selectedColId, setSelectedColId] = useState<number | null>(null)
-  const [uploadStatus, setUploadStatus] = useState('')
-  const [viewingChunks, setViewingChunks] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedDbId, setSelectedDbId] = useState<number | null>(null);
+  const [selectedColId, setSelectedColId] = useState<number | null>(null);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [viewingChunks, setViewingChunks] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: databases } = useQuery({
-    queryKey: ['pg-databases'],
+    queryKey: ["pg-databases"],
     queryFn: databaseAPI.getAll,
-  })
-
+  });
   const { data: collections } = useQuery({
-    queryKey: ['pg-collections', selectedDbId],
+    queryKey: ["pg-collections", selectedDbId],
     queryFn: () => collectionAPI.getByDatabase(selectedDbId!),
     enabled: !!selectedDbId,
-  })
-
+  });
   const { data: documents, isLoading } = useQuery({
-    queryKey: ['pg-documents', selectedColId],
+    queryKey: ["pg-documents", selectedColId],
     queryFn: () => documentAPI.getByCollection(selectedColId!),
     enabled: !!selectedColId,
-  })
-
+  });
   const { data: chunks } = useQuery({
-    queryKey: ['pg-chunks', viewingChunks],
+    queryKey: ["pg-chunks", viewingChunks],
     queryFn: () => documentAPI.getChunks(viewingChunks!),
     enabled: !!viewingChunks,
-  })
+  });
 
-  const selectedDb = databases?.find((db: any) => db.id === selectedDbId)
-  const selectedCol = collections?.find((col: any) => col.id === selectedColId)
+  const selectedDb = databases?.find((db: any) => db.id === selectedDbId);
+  const selectedCol = collections?.find((col: any) => col.id === selectedColId);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !selectedCol || !selectedDb) return
-
-    setUploadStatus('上传中...')
+    const file = e.target.files?.[0];
+    if (!file || !selectedCol || !selectedDb) return;
+    setUploadStatus("上传中...");
     try {
-      await documentAPI.upload(file, selectedCol.name, selectedDb.name)
-      setUploadStatus('上传成功！')
-      setTimeout(() => setUploadStatus(''), 3000)
-      // 刷新文档列表
-      window.location.reload()
+      await documentAPI.upload(file, selectedCol.name, selectedDb.name);
+      setUploadStatus("上传成功！");
+      setTimeout(() => setUploadStatus(""), 3000);
+      window.location.reload();
     } catch (error) {
-      setUploadStatus(`上传失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      setUploadStatus(
+        `上传失败: ${error instanceof Error ? error.message : "未知错误"}`,
+      );
     }
-  }
+  };
 
   return (
     <div>
       <div className="mb-6 grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">知识库</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            知识库
+          </label>
           <select
-            value={selectedDbId ?? ''}
-            onChange={(e) => { setSelectedDbId(Number(e.target.value) || null); setSelectedColId(null) }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            value={selectedDbId ?? ""}
+            onChange={(e) => {
+              setSelectedDbId(Number(e.target.value) || null);
+              setSelectedColId(null);
+            }}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">-- 选择知识库 --</option>
             {databases?.map((db: any) => (
-              <option key={db.id} value={db.id}>{db.name}</option>
+              <option key={db.id} value={db.id}>
+                {db.name}
+              </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">集合</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            集合
+          </label>
           <select
-            value={selectedColId ?? ''}
+            value={selectedColId ?? ""}
             onChange={(e) => setSelectedColId(Number(e.target.value) || null)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             disabled={!selectedDbId}
           >
             <option value="">-- 选择集合 --</option>
             {collections?.map((col: any) => (
-              <option key={col.id} value={col.id}>{col.name}</option>
+              <option key={col.id} value={col.id}>
+                {col.name}
+              </option>
             ))}
           </select>
         </div>
@@ -361,7 +397,7 @@ function DocumentManager() {
 
       {selectedDbId && selectedColId && (
         <>
-          <div className="bg-white rounded-xl border-2 border-dashed border-gray-300 p-8 text-center mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 p-8 text-center mb-6">
             <input
               ref={fileInputRef}
               type="file"
@@ -371,56 +407,78 @@ function DocumentManager() {
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              className="px-6 py-3 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600"
             >
               选择文件上传
             </button>
-            <p className="mt-2 text-sm text-gray-500">支持 PDF、Word、TXT、Markdown、CSV 等格式</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              支持 PDF、Word、TXT、Markdown、CSV 等格式
+            </p>
             {uploadStatus && (
-              <p className={`mt-2 text-sm ${uploadStatus.includes('成功') ? 'text-green-600' : 'text-red-600'
-                }`}>
+              <p
+                className={`mt-2 text-sm ${uploadStatus.includes("成功") ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+              >
                 {uploadStatus}
               </p>
             )}
           </div>
 
           {isLoading ? (
-            <div className="text-center py-8 text-gray-500">加载中...</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              加载中...
+            </div>
           ) : (
             <div className="space-y-3">
               {documents?.map((doc: any) => (
-                <div key={doc.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                <div
+                  key={doc.id}
+                  className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4"
+                >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-medium text-gray-900">{doc.title}</h4>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                        {doc.title}
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         上传者: {doc.uploader} · {doc.created_at?.slice(0, 10)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${doc.meta?.index_status === 'indexed'
-                          ? 'bg-green-100 text-green-700'
-                          : doc.meta?.index_status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}>
-                        {doc.meta?.index_status || '未知'}
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${
+                          doc.meta?.index_status === "indexed"
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                            : doc.meta?.index_status === "pending"
+                              ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                              : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                        }`}
+                      >
+                        {doc.meta?.index_status || "未知"}
                       </span>
                       <button
-                        onClick={() => setViewingChunks(viewingChunks === doc.id ? null : doc.id)}
-                        className="text-xs text-indigo-600 hover:text-indigo-800"
+                        onClick={() =>
+                          setViewingChunks(
+                            viewingChunks === doc.id ? null : doc.id,
+                          )
+                        }
+                        className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
                       >
-                        {viewingChunks === doc.id ? '收起分块' : '查看分块'}
+                        {viewingChunks === doc.id ? "收起分块" : "查看分块"}
                       </button>
                     </div>
                   </div>
-
                   {viewingChunks === doc.id && (
                     <div className="mt-3 space-y-2 max-h-60 overflow-y-auto">
                       {chunks?.map((chunk: any, i: number) => (
-                        <div key={chunk.id} className="bg-gray-50 rounded-lg p-3 text-xs text-gray-700">
-                          <span className="text-gray-400 mr-2">#{i + 1}</span>
-                          {chunk.content?.slice(0, 200)}{chunk.content?.length > 200 ? '...' : ''}
+                        <div
+                          key={chunk.id}
+                          className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300"
+                        >
+                          <span className="text-gray-400 dark:text-gray-500 mr-2">
+                            #{i + 1}
+                          </span>
+                          {chunk.content?.slice(0, 200)}
+                          {chunk.content?.length > 200 ? "..." : ""}
                         </div>
                       ))}
                     </div>
@@ -428,12 +486,14 @@ function DocumentManager() {
                 </div>
               ))}
               {documents?.length === 0 && (
-                <p className="text-center text-gray-400 py-8">暂无文档，请上传</p>
+                <p className="text-center text-gray-400 dark:text-gray-500 py-8">
+                  暂无文档，请上传
+                </p>
               )}
             </div>
           )}
         </>
       )}
     </div>
-  )
+  );
 }
