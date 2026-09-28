@@ -77,7 +77,7 @@ tmux new-window -t "$SESSION" -n "backend"
 tmux send-keys -t "$SESSION:backend" \
     "cd $BACKEND_DIR && source .venv/bin/activate && \
      if [ ${#WAIT_MODELS[@]} -gt 0 ]; then \
-         bash $SCRIPT_DIR/wait_for_models.sh -- \"${WAIT_MODELS[*]}\" || \
+         bash $SCRIPT_DIR/wait_for_models.sh -- "${WAIT_MODELS[@]}" || \
          echo '⚠ 模型未全部就绪，后端仍会启动；/api/chat 等推理接口会报错，其余接口正常。'; \
      fi && \
      uv run -- uvicorn main:app --reload --port 3000" C-m

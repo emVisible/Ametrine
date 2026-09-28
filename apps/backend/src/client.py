@@ -111,6 +111,19 @@ def get_stt_handle() -> AudioModelHandle:
 
 @lru_cache()
 def get_tokenizer():
+    # TOKENIZER_ADDR 既可以是本地目录也可以是 hub id。写成绝对路径但目录不存在时，
+    # transformers 会把它当 repo id 再校验一次，抛出
+    # `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'`
+    # —— 这条报错完全不提 TOKENIZER_ADDR，会让人以为是网络或 HF 的问题
+    # （本机就是这样：/api/chat 每个请求 500，而模型其实是好的）。
+    from os.path import isdir, isabs
+
+    if isabs(tokenizer_addr) and not isdir(tokenizer_addr):
+        raise RuntimeError(
+            f"TOKENIZER_ADDR 指向的目录不存在：{tokenizer_addr}。"
+            "要么把权重/分词器下到该路径，要么改成 hub id（如 Qwen/Qwen2.5-3B-Instruct，"
+            "配合 HF_ENDPOINT 镜像首次会联网下载一次）。"
+        )
     return AutoTokenizer.from_pretrained(tokenizer_addr)
 
 

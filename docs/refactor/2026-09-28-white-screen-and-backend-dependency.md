@@ -643,3 +643,65 @@ CUDA 上下文）并完成了一次真实推理。所以真实情况是「**装�
 如果你暂时不想动 9997，也可以什么都不改：**旧环境唯一的硬伤是它不认 gemma-4 架构**，
 把 `XINFERENCE_LLM_MODEL_ID` 换成 2.10 支持的型号（例如 `.env` 里本来就写着的 Qwen3-4B）
 就能在不动服务的前提下先用起来。
+
+## 十二、把后端接到真实模型上跑通了（2026-09-29，本轮补）
+
+§十一 证明了「模型能起来」。这一节证明的是「**后端能用它对话**」——这是整条重构线里
+一直没能测的那一块（此前本机零模型，`/api/chat` 必然 500）。
+
+做法：一次性 3.5.0 实例（9998，命中缓存权重）+ **独立进程的独立后端**（`:8010`，
+只用环境变量覆盖，不改 `.env`、不碰你在用的 `:3000`）。
+
+实测结果：
+
+| 检查 | 结果 |
+| --- | --- |
+| `POST /api/chat`（mode=llm，带 token） | **SSE 50 行 / 1242 字节**，`data` 形如 `{"type":"token","content":"向量数据库"}`，累计正文 73 字 |
+| 回答内容 | 「向量数据库是一种专门用于存储和高效检索高维数据…中**向量嵌入**的数据库系统…」——语义正确 |
+| **`user.system_prompt` 是否真的在场** | **是**：回答末尾原样带出了写进个人偏好的暗号 `紫罗兰座机号 7412` |
+| 匿名 `POST /api/chat` | **401**（不再是 500） |
+| 匿名 `GET /api/llm/references` | **401** |
+| 自改 `PATCH /api/user/{自己的 id}` | **200**；改别人的 id → 403 `无权修改该用户`（守卫是对的） |
+
+### 因此修掉的两个真缺陷
+
+1. **`TOKENIZER_ADDR` 指着一个不存在的路径，`/api/chat` 每个请求 500。**
+   `.env` 原值 `/home/young/.cache/modelscope/hub/models/qwen/Qwen2.5-3B-Instruct` 在本机
+   根本不存在（`~/.cache/modelscope` 整个目录都没有）。`AutoTokenizer.from_pretrained`
+   发现路径不是目录后，把这条**绝对路径当 hub repo id** 再校验，抛出
+   `HFValidationError: Repo id must be in the form 'repo_name' or 'namespace/repo_name'`
+   —— 报错里一个字的 `TOKENIZER_ADDR` 都没提，看起来像 HF/网络问题。
+   这与模型、显存、依赖全都无关，是第 4 个独立成因。
+   处理：`src/client.py` 的 `get_tokenizer()` 现在对「绝对路径且目录不存在」直接抛
+   带配置项名字的错误；`.env` 的默认值改成 repo id `Qwen/Qwen2.5-3B-Instruct`
+   （实测在 `HF_ENDPOINT=https://hf-mirror.com` 下可加载，类为 `Qwen2TokenizerFast`，首次联网取一次并缓存）。
+   **`.env` 那一行按你的规矩没有进提交**，需要你自己决定要不要单独提交。
+
+2. **`dev.sh` 把四个模型名拼成了一个参数。** 原写法
+   `wait_for_models.sh -- "${WAIT_MODELS[*]}"` —— `[*]` 在引号里会 join 成**一个**字符串，
+   于是脚本等的是 `"Qwen3-Instruct bge-m3 bge-reranker-base SenseVoiceSmall"` 这个不存在的模型，
+   永远不就绪、永远打那句「模型未全部就绪」。改成 `"${WAIT_MODELS[@]}"`。
+
+### 一条日志行的解释要更正
+
+`~/.xinference/logs` 里那条 `'list' object has no attribute 'keys'`，我之前归给
+「xinference 2.10 拿不到 model_spec 时走进解析分支」。本轮补了一个更直接的复现：
+**用 backend 的 transformers 4.57.6 去加载 gemma-4 的 tokenizer 目录，抛的就是这一模一样的错**。
+所以它是「旧 transformers 读不懂新模型的 tokenizer_config」，不是 xinference 的解析 bug ——
+这反而更强化 §十一 的结论：服务端必须换到 `apps/inference/.venv`。
+
+### `xinference` CLI 的 launch 也会假绿
+
+同一个 `XINFERENCE_HOME`：CLI `xinference launch …` 打印 `100%` + `Model uid: gemma-4` 且
+**exit 0**，但 4 分钟内 `/v1/models` 始终是空的、显纹丝不动（1337 MiB）；
+换成 REST `POST /v1/models` 并**显式给 `model_uid`**，服务器日志 12 秒内就出现
+`ModelActor(gemma4-e2e-rep0) loaded` / `Launch finished`。
+所以 `load_models.sh` 里 CLI 成功只等于「已提交」，真正判就绪必须走 `wait_for_models.sh`
+（而它要生效又依赖 §十一 那条 `state` 字段修复）。
+
+### 测试卫生
+
+本轮建的临时账号（id 34/35/36）与其会话/消息已全部经 API 自删，复查库里
+`e2e_probe%` 账号数 0、其名下会话 0、全库孤儿消息 0。
+**有一处我清不掉**：库里还有一个更早 session 留下的 `qa-anon-probe`（id 27），
+我没有它的口令、也不该用你的 root 口令，交给你删。
