@@ -16,6 +16,7 @@ class ChatHistoryService:
         conversation_id: str | None,
         mode: str,
         title: str | None = None,
+        user_id: int | None = None,
     ) -> Conversation:
         parsed_id = self._parse_uuid(conversation_id)
         result = await self.relation_db.execute(
@@ -23,12 +24,23 @@ class ChatHistoryService:
         )
         conversation = result.scalar_one_or_none()
         if conversation:
+            if user_id is not None and conversation.user_id not in (None, user_id):
+                # 旧实现只按 id 查，任何人报一个别人的 conversation_id 就能读写别人的历史
+                raise PermissionError("该会话不属于当前用户")
+            if conversation.user_id is None and user_id is not None:
+                # 历史遗留的无主会话（旧版本不写 user_id）在此认领给当前用户
+                conversation.user_id = user_id
+                await self.relation_db.commit()
+                await self.relation_db.refresh(conversation)
             return conversation
 
         conversation = Conversation(
             id=parsed_id,
             title=title or "New Conversation",
             mode=mode,
+            # 旧实现不写 user_id，于是这条会话在按用户过滤的 /conversation/list 里永远看不见，
+            # 也永远删不掉 —— 就是那批「神秘空会话」的来源
+            user_id=user_id,
         )
         self.relation_db.add(conversation)
         await self.relation_db.commit()

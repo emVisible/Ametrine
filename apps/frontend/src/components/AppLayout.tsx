@@ -8,6 +8,7 @@ import { useCurrentUser } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
 import { useRovingTabs } from "../hooks/useRovingTabs";
 import { applyDocumentTitle, pageTitleForPath } from "../utils/pageTitles";
+import { pageLoaders, preloadRoute } from "../pageLoaders";
 import CommandPalette from "./CommandPalette";
 import {
   ChatIcon,
@@ -541,8 +542,10 @@ export default function AppLayout() {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
 
   const activeMode: Mode = location.pathname.startsWith("/rag") ? "rag" : "llm";
+  const routeRoot = `/${location.pathname.split("/")[1] ?? ""}`;
   const isAdmin = !!user?.permissions?.includes("admin");
 
   useEffect(() => {
@@ -558,6 +561,27 @@ export default function AppLayout() {
 
   useEffect(() => {
     applyDocumentTitle(pageTitleForPath(location.pathname));
+  }, [location.pathname]);
+
+  // 首帧之后把所有路由分片预取一遍：动态 import 按 specifier 缓存，
+  // 取过一次的页面再跳转就是同步命中，不会再出现「内容区空一帧」。
+  // 用 import() 而不是写死的 <link rel=modulepreload>，分片哈希变了也不用重新构建 HTML。
+  useEffect(() => {
+    const run = () => {
+      for (const load of pageLoaders) preloadRoute(load).catch(() => {});
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(run, { timeout: 2500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(run, 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 换页回到顶部。以前是靠 <main key=...> 重建节点顺带做到的，
+  // 但重建会让整块正文从 opacity:0 重新入场 —— 那就是跳转时的白屏。
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0);
   }, [location.pathname]);
 
   return (
@@ -622,12 +646,19 @@ export default function AppLayout() {
         </header>
 
         <main
-          key={location.pathname}
+          ref={mainRef}
           id="main-content"
           tabIndex={-1}
-          className="anim-page min-h-0 flex-1 overflow-y-auto outline-none"
+          className="min-h-0 flex-1 overflow-y-auto bg-canvas outline-none"
         >
-          <Outlet />
+          {/* 动画挂在内容上而不是滚动容器上：容器节点保持稳定，换页时正文
+              从 35% 不透明度起步，最差也是「略淡的上一页」而不是空白一片。
+              分段用路由根（/chat、/rag、/admin…）而不是完整 pathname：
+              首次发送会把 /chat 改写成 /chat/<新会话 id>，那是同一个页面，
+              不能在这里重建 —— 重建会连正在流式输出的消息一起丢掉。 */}
+          <div key={routeRoot} className="anim-route h-full">
+            <Outlet />
+          </div>
         </main>
       </div>
 

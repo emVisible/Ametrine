@@ -24,8 +24,9 @@ interface SessionState {
 
   // 创建新会话
   createSession: (mode?: 'llm' | 'rag' | 'agent') => Promise<string>
-  // 切换会话
-  switchSession: (id: string) => void
+  // 切换会话；null 表示「当前没有会话」—— 裸 /chat、/rag 就是这个状态，
+  // 会话要等到首次发送时才建，而不是访问路由就写库
+  switchSession: (id: string | null) => void
   // 删除会话
   deleteSession: (id: string) => void
   // 重命名会话

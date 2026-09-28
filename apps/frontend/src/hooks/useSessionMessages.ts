@@ -1,9 +1,14 @@
 // src/hooks/useSessionMessages.ts
 // Chat 与 RAGChat 共用的会话绑定。
-// AppLayout 的 <main key={pathname}> 会在路由变化时重挂载子树，
-// 因此会话切换用「惰性初始化 + 重挂载」即可，不需要 effect 把 store 同步进 state
-// （那种写法会触发级联渲染，也是 lint 报 set-state-in-effect 的根因）。
-import { useCallback, useEffect, useState } from "react";
+//
+// 会话是**首次发送时**才创建的：以前裸 /chat、/rag 一进来就 createSession，
+// 光是访问路由就会在库里留下一条没人写过的 Conversation（删掉账号也删不掉）。
+// 现在裸路由保持 currentSessionId = null，发送前才补建并把 URL 换过去。
+//
+// 代价是这套 hook 不能再依赖「路由变化整棵子树重挂载」来重置 messages：
+// /chat → /chat/<id> 属于同一路由，AppLayout 的舞台按路由根分段，不会重建页面，
+// 所以会话之间的切换由下面的 convId 同步 effect 显式负责。
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import useSessionStore, {
   type HistoryMessage,
@@ -23,7 +28,6 @@ export function useSessionMessages<T extends HistoryMessage = HistoryMessage>(
   const navigate = useNavigate();
 
   const currentSessionId = useSessionStore((s) => s.currentSessionId);
-  const createSession = useSessionStore((s) => s.createSession);
   const switchSession = useSessionStore((s) => s.switchSession);
 
   const [messages, setMessages] = useState<T[]>(() => {
@@ -33,8 +37,9 @@ export function useSessionMessages<T extends HistoryMessage = HistoryMessage>(
     return (session?.messages ?? []) as T[];
   });
 
-  // URL 与 store 必须双向自洽：convId 可能指向一个已被删除（或属于另一种模式）的会话，
-  // 无条件 switchSession(convId) 会把这种幽灵 ID 重新写回 store，于是删除看似没生效。
+  // URL 与 store 必须双向自洽。
+  // convId 可能指向一个已被删除（或属于另一种模式）的会话 —— 无条件
+  // switchSession(convId) 会把这种幽灵 ID 重新写回 store，删除就看起来没生效。
   useEffect(() => {
     const state = useSessionStore.getState();
     const target = convId
@@ -46,16 +51,50 @@ export function useSessionMessages<T extends HistoryMessage = HistoryMessage>(
       return;
     }
 
+    if (convId) {
+      // 幽灵 ID：清掉当前指向并把地址退回裸路由，等着首次发送去建新会话
+      switchSession(null);
+      navigate(`/${MODE_ROUTE[mode]}`, { replace: true });
+      return;
+    }
+
     const reusable = state.sessions.find((s) => s.mode === mode);
-    if (reusable) {
+    if (reusable && state.currentSessionId !== reusable.id) {
       switchSession(reusable.id);
       navigate(`/${MODE_ROUTE[mode]}/${reusable.id}`, { replace: true });
-    } else {
-      createSession(mode).then((id) =>
-        navigate(`/${MODE_ROUTE[mode]}/${id}`, { replace: true }),
-      );
     }
-  }, [convId, currentSessionId, createSession, mode, navigate, switchSession]);
+    // 没有任何同模式会话时什么都不做：裸路由 + currentSessionId 为空是合法状态，
+    // 会话等 handleSubmit 里 ensureSession() 去建。
+  }, [convId, currentSessionId, mode, navigate, switchSession]);
+
+  /**
+   * 拿到一个可用的会话 ID：有就用，没有才建。
+   * 返回 null 只可能是 createSession 抛错（store 内部已降级为本地 UUID，一般不会）。
+   */
+  const ensureSession = useCallback(async (): Promise<string | null> => {
+    const state = useSessionStore.getState();
+    const existing = convId ?? state.currentSessionId;
+    if (existing && state.sessions.some((s) => s.id === existing)) {
+      if (state.currentSessionId !== existing) switchSession(existing);
+      return existing;
+    }
+    const id = await state.createSession(mode);
+    navigate(`/${MODE_ROUTE[mode]}/${id}`, { replace: true });
+    return id;
+  }, [convId, mode, navigate, switchSession]);
+
+  // 同一路由内切会话不再重挂载，所以 messages 要显式跟着 convId 走，
+  // 否则会把上一个会话的消息留在屏幕上（旧行为靠 remount 掩盖）。
+  const lastSyncedRef = useRef<string | null>(convId ?? null);
+  useEffect(() => {
+    const key = currentSessionId ?? convId ?? null;
+    if (lastSyncedRef.current === key) return;
+    lastSyncedRef.current = key;
+    const session = useSessionStore
+      .getState()
+      .sessions.find((s) => s.id === key);
+    setMessages((session?.messages ?? []) as unknown as T[]);
+  }, [currentSessionId, convId]);
 
   // 写回外部 store：这是 effect 的正当用途（同步到 React 之外的系统）
   useEffect(() => {
@@ -143,6 +182,7 @@ export function useSessionMessages<T extends HistoryMessage = HistoryMessage>(
     messages,
     setMessages,
     currentSessionId,
+    ensureSession,
     beginTurn,
     appendToken,
     finishTurn,

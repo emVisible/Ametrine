@@ -1,3 +1,20 @@
+# 个人「认知底色」的长度上限。它是唯一直接拼进 system 消息的用户输入，
+# 不设限的话一个粘贴就能把上下文窗口挤掉，属于对外边界的输入。
+PERSONAL_PROMPT_MAX_CHARS = 4000
+
+
+def compose_system_prompt(base: str, personal: str | None) -> str:
+    """把用户在全局设置里填的 system_prompt 叠在系统提示之后。
+
+    叠加而不是替换：一句个人偏好不该把整段助手规范（尤其 RAG 的「只按参考资料回答」）抹掉。
+    留空时逐字节等于原行为，所以这次接线不会改变任何没填过这个字段的账号的输出。
+    """
+    text = (personal or "").strip()
+    if not text:
+        return base
+    return f"{base}\n\n## 用户自定义偏好\n{text[:PERSONAL_PROMPT_MAX_CHARS]}"
+
+
 def user_prompt(question: str, reference: str):
     return f"""
             我有一个问题需要你回答，请结合下方提供的参考资料来做出准确的回应。

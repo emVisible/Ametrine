@@ -426,6 +426,19 @@
   }
 }
 
+/* 路由换页专用：从 35% 而不是 0 起淡。整屏从全透明开始等于在动画时长里
+   给用户看一块裸画布，浅色主题下那就是「跳转白屏」。 */
+@keyframes fade-rise-soft {
+  from {
+    opacity: 0.35;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -469,6 +482,10 @@
 @layer utilities {
   .anim-page {
     animation: fade-rise var(--dur-slow) var(--ease-out) both;
+  }
+  /* 路由内容用 soft 版：跳转时正文容器不再整块重建，淡入起点也不再是全透明 */
+  .anim-route {
+    animation: fade-rise-soft var(--dur-base) var(--ease-out) both;
   }
   .anim-pop {
     animation: pop-in var(--dur-base) var(--ease-out) both;

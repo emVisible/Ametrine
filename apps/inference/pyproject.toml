@@ -1,0 +1,27 @@
+[project]
+name = "ametrine-inference"
+version = "0.1.0"
+description = "Ametrine 的 Xinference 推理服务环境（与应用环境隔离，可独立升级）"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    # ── 为什么这里不写 xinference[all]，以及为什么后端环境也不该继续用它 ──
+    # [all] 会拉进 vllm。vllm 0.7.2 的 METADATA 里是 `Requires-Dist: torch==2.5.1`
+    # （硬等号），连带 torchaudio==2.5.1 / torchvision==0.20.1 / triton / xformers /
+    # 一整串 nvidia-*-cu12 wheel。这条「vllm → 精确 torch 版本」的锁链就是
+    # 「用 uv 更新 xinference 就与其它依赖冲突」的全部来源：
+    # 每个新版 xinference 只对应一个新版 vllm，而新版 vllm 要新版 torch，
+    # 与应用侧的 transformers / compressed-tensors / bitsandbytes /
+    # unstructured-inference 等 lower bound 找不到交集，uv 只能报无解。
+    #
+    # 本机 GPU 是 RTX 2080 Ti（Turing sm_75）。vLLM 新版本一路在淘汰老架构，
+    # 而 9997 上配置的这些模型（Qwen3-Instruct / bge-m3 / bge-reranker-base /
+    # SenseVoiceSmall）在 Transformers 引擎下都有 model_spec，
+    # 所以这里只装真正用到的引擎，vllm 整个不进依赖树。
+    #
+    # 结论：不装 vllm ⇒ torch 不再被钉死 ⇒ 新版 xinference 可以正常升级。
+    "xinference[transformers,embedding,rerank,audio,image]>=3.5,<4",
+]
+
+[tool.uv]
+# 这个目录是独立的 uv 项目，有自己的 lock 与 .venv，
+# 与 apps/backend/uv.lock 没有任何关系：推理栈升级不会牵动应用依赖，反之亦然。

@@ -10,6 +10,8 @@ sample.mp3
 
 # backend
 __pycache__
+.venv/
+venv/
 docs/*
 !docs/refactor/
 !docs/refactor/**

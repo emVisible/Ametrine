@@ -4,9 +4,8 @@ from functools import lru_cache
 from typing import AsyncGenerator, Dict
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import XinferenceEmbeddings
+from langchain_core.embeddings import Embeddings
 from langchain_experimental.text_splitter import SemanticChunker
-from langchain_xinference import ChatXinference
 from pymilvus import MilvusClient
 from redis import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -26,6 +25,7 @@ from .config import (
     semantic_splitter,
     semaphore,
     xinference_addr,
+    xinference_api_key,
     xinference_embedding_model_id,
     xinference_llm_model_id,
     xinference_rerank_model_id,
@@ -37,7 +37,8 @@ engine = create_async_engine(postgre_addr, echo=bool(postgre_log))
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 Base = declarative_base()
 
-client = RESTfulClient(base_url=xinference_addr)
+# 3.x 服务器强制鉴权，这里先把密钥通道接上；留空时 api_key=None，2.10 行为不变。
+client = RESTfulClient(base_url=xinference_addr, api_key=xinference_api_key or None)
 
 _semaphore_pool: Dict[int, Semaphore] = {}
 
@@ -76,11 +77,31 @@ def get_rerank_model():
     return client.get_model(model_uid=xinference_rerank_model_id)
 
 
+class CredentialedEmbeddings(Embeddings):
+    """走共享 `client` 的向量化入口。
+
+    换掉 langchain 的 XinferenceEmbeddings 的原因：它内部自己 `RESTfulClient(server_url)`，
+    构造签名里没有 api_key（实测只有 server_url/model_uid），xinference 3.x 一开鉴权必然 401。
+    请求语义与它保持一致（一条文本一次 /v1/embeddings 调用），只把出口换成会带 Authorization 的那个 client。
+    """
+
+    def __init__(self, model_uid: str):
+        self.model_uid = model_uid
+
+    def _embed_one(self, text: str) -> list[float]:
+        res = client.get_model(model_uid=self.model_uid).create_embedding(text)
+        return list(map(float, res["data"][0]["embedding"]))
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._embed_one(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed_one(text)
+
+
 @lru_cache()
 def get_embedding_model():
-    return XinferenceEmbeddings(
-        server_url=xinference_addr, model_uid=xinference_embedding_model_id
-    )
+    return CredentialedEmbeddings(xinference_embedding_model_id)
 
 
 @lru_cache()

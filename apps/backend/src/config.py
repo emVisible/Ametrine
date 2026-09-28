@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(..., alias="ACCESS_TOKEN_EXPIRE_MINUTES")
 
     xinference_addr: str = Field(..., alias="XINFERENCE_MAIN_ADDR")
+    # xinference 2.x 匿名可用；3.x 服务端强制鉴权（见 docs/refactor 那篇依赖分析）。
+    # 留空 = 按匿名处理，所以现在这台 2.10 服务器不受影响。
+    xinference_api_key: str = Field(default="", alias="XINFERENCE_API_KEY")
     xinference_llm_model_id: str = Field(..., alias="XINFERENCE_LLM_MODEL_ID")
     xinference_embedding_model_id: str = Field(
         ..., alias="XINFERENCE_EMBEDDING_MODEL_ID"

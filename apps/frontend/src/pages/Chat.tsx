@@ -31,6 +31,7 @@ export default function ChatPage() {
     messages,
     setMessages,
     currentSessionId,
+    ensureSession,
     beginTurn,
     appendToken,
     discardEmptyTurn,
@@ -68,7 +69,12 @@ export default function ChatPage() {
 
   const handleSubmit = useCallback(async () => {
     const prompt = input.trim();
-    if (!prompt || isStreaming || !currentSessionId) return;
+    if (!prompt || isStreaming) return;
+
+    // 会话在按下发送这一刻才创建：以前裸 /chat 一进来就写库，
+    // 于是「看一眼对话页」会留下一条永远删不掉的空 Conversation。
+    const sessionId = await ensureSession();
+    if (!sessionId) return;
 
     const history = beginTurn(prompt);
     setInput("");
@@ -78,7 +84,7 @@ export default function ChatPage() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    conversationAPI.addMessage(currentSessionId, "user", prompt).catch(() => {});
+    conversationAPI.addMessage(sessionId, "user", prompt).catch(() => {});
 
     await streamChat(
       { prompt, chat_history: history },
@@ -88,7 +94,7 @@ export default function ChatPage() {
           const last = prev[prev.length - 1];
           if (last?.role === "assistant" && last.content) {
             conversationAPI
-              .addMessage(currentSessionId, "assistant", last.content)
+              .addMessage(sessionId, "assistant", last.content)
               .catch(() => {});
           }
           return prev;
@@ -107,7 +113,7 @@ export default function ChatPage() {
   }, [
     input,
     isStreaming,
-    currentSessionId,
+    ensureSession,
     beginTurn,
     appendToken,
     discardEmptyTurn,

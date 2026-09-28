@@ -1,7 +1,7 @@
 import inspect
 from datetime import datetime, timezone
 from functools import wraps
-from logging import DEBUG, INFO, StreamHandler, basicConfig, getLogger
+from logging import DEBUG, FileHandler, Formatter, INFO, StreamHandler, basicConfig, getLogger
 from os.path import abspath, join
 
 from colorlog import ColoredFormatter
@@ -28,6 +28,10 @@ console_handler = StreamHandler()
 console_handler.setFormatter(formatter)
 config_logger.setLevel(DEBUG)
 config_logger.addHandler(console_handler)
+# propagate=False 本身是对的（否则同一条会经 root 再打一遍），但配上下面的
+# basicConfig(filename=...) 之后，ametrine.log 只挂在 root 上，
+# 这个 logger 的日志就永远进不了文件 —— 出问题时没有任何事后可言。
+# 所以显式再挂一个文件 handler，控制台与文件两边都留痕。
 config_logger.propagate = False
 
 basicConfig(
@@ -35,6 +39,13 @@ basicConfig(
     level=INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
+
+_file_handler = FileHandler("ametrine.log", encoding="utf-8")
+_file_handler.setLevel(INFO)
+_file_handler.setFormatter(
+    Formatter("%(asctime)s - %(levelname)-8s - %(message)s")
+)
+config_logger.addHandler(_file_handler)
 
 
 # ─── 配置项 → 标签映射 ───

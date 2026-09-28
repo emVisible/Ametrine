@@ -9,6 +9,68 @@
     <meta name="theme-color" content="#0c0e12" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="Ametrine — 基于 RAG 的本地知识库系统" />
     <title>Ametrine</title>
+    <!--
+      关键内联样式：外链 CSS 与 JS 都要一次网络往返才能到齐，服务器首屏（尤其是冷缓存）
+      在此之前画布是浏览器的白纸。这里把 body 底色提前落地，白屏窗口就只剩「有底色但还没内容」。
+      两个值和 index.css 的 --c-canvas 必须一致。
+    -->
+    <style>
+      html {
+        background: #f6f7f9;
+      }
+      html.dark {
+        background: #0c0e12;
+      }
+      html,
+      body {
+        margin: 0;
+        overscroll-behavior: none;
+      }
+    </style>
+    <script>
+      // 首帧前敲定主题。ThemeProvider 的 useState 初值必须与这段逻辑完全一致，
+      // 否则会出现「先浅色再深色」的翻转。
+      (function () {
+        var saved = null;
+        try {
+          saved = localStorage.getItem("theme");
+        } catch (e) {
+          /* 隐私模式下 localStorage 会抛 */
+        }
+        var dark =
+          saved === "dark" ||
+          (!saved &&
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+      })();
+
+      // 启动看门狗：入口分片 404 时 JS 根本没机会运行，React 的错误边界和
+      // chunkRecovery 都是死代码 —— 这正是「部署后首屏全白、手动刷新才好」的形态：
+      // 手上的 index.html 还引用着上一个构建的哈希文件名。
+      // 自救方式是用带新查询串的地址重进一次，绕开 HTML 缓存拿到新的 index.html。
+      // 键名与 src/utils/chunkRecovery.ts 的 BOOT_RELOAD_KEY 必须一致；
+      // 挂载成功后 markBooted() 会清掉标记并解除本定时器。
+      (function () {
+        var KEY = "ametrine:boot-reload";
+        var alreadyRetried = false;
+        try {
+          alreadyRetried = sessionStorage.getItem(KEY) === "1";
+        } catch (e) {
+          alreadyRetried = true; // 读不到就当作重试过，宁可不做二次跳转
+        }
+        setTimeout(function () {
+          if (window.__ametrineBooted || alreadyRetried) return;
+          try {
+            sessionStorage.setItem(KEY, "1");
+          } catch (e) {
+            return;
+          }
+          var sep = location.search ? "&" : "?";
+          location.replace(location.pathname + location.search + sep + "r=" + Date.now() + location.hash);
+        }, 8000);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

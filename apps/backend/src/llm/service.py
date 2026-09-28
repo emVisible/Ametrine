@@ -34,10 +34,15 @@ class LLMService:
 
     async def stream_by_token(self, res):
         for chunk in res:
-            cache = dumps(chunk["choices"][0]["delta"]["content"]) + "\n"
-            if cache:
-                yield cache
-            if chunk["choices"][0].get("finish_reason") == "stop":
+            choices = chunk.get("choices") or [{}]
+            first = choices[0]
+            # OpenAI 兼容流里第一个 delta 常常只有 {"role":"assistant"}、工具调用帧整帧没有 content，
+            # 原先直接索引 ["delta"]["content"]，碰到这种帧 KeyError 会把整条回答打断。
+            # /api/chat 那侧早就是防御式取值（_chunk_content），这里对齐同一套语义。
+            content = (first.get("delta") or {}).get("content")
+            if content is not None:
+                yield dumps(content) + "\n"
+            if first.get("finish_reason") == "stop":
                 break
             await sleep(0)
 
@@ -100,22 +105,41 @@ class LLMService:
             item["metadata"] = text_to_meta.get(item["document"]["text"])
         return res
 
-    def unify_filter(self, data: list[dict], question: str):
-        res = []
-        filter_data = [part["results"] for part in data]
-        for document in filter_data:
-            doc = {}
-            for chunk in document:
-                if chunk["relevance_score"] < min_relevance_score:
+    def unify_filter(self, data: list[dict], question: str) -> list[dict]:
+        """
+        三个修正（都是会静默降低回答质量的）：
+
+        1. 旧实现每个向量命中只留一个 doc 字典，并且在循环里反复覆盖 doc["text"] ——
+           命中的是多块时，留下的是**最后一条**，也就是 rerank 降序里的最低分那块。
+           这里按 (doc_id, chunk_id) 取最高分。
+        2. 旧实现返回的 res 顺序就是向量检索顺序，`res[:p]` 截的是「先检索到的 p 条」，
+           重排分数算完了却从没参与过排序。这里按 relevance_score 全局降序后再截 p 条。
+        3. 无命中时旧实现返回一个字符串，而本函数签名与所有调用方都按 list[dict] 用：
+           create_user_prompt 里 `if context` 对非空字符串为真，于是走
+           `[item["text"] for item in context]` —— 遍历的是字符，全部被 "text" in item 过滤掉，
+           参考信息变成空串，模型收到「没有参考」却没有任何提示。改为返回 []，
+           让 create_user_prompt 的 else 分支给出明确的「无参考信息」文案。
+        """
+        best: dict[tuple, dict] = {}
+        for part in data:
+            for chunk in part.get("results", []):
+                score = chunk.get("relevance_score", 0)
+                if score < min_relevance_score:
                     continue
-                doc["text"] = chunk["document"]["text"]
-                doc["doc_id"] = chunk["metadata"]["doc_id"]
-                doc["chunk_id"] = chunk["metadata"]["chunk_id"]
-                doc["relevance_score"] = chunk["relevance_score"]  # ← 保留评分
-            res.append(doc) if doc else None
-        if len(res) > 0:
-            return res[:p]
-        return "## No relevant documents found, please try to rephrase your question."
+                metadata = chunk.get("metadata") or {}
+                key = (metadata.get("doc_id"), metadata.get("chunk_id"))
+                candidate = {
+                    "text": chunk["document"]["text"],
+                    "doc_id": metadata.get("doc_id"),
+                    "chunk_id": metadata.get("chunk_id"),
+                    "relevance_score": score,
+                }
+                current = best.get(key)
+                if current is None or score > current["relevance_score"]:
+                    best[key] = candidate
+
+        ranked = sorted(best.values(), key=lambda item: item["relevance_score"], reverse=True)
+        return ranked[:p]
 
     async def parse_references(self, output: list[dict]):
         if type(output) == str:

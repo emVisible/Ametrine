@@ -1,12 +1,17 @@
 from json import dumps, loads
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from src.client import TaskType, get_semaphore
 from src.config import max_model_len
-from src.llm.prompt import system_prompt_llm, system_prompt_rag
+from src.llm.prompt import (
+    compose_system_prompt,
+    system_prompt_llm,
+    system_prompt_rag,
+)
 from src.llm.service import LLMService, get_llm_service
 from src.middleware.tags import ControllerTag
+from src.user.auth.service import get_current_user
 from src.vector.documents.service import DocumentService, get_document_service
 
 from .dto import ChatRequest, ChatResponse
@@ -25,10 +30,13 @@ def _chunk_content(chunk: dict) -> str:
     return delta.get("content") or ""
 
 
-async def _stream_llm(dto: ChatRequest, service: LLMService):
+async def _stream_llm(dto: ChatRequest, service: LLMService, personal_prompt=None):
     try:
         messages = [
-            {"role": "system", "content": system_prompt_llm},
+            {
+                "role": "system",
+                "content": compose_system_prompt(system_prompt_llm, personal_prompt),
+            },
             *dto.chat_history,
             {"role": "user", "content": dto.message},
         ]
@@ -52,6 +60,7 @@ async def _stream_rag(
     dto: ChatRequest,
     document_service: DocumentService,
     service: LLMService,
+    personal_prompt=None,
 ):
     try:
         rag = dto.rag
@@ -72,7 +81,10 @@ async def _stream_rag(
         yield _event("reference", data=references)
 
         messages = [
-            {"role": "system", "content": system_prompt_rag},
+            {
+                "role": "system",
+                "content": compose_system_prompt(system_prompt_rag, personal_prompt),
+            },
             *dto.chat_history,
             {"role": "user", "content": prompt},
         ]
@@ -150,15 +162,26 @@ async def _persisting_stream(
 @route_chat.post("", summary="[Chat] 统一对话入口")
 async def chat(
     dto: ChatRequest,
+    # 鉴权依赖要排在模型依赖前面：FastAPI 按签名顺序解析，
+    # 而 get_llm_service → get_rerank_model 会去打 Xinference，本机没模型时直接抛 500，
+    # 于是「没登录」的请求看到的是 500 而不是 401（实测就是这样）。
+    current_user=Depends(get_current_user),
     llm_service: LLMService = Depends(get_llm_service),
     document_service: DocumentService = Depends(get_document_service),
     history_service: ChatHistoryService = Depends(get_chat_history_service),
 ):
-    conversation = await history_service.ensure_conversation(
-        conversation_id=dto.conversation_id,
-        mode=dto.mode,
-        title=dto.message[:40],
-    )
+    try:
+        conversation = await history_service.ensure_conversation(
+            conversation_id=dto.conversation_id,
+            mode=dto.mode,
+            title=dto.message[:40],
+            user_id=current_user.id,
+        )
+    except PermissionError:
+        # 报了一个属于别人的 conversation_id：拒不写入，也不回显对方内容
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="该会话不属于当前用户"
+        )
     dto.conversation_id = str(conversation.id)
     await history_service.create_message(
         conversation_id=conversation.id,
@@ -167,10 +190,19 @@ async def chat(
         meta={"mode": dto.mode},
     )
 
+    # 只认「库里这个账号写好的偏好」。dto.system_prompt（客户端自带的同名字段）故意不采信：
+    # 让请求方随意覆盖系统提示，等于把 RAG 的引用约束交给调用方关掉。
     if dto.mode == "rag":
-        stream = _stream_rag(dto, document_service=document_service, service=llm_service)
+        stream = _stream_rag(
+            dto,
+            document_service=document_service,
+            service=llm_service,
+            personal_prompt=current_user.system_prompt,
+        )
     else:
-        stream = _stream_llm(dto, service=llm_service)
+        stream = _stream_llm(
+            dto, service=llm_service, personal_prompt=current_user.system_prompt
+        )
 
     if not dto.options.stream:
         response = await _collect_stream(stream)

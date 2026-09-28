@@ -143,7 +143,7 @@ export default function RAGChatPage() {
 
   const {
     messages,
-    currentSessionId,
+    ensureSession,
     beginTurn,
     appendToken,
     finishTurn,
@@ -167,14 +167,10 @@ export default function RAGChatPage() {
 
   const handleSubmit = useCallback(async () => {
     const prompt = input.trim();
-    if (
-      !prompt ||
-      isStreaming ||
-      !selectedDb ||
-      !selectedCol ||
-      !currentSessionId
-    )
-      return;
+    if (!prompt || isStreaming || !selectedDb || !selectedCol) return;
+
+    // 与 Chat 页一致：会话在发送这一刻才建，访问 /rag 不再凭空写库
+    if (!(await ensureSession())) return;
 
     const history = beginTurn(prompt);
     setInput("");
@@ -212,7 +208,7 @@ export default function RAGChatPage() {
     selectedDb,
     selectedCol,
     enableRerank,
-    currentSessionId,
+    ensureSession,
     beginTurn,
     appendToken,
     finishTurn,

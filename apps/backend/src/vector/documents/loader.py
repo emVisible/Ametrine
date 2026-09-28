@@ -80,7 +80,9 @@ def process_documents(
     else:
         documents = load_document(file_path=file_path)
     if not documents:
-        exit(0)
+        # 原来是 exit(0)：这是个 SystemExit，在请求线程里会把 uvicorn 进程直接带走 ——
+        # 上传一份解析不出内容的文件（扫描件、空 PDF）就足以打死整个后端。
+        raise ValueError("文档解析结果为空，请确认文件是否有可提取的文本内容")
     splitter = get_splitter()
     texts = splitter.split_documents(documents)
     return texts
