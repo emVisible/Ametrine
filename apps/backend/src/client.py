@@ -97,7 +97,11 @@ def get_tokenizer():
 def get_splitter():
     if semantic_splitter:
         return SemanticChunker(
-            get_embedding_model(), breakpoint_threshold_type="gradient"
+            get_embedding_model(),
+            breakpoint_threshold_type="gradient",
+            # 默认断句正则 `(?<=[.?!])\s+` 要求标点后跟空白，中文「。」后无空格，
+            # 整篇文档会被当作 1 个句子直接原样返回（即一篇文档 = 1 个 chunk = 1 条向量）。
+            sentence_split_regex=r"(?<=[.?!。？！;；])\s*",
         )
     return RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, chunk_overlap=chunk_overlap

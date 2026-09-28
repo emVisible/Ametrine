@@ -14,7 +14,6 @@ from src.vector.documents.service import DocumentService, get_document_service
 from src.user.permissions import PermissionService, get_permission_service
 from src.user.auth.service import get_current_user
 
-from .whisper.service import WhisperService, get_whisper_service
 from .dto.chat import LLMChat
 from .prompt import system_prompt_llm, system_prompt_rag
 from .service import LLMService, get_llm_service
@@ -27,15 +26,10 @@ route_llm = APIRouter(prefix="/llm", tags=[ControllerTag.llm])
 async def chat(
     dto: LLMChat,
     service: LLMService = Depends(get_llm_service),
-    whisper_service: WhisperService = Depends(get_whisper_service),
 ):
     prompt, chat_history = attrgetter("prompt", "chat_history")(dto)
-    whisper = await whisper_service.get_whisper_prompt("llm")
 
-    messages = []
-    if whisper:
-        messages.append({"role": "system", "content": whisper})
-    messages.append({"role": "system", "content": system_prompt_llm})
+    messages = [{"role": "system", "content": system_prompt_llm}]
     messages.extend(chat_history)
     messages.append({"role": "user", "content": prompt})
     async with get_semaphore(TaskType.LLM):
@@ -59,7 +53,6 @@ async def search(
     redis_client=Depends(get_redis),
     perm_service: PermissionService = Depends(get_permission_service),
     current_user=Depends(get_current_user),
-    whisper_service: WhisperService = Depends(get_whisper_service),
 ):
     raw_prompt, chat_history, database_name, collection_name = attrgetter(
         "prompt", "chat_history", "database_name", "collection_name"
@@ -76,11 +69,9 @@ async def search(
     session_id = str(uuid4())
     redis_client.setex(f"chat_ref:{session_id}", 600, dumps(references))
 
-    whisper = await whisper_service.get_whisper_prompt("rag")
     async with get_semaphore(TaskType.RAG):
         res = service.llm_model.chat(
             messages=[
-                *([{"role": "system", "content": whisper}] if whisper else []),
                 {"role": "system", "content": system_prompt_rag},
                 *chat_history,
                 {"role": "user", "content": prompt},

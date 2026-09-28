@@ -264,28 +264,3 @@ class TenantMember(Base):
     user = relationship("User", backref="tenant_memberships")
 
     __table_args__ = (UniqueConstraint("tenant_id", "user_id"),)
-
-
-class Whisper(Base):
-    __tablename__ = "whisper"
-
-    id = Column(Integer, primary_key=True, index=True)
-    volume = Column(String(50), nullable=False, index=True)
-    sequence = Column(Integer, nullable=False)
-    content = Column(Text, nullable=False)
-    depth = Column(Integer, default=1)
-    category = Column(String(50), nullable=True)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class WhisperConfig(Base):
-    __tablename__ = "whisper_config"
-
-    id = Column(Integer, primary_key=True, index=True)
-    mode = Column(String(50), unique=True, nullable=False)
-    active_volumes = Column(JSONB, default=list)
-    max_depth = Column(Integer, default=3)
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )

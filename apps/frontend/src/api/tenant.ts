@@ -1,19 +1,28 @@
-import { apiClient } from './client'
+// src/api/tenant.ts
+import { apiClient } from "./client";
+import type { Tenant } from "../types/knowledge";
+
+export interface TenantMember {
+  user_id: number;
+  role?: string;
+}
 
 export const tenantAPI = {
-  getAll: () => apiClient<any[]>('/relation/tenant/all'),
-  getById: (id: number) => apiClient<any>(`/relation/tenant/${id}`),
+  getAll: () => apiClient<Tenant[]>("/relation/tenant/all"),
+  getById: (id: number) => apiClient<Tenant>(`/relation/tenant/${id}`),
   create: (data: { name: string }) =>
-    apiClient('/relation/tenant/create', { method: 'POST', body: data }),
+    apiClient<Tenant>("/relation/tenant/create", { method: "POST", body: data }),
   delete: (id: number) =>
-    apiClient(`/relation/tenant/${id}`, { method: 'DELETE' }),
+    apiClient<{ message: string }>(`/relation/tenant/${id}`, { method: "DELETE" }),
   getMembers: (tenantId: number) =>
-    apiClient<any[]>(`/relation/tenant/${tenantId}/members`),
-  addMember: (tenantId: number, userId: number, role: string = 'member') =>
+    apiClient<TenantMember[]>(`/relation/tenant/${tenantId}/members`),
+  addMember: (tenantId: number, userId: number, role = "member") =>
     apiClient(`/relation/tenant/${tenantId}/members/${userId}`, {
-      method: 'POST',
+      method: "POST",
       body: { role },
     }),
   removeMember: (tenantId: number, userId: number) =>
-    apiClient(`/relation/tenant/${tenantId}/members/${userId}`, { method: 'DELETE' }),
-}
+    apiClient(`/relation/tenant/${tenantId}/members/${userId}`, {
+      method: "DELETE",
+    }),
+};

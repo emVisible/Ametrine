@@ -1,13 +1,14 @@
 // src/api/asr.ts — 改为调 /audio/transcribe
+import useAuthStore from '../stores/useAuthStore'
+
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
 
 export async function transcribeAudio(audioBlob: Blob): Promise<string> {
   const formData = new FormData()
   formData.append('file', audioBlob, 'recording.wav')
 
-  const token = localStorage.getItem('auth-storage')
-    ? JSON.parse(localStorage.getItem('auth-storage')!).state?.token
-    : null
+  // 与 apiClient 共用同一个事实源，不再各自解析 localStorage
+  const token = useAuthStore.getState().token
 
   const response = await fetch(`${API_BASE}/audio/transcribe`, {
     method: 'POST',

@@ -50,7 +50,10 @@ const useSessionStore = create<SessionState>()(
         let backendId: string
         try {
           const result = await conversationAPI.create(mode)
-          backendId = result.id
+          // 后端返回结构变化时不能静默产生 undefined ID
+          backendId = typeof result?.id === 'string' && result.id
+            ? result.id
+            : crypto.randomUUID()
         } catch {
           backendId = crypto.randomUUID() // 降级：后端挂了用本地 ID
         }
@@ -77,15 +80,16 @@ const useSessionStore = create<SessionState>()(
 
       deleteSession: (id) => {
         set((state) => {
-          const sessions = state.sessions.filter((s) => s.id !== id)
-          return {
-            sessions,
-            currentSessionId:
-              state.currentSessionId === id
-                ? sessions[0]?.id || null
-                : state.currentSessionId,
+          const sessions = state.sessions.filter((s) => s.id !== id);
+          if (state.currentSessionId !== id) {
+            return { sessions, currentSessionId: state.currentSessionId };
           }
-        })
+          // 后继会话只能同模式：/rag 页面删掉当前会话不该跳到「对话」会话上
+          const removed = state.sessions.find((s) => s.id === id);
+          const successor =
+            sessions.find((s) => s.mode === removed?.mode)?.id ?? null;
+          return { sessions, currentSessionId: successor };
+        });
       },
 
       renameSession: (id, title) => {

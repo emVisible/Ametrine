@@ -24,7 +24,6 @@ from src.chat.controller import route_chat
 from src.client import engine, get_milvus_service, get_redis, get_relation_db
 from src.conversation.controller import route_conversation
 from src.llm.controller import route_llm
-from src.llm.whisper.controller import route_whisper
 from src.middleware.exceptions import (
     custom_http_exception_handler,
     validation_exception_handler,
@@ -80,9 +79,7 @@ app.include_router(route_relation, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_chat, prefix=route_prefix)
 app.include_router(route_audio, prefix=route_prefix)
-app.include_router(route_whisper, prefix="/api")
 app.include_router(route_llm, prefix=route_prefix)
-app.include_router(route_audio, prefix=route_prefix)
 app.include_router(route_conversation, prefix=route_prefix)
 app.include_router(route_user_permission, prefix="/api")
 

@@ -765,3 +765,12 @@ Ametrine 应保持这些产品和工程原则：
 - 记忆必须可查看、可修改、可删除。
 - 工具调用必须可审计。
 - 前端体验可以温柔，但后端边界必须清楚。
+
+## 14. 后续审计
+
+- `docs/refactor/2026-09-28-rag-audit-and-ui.md`：对标生产级 RAG 的完整缺陷清单（租户隔离失效、中文文档未分块、rerank 未重排、引用契约不成立等），以及前端设计令牌化与 UI 专业改版的记录。本文件 3.x 与第 1~6 阶段的部分「已修」结论在该文档中被重新核实。
+- `docs/refactor/2026-09-28-backend-contract-and-console.md`：后端契约与资源模型审计。回答「Milvus collection 归属谁、四族资源缺哪些端点、为什么不该做入库进度轮询、引用回溯现在能做到哪一步」，并给出前后端联动改造顺序与知识库控制台改版对应关系。
+- `docs/refactor/2026-09-28-frontend-review-round2.md`：第二轮前端横向评估（真实运行环境下）。侧栏分区重构的实际原因、租户与用户管理合并为「组织与权限」、色彩语义收敛（只有异常才着色）、错误从写进正文改为可行动提示，以及动效层与仍未做的诚实清单。
+- `docs/refactor/2026-09-28-backend-evaluation.md`：后端调研评估（逐段读码、附 `path:line`）。检索链路三个实现级 bug（rerank 从不全局排序、命中块取成最低分、无命中时返回字符串导致空上下文）、租户边界与鉴权缺位清单、会话持久化断在 `ensure_conversation` 未写 `user_id`（前端 localStorage 依赖的真实成因）、日志与响应信封等运维基线，以及「与专业 RAG 的差距对标表」和三批改造顺序。同批记录前端收尾：`strict` 从未开启现已打开、`check` 门禁、高亮包 979 kB 拆分、dev 默认 HTTP、明暗两套主题 WCAG AA 实测 0 违例。文档末尾追加一节记录**《丛书》whisper 模块已整体删除**（实测证明它从未生效：`is_active` 全为 NULL 使注入恒为空串、`/api/chat` 路径根本没接、配置表无 `user_id` 却摆在个人设置里、四个端点无鉴权），以及删除后仍留在台面上的 `user.system_prompt` 死控件。
+- `docs/refactor/2026-09-28-palette-motion-and-session-correctness.md`：命令面板（⌘K，含 ARIA combobox 模式与权限一致的候选集）、删除会话的收起动画与 reduced-motion 直删，以及被这套动画逼出来的两个真实状态 bug——`useSessionMessages` 会把已删除会话的 URL ID 重新写回 store（幽灵会话），`deleteSession` 的后继会话跨模式串味。附删除链路与面板的实测结果；以及后续三节——深链指向已删除资源改为五态明确报错（`utils/drilldown.ts`）、分页收敛为单一实现（越界页不再「空表 + 第 5 / 1 页」，`utils/pagination.ts`）、路由守卫不再因非 401 错误把有效登录态踢回登录页（带来路深链与开放重定向防护，`utils/redirect.ts`）；以及加载态骨架屏（`DataTable` 保留表框不再整块塌陷，`.skeleton` 从死代码变成默认加载形状）、`prefers-reduced-motion` 补 `animation-iteration-count` 以免 infinite 动画变成高频闪烁、快速上手引导改用共用 `Modal` 并修好「误触遮罩永久失去引导」与「三步引导走不完」、知识库控制台按 URL 深度给加载骨架（避免第一帧把合法深链误判成「这个知识库不存在」）。§20 记录一个已定位未动手的缺陷：裸 `/chat`、`/rag` 路由访问即在后台建会话，含两条改法取舍与为什么不能用半刀切。
+

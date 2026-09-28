@@ -1,506 +1,643 @@
 // src/components/AppLayout.tsx
-import { useState, useCallback } from "react";
-import { Outlet, useNavigate, useLocation } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import brandIcon from "../assets/icon.png";
 import useAuthStore from "../stores/useAuthStore";
-import useSessionStore from "../stores/sessionStore";
+import useSessionStore, { type Session } from "../stores/sessionStore";
 import { useCurrentUser } from "../hooks/useAuth";
-import { useTheme } from "./ThemeProvider";
+import { useTheme } from "../hooks/useTheme";
+import { useRovingTabs } from "../hooks/useRovingTabs";
+import { applyDocumentTitle, pageTitleForPath } from "../utils/pageTitles";
+import CommandPalette from "./CommandPalette";
+import {
+  ChatIcon,
+  ChevronDownIcon,
+  CloseIcon,
+  GaugeIcon,
+  LibraryIcon,
+  LogoutIcon,
+  MenuIcon,
+  MoonIcon,
+  PlusIcon,
+  SearchIcon,
+  SettingsIcon,
+  ShieldIcon,
+  SunIcon,
+  UserIcon,
+} from "./icons";
 
-interface NavItem {
-  path: string;
+const APP_VERSION = "0.1.0";
+type Mode = "llm" | "rag";
+const MODE_ROUTE: Record<Mode, string> = { llm: "chat", rag: "rag" };
+
+interface NavEntry {
+  to: string;
   label: string;
-  icon: string;
+  Icon: typeof ChatIcon;
+  adminOnly?: boolean;
+  /** NavLink 默认对后代路径也判 active，叶子路由必须 end，否则 /admin 会在 /admin/xxx 上同时高亮 */
+  exact?: boolean;
 }
 
-export default function AppLayout() {
-  const { data: user } = useCurrentUser();
-  const logout = useAuthStore((state) => state.logout);
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { theme, toggle: toggleTheme } = useTheme();
+const NAV: NavEntry[] = [
+  { to: "/dashboard", label: "概览", Icon: GaugeIcon, exact: true },
+  { to: "/admin/vector", label: "知识库", Icon: LibraryIcon },
+  { to: "/admin/access", label: "组织与权限", Icon: ShieldIcon, exact: true, adminOnly: true },
+  { to: "/settings", label: "设置", Icon: SettingsIcon, exact: true },
+];
 
+function bucketOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "更早";
+  const today = new Date();
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const days = Math.floor(
+    (+startOfToday -
+      +new Date(d.getFullYear(), d.getMonth(), d.getDate())) /
+      86_400_000,
+  );
+  if (days <= 0) return "今天";
+  if (days === 1) return "昨天";
+  if (days < 7) return "近 7 天";
+  if (days < 30) return "近 30 天";
+  return "更早";
+}
+
+function ActiveBar({ show }: { show: boolean }) {
+  if (!show) return null;
+  return (
+    <span
+      aria-hidden
+      className="absolute inset-y-1 left-0 w-[2px] rounded-r-full bg-accent"
+    />
+  );
+}
+
+function SessionRow({
+  session,
+  active,
+  renaming,
+  leaving,
+  onOpen,
+  onStartRename,
+  onCommitRename,
+  onCancelRename,
+  onDelete,
+}: {
+  session: Session;
+  active: boolean;
+  renaming: boolean;
+  leaving: boolean;
+  onOpen: () => void;
+  onStartRename: () => void;
+  onCommitRename: (title: string) => void;
+  onCancelRename: () => void;
+  onDelete: () => void;
+}) {
+  // 进入重命名时自动全选：用回调 ref 在挂载那一刻处理，不需要 effect 同步 state
+  const selectOnMount = (el: HTMLInputElement | null) => {
+    if (el) el.select();
+  };
+
+  if (renaming) {
+    return (
+      <li className="px-2 py-0.5">
+        {/* 输入框只在重命名期间挂载，用 defaultValue 取初值即可，
+            不需要 effect 把 title 同步进 state */}
+        <input
+          ref={selectOnMount}
+          defaultValue={session.title}
+          onBlur={(e) =>
+            onCommitRename(e.target.value.trim() || session.title)
+          }
+          onKeyDown={(e) => {
+            const value = e.currentTarget.value.trim();
+            if (e.key === "Enter") onCommitRename(value || session.title);
+            if (e.key === "Escape") onCancelRename();
+          }}
+          autoFocus
+          aria-label="重命名会话"
+          className="a-input !py-1 text-[11px]"
+        />
+      </li>
+    );
+  }
+
+  return (
+    <li
+      className={`group relative overflow-hidden transition-[max-height,opacity,transform] duration-[var(--dur-base)] ease-[var(--ease-in-out)] ${
+        leaving ? "max-h-0 -translate-x-1 opacity-0" : "max-h-16"
+      } ${active ? "bg-accent-soft" : "hover:bg-surface-hover"}`}
+      onDoubleClick={onStartRename}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        className="relative w-full cursor-default px-3 py-1.5 text-left"
+      >
+        <ActiveBar show={active} />
+        <span
+          className={`block truncate text-[--text-sm] ${
+            active ? "font-medium text-accent-ink" : "text-ink"
+          }`}
+        >
+          {session.title || "新对话"}
+        </span>
+        <span className="mt-0.5 block text-[11px] text-ink-subtle tnum">
+          {session.messages.length} 条消息
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={`删除会话 ${session.title}`}
+        title="删除会话"
+        className="absolute right-1.5 top-1.5 rounded-[--radius-sm] p-1 text-ink-subtle opacity-0 transition-ui hover:bg-danger-soft hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+      >
+        <CloseIcon className="h-3.5 w-3.5" />
+      </button>
+    </li>
+  );
+}
+
+function ConversationZone({
+  mode,
+  onNavigate,
+}: {
+  mode: Mode;
+  onNavigate?: () => void;
+}) {
+  const navigate = useNavigate();
   const sessions = useSessionStore((s) => s.sessions);
   const currentSessionId = useSessionStore((s) => s.currentSessionId);
   const createSession = useSessionStore((s) => s.createSession);
   const deleteSession = useSessionStore((s) => s.deleteSession);
   const renameSession = useSessionStore((s) => s.renameSession);
 
-  const [activeMode, setActiveMode] = useState<"llm" | "rag">("llm");
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [query, setQuery] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
+  const [leavingIds, setLeavingIds] = useState<string[]>([]);
 
-  const handleLogout = useCallback(() => {
-    logout();
-    navigate("/login");
-  }, [logout, navigate]);
-
-  const handleNewChat = useCallback(
-    (mode: "llm" | "rag" = "llm") => {
-      const id = createSession(mode);
-      const routeMap = { llm: "chat", rag: "rag" };
-      navigate(`/${routeMap[mode]}/${id}`, { replace: true });
-    },
-    [createSession, navigate],
-  );
-
-  const handleDeleteSession = useCallback(
-    (e: React.MouseEvent, id: string) => {
-      e.stopPropagation();
-      deleteSession(id);
+  // 只负责删；URL 与 store 的重新对齐交给 useSessionMessages 单点处理，
+  // 这里再 navigate 会和它抢路由，把幽灵 convId 又写回去
+  const commitDelete = useCallback(
+    (ids: string[]) => {
+      setLeavingIds((prev) => prev.filter((x) => !ids.includes(x)));
+      ids.forEach((id) => deleteSession(id));
     },
     [deleteSession],
   );
 
-  const handleDoubleClick = (id: string, currentTitle: string) => {
-    setRenamingId(id);
-    setRenameValue(currentTitle);
+  // 收起动画结束后才真正移除；计时器挂在 effect 上，卸载时自动清理
+  useEffect(() => {
+    if (leavingIds.length === 0) return;
+    const timer = window.setTimeout(() => commitDelete(leavingIds), 190);
+    return () => clearTimeout(timer);
+  }, [leavingIds, commitDelete]);
+
+  const groups = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const list = sessions
+      .filter((s) => s.mode === mode)
+      .filter((s) => !needle || s.title.toLowerCase().includes(needle))
+      .slice()
+      .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
+
+    const order = ["今天", "昨天", "近 7 天", "近 30 天", "更早"];
+    const map = new Map<string, Session[]>();
+    for (const s of list) {
+      const key = bucketOf(s.updatedAt);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(s);
+    }
+    return order.filter((k) => map.has(k)).map((k) => ({ label: k, items: map.get(k)! }));
+  }, [sessions, mode, query]);
+
+  const total = groups.reduce((n, g) => n + g.items.length, 0);
+
+  const open = (id: string) => {
+    useSessionStore.getState().switchSession(id);
+    navigate(`/${MODE_ROUTE[mode]}/${id}`);
+    onNavigate?.();
   };
 
-  const submitRename = (id: string) => {
-    if (renameValue.trim()) renameSession(id, renameValue.trim());
-    setRenamingId(null);
+  const remove = (id: string) => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      commitDelete([id]);
+      return;
+    }
+    setLeavingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   };
 
-  const modeLabels: Record<string, string> = {
-    llm: "LLM 对话",
-    rag: "RAG 检索",
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const switchMode = (m: Mode) => {
+    const first = sessions
+      .filter((s) => s.mode === m)
+      .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))[0];
+    if (first) {
+      useSessionStore.getState().switchSession(first.id);
+      navigate(`/${MODE_ROUTE[m]}/${first.id}`);
+    } else {
+      navigate(`/${MODE_ROUTE[m]}`);
+    }
+    onNavigate?.();
   };
-  const modeIcons: Record<string, string> = { llm: "💬", rag: "🔍" };
+  const onTabsKeyDown = useRovingTabs(tabsRef, {
+    index: mode === "rag" ? 1 : 0,
+    onSelect: (i) => switchMode(i === 1 ? "rag" : "llm"),
+  });
 
-  const modeNavItems = [
-    { mode: "llm" as const, label: modeLabels.llm, icon: modeIcons.llm },
-    { mode: "rag" as const, label: modeLabels.rag, icon: modeIcons.rag },
-  ];
-
-  const otherNavItems: NavItem[] = [
-    { path: "/dashboard", label: "仪表盘", icon: "📊" },
-    { path: "/admin/vector", label: "知识库", icon: "📚" },
-    { path: "/admin/tenant", label: "租户", icon: "🏢" },
-  ];
-
-  if (user?.permissions?.includes("admin")) {
-    otherNavItems.push({ path: "/admin", label: "用户管理", icon: "👥" });
-  }
-
-  const filteredSessions = sessions
-    .filter((s) => s.mode === activeMode)
-    .filter(
-      (s) =>
-        !searchQuery ||
-        s.title.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-
-  const bg = "bg-white dark:bg-gray-900";
-  const bgSecondary = "bg-gray-50 dark:bg-gray-950";
-  const border = "border-gray-200 dark:border-gray-700";
-  const borderLight = "border-gray-100 dark:border-gray-800";
-  const textPrimary = "text-gray-900 dark:text-gray-100";
-  const textSecondary = "text-gray-600 dark:text-gray-400";
-  const textTertiary = "text-gray-500 dark:text-gray-500";
-  const textMuted = "text-gray-400 dark:text-gray-600";
-  const hover = "hover:bg-gray-100 dark:hover:bg-gray-800";
-  const active =
-    "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-medium";
-
-  const SidebarContent = () => (
-    <>
-      <div className={`p-3 border-b ${borderLight} space-y-2`}>
+  return (
+    <section className="flex min-h-0 flex-1 flex-col border-t border-line-subtle pt-2">
+      <div className="flex items-center gap-1 px-3 pb-1.5">
+        <h2 className="a-section-title flex-1">对话</h2>
         <button
-          onClick={() => handleNewChat(activeMode)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 dark:bg-indigo-500 text-white text-sm rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors"
+          type="button"
+          onClick={() =>
+            createSession(mode).then((id) => {
+              navigate(`/${MODE_ROUTE[mode]}/${id}`, { replace: true });
+              onNavigate?.();
+            })
+          }
+          aria-label={mode === "rag" ? "新建检索会话" : "新建对话"}
+          title={mode === "rag" ? "新建检索会话" : "新建对话"}
+          className="a-btn a-btn-ghost !px-1 !py-0.5"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          新对话
+          <PlusIcon className="h-3.5 w-3.5" />
         </button>
+      </div>
 
-        <div className="flex gap-1">
-          {modeNavItems.map((item) => {
-            const isActive = activeMode === item.mode;
+      <div className="px-2 pb-2">
+        <div
+          ref={tabsRef}
+          role="tablist"
+          aria-label="会话模式"
+          onKeyDown={onTabsKeyDown}
+          className="flex rounded-[--radius-md] bg-surface-sunken p-0.5"
+        >
+          {(
+            [
+              ["llm", "对话", ChatIcon],
+              ["rag", "检索", SearchIcon],
+            ] as const
+          ).map(([m, label, Icon]) => {
+            const selected = mode === m;
             return (
               <button
-                key={item.mode}
-                onClick={() => {
-                  setActiveMode(item.mode);
-                  const routeMap: Record<string, string> = {
-                    llm: "chat",
-                    rag: "rag",
-                  };
-                  const currentModeSessions = sessions.filter(
-                    (s) => s.mode === item.mode,
-                  );
-                  if (currentModeSessions.length > 0) {
-                    const latest = currentModeSessions[0];
-                    useSessionStore.getState().switchSession(latest.id);
-                    navigate(`/${routeMap[item.mode]}/${latest.id}`, {
-                      replace: true,
-                    });
-                  } else {
-                    handleNewChat(item.mode);
-                  }
-                }}
-                className={`flex-1 flex flex-col items-center py-1.5 rounded text-[10px] transition-colors ${
-                  isActive
-                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-medium"
-                    : `${textSecondary} ${hover}`
+                key={m}
+                role="tab"
+                aria-selected={selected}
+                tabIndex={selected ? 0 : -1}
+                type="button"
+                onClick={() => switchMode(m)}
+                className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-[--radius-sm] py-1 text-[11px] transition-ui ${
+                  selected
+                    ? "bg-surface font-medium text-ink shadow-card"
+                    : "text-ink-subtle hover:text-ink-muted"
                 }`}
               >
-                <span className="text-sm mb-0.5">{item.icon}</span>
-                <span>{item.label}</span>
+                <Icon className="h-3.5 w-3.5" />
+                {label}
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className="px-3 pb-2">
+      <div className="px-2 pb-2">
         <div className="relative">
-          <svg
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" />
           <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索对话..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="搜索会话"
+            aria-label="搜索会话"
+            className="a-input !py-1 pl-8 text-[11px]"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {filteredSessions.length === 0 ? (
-          <p className={`text-xs ${textMuted} text-center py-8`}>
-            {searchQuery ? "无匹配结果" : "暂无历史记录"}
+      <nav aria-label="会话历史" className="min-h-0 flex-1 overflow-y-auto pb-2">
+        {total === 0 ? (
+          <p className="px-3 py-4 text-center text-[11px] leading-relaxed text-ink-subtle">
+            {query ? "没有匹配的会话" : "还没有历史会话"}
           </p>
         ) : (
-          <div className="py-1">
-            {filteredSessions.slice(0, 100).map((s) => (
-              <div key={s.id} className="group relative">
-                <button
-                  onClick={() => {
-                    useSessionStore.getState().switchSession(s.id);
-                    const routeMap: Record<string, string> = {
-                      llm: "chat",
-                      rag: "rag",
-                    };
-                    navigate(`/${routeMap[s.mode]}/${s.id}`, { replace: true });
-                  }}
-                  className={`w-full text-left px-3 py-2 transition-colors ${currentSessionId === s.id ? `${active} border-r-2 border-indigo-600 dark:border-indigo-500` : hover}`}
-                >
-                  {renamingId === s.id ? (
-                    <input
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") submitRename(s.id);
-                        if (e.key === "Escape") setRenamingId(null);
-                      }}
-                      onBlur={() => submitRename(s.id)}
-                      autoFocus
-                      className="w-full text-xs border border-indigo-300 rounded px-1 py-0.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  ) : (
-                    <span
-                      className={`text-xs truncate block ${currentSessionId === s.id ? "text-indigo-700 dark:text-indigo-400 font-medium" : "text-gray-700 dark:text-gray-300"}`}
-                      onDoubleClick={() => handleDoubleClick(s.id, s.title)}
-                      title="双击重命名"
-                    >
-                      {s.title || "新对话"}
-                    </span>
-                  )}
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-[10px] ${textMuted}`}>
-                      {s.messages.length} 条
-                    </span>
-                    <span className={`text-[10px] ${textMuted}`}>
-                      {new Date(s.updatedAt).toLocaleDateString("zh-CN", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </div>
-                </button>
-                <button
-                  onClick={(e) => handleDeleteSession(e, s.id)}
-                  className={`absolute right-2 top-2 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 ${textMuted} hover:text-red-600 dark:hover:text-red-400 transition-all`}
-                >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
+          groups.map((g) => (
+            <div key={g.label} className="mb-0.5">
+              <h3 className="a-section-title px-3 pb-1 pt-2 opacity-70">
+                {g.label}
+              </h3>
+              <ul className="anim-stagger">
+                {g.items.map((s) => (
+                  <SessionRow
+                    key={s.id}
+                    session={s}
+                    active={currentSessionId === s.id}
+                    renaming={renamingId === s.id}
+                    leaving={leavingIds.includes(s.id)}
+                    onOpen={() => open(s.id)}
+                    onStartRename={() => setRenamingId(s.id)}
+                    onCommitRename={(title) => {
+                      renameSession(s.id, title);
+                      setRenamingId(null);
+                    }}
+                    onCancelRename={() => setRenamingId(null)}
+                    onDelete={() => remove(s.id)}
+                  />
+                ))}
+              </ul>
+            </div>
+          ))
         )}
-      </div>
-      <div className={`border-t ${borderLight} px-4 py-2`}>
-        <button
-          onClick={() => navigate("/changelog")}
-          className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+      </nav>
+    </section>
+  );
+}
+
+function UserMenu({ name, email }: { name: string; email: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const logout = useAuthStore((s) => s.logout);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const go = (path: string) => {
+    setOpen(false);
+    navigate(path);
+  };
+
+  return (
+    <div ref={ref} className="relative min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="flex w-full items-center gap-2.5 rounded-[--radius-md] px-2 py-1.5 text-left transition-ui hover:bg-surface-hover"
+      >
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent-ink">
+          {name?.charAt(0)?.toUpperCase() || "U"}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[--text-sm] text-ink">
+          {name}
+        </span>
+        <ChevronDownIcon
+          className={`h-3.5 w-3.5 shrink-0 text-ink-subtle transition-ui ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="a-card anim-pop absolute bottom-full left-0 z-20 mb-1.5 w-52 overflow-hidden py-1 shadow-pop"
         >
-          v0.1.0
-        </button>
+          <div className="border-b border-line-subtle px-3 py-2">
+            <p className="truncate text-[--text-sm] font-medium text-ink">{name}</p>
+            <p className="truncate text-[11px] text-ink-subtle">{email || "未填写邮箱"}</p>
+          </div>
+          <button
+            role="menuitem"
+            onClick={() => go("/profile")}
+            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[--text-sm] text-ink-muted transition-ui hover:bg-surface-hover hover:text-ink"
+          >
+            <UserIcon className="h-4 w-4" />
+            个人资料
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => go("/settings")}
+            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[--text-sm] text-ink-muted transition-ui hover:bg-surface-hover hover:text-ink"
+          >
+            <SettingsIcon className="h-4 w-4" />
+            系统设置
+          </button>
+          <div className="my-1 border-t border-line-subtle" />
+          <button
+            role="menuitem"
+            onClick={() => {
+              logout();
+              navigate("/login");
+            }}
+            className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[--text-sm] text-danger transition-ui hover:bg-danger-soft"
+          >
+            <LogoutIcon className="h-4 w-4" />
+            退出登录
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidebarBody({
+  isAdmin,
+  mode,
+  userName,
+  userEmail,
+  onNavigate,
+  onOpenPalette,
+}: {
+  isAdmin: boolean;
+  mode: Mode;
+  userName: string;
+  userEmail: string;
+  onNavigate?: () => void;
+  onOpenPalette?: () => void;
+}) {
+  return (
+    <>
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line-subtle px-3.5">
+        <img src={brandIcon} alt="" className="h-5 w-5" />
+        <span className="flex-1 text-[--text-base] font-semibold tracking-[-0.015em] text-ink">
+          Ametrine
+        </span>
+        {onOpenPalette && (
+          <button
+            type="button"
+            onClick={onOpenPalette}
+            aria-label="搜索与跳转"
+            title="搜索与跳转（Ctrl / ⌘ K）"
+            className="a-btn a-btn-ghost !px-1.5 !py-1"
+          >
+            <SearchIcon className="h-3.5 w-3.5" />
+            <kbd className="text-[10px] text-ink-subtle">K</kbd>
+          </button>
+        )}
+        <span className="text-[10px] text-ink-subtle tnum">v{APP_VERSION}</span>
+      </div>
+
+      <nav aria-label="主导航" className="shrink-0 space-y-px px-2 py-2.5">
+        {NAV.filter((e) => !e.adminOnly || isAdmin).map(({ to, label, Icon, exact }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={exact}
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              `relative flex items-center gap-2.5 rounded-[--radius-md] px-2.5 py-1.5 text-[--text-sm] transition-ui ${
+                isActive
+                  ? "bg-accent-soft font-medium text-accent-ink"
+                  : "text-ink-muted hover:bg-surface-hover hover:text-ink"
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <ActiveBar show={isActive} />
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{label}</span>
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+
+      <ConversationZone mode={mode} onNavigate={onNavigate} />
+
+      <div className="flex shrink-0 items-center gap-1 border-t border-line-subtle p-2">
+        <UserMenu name={userName} email={userEmail} />
+        <ThemeButton />
       </div>
     </>
   );
+}
+
+function ThemeButton() {
+  const { theme, toggle } = useTheme();
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={theme === "dark" ? "切换到浅色主题" : "切换到深色主题"}
+      title={theme === "dark" ? "浅色主题" : "深色主题"}
+      className="a-btn a-btn-ghost shrink-0 !px-1.5"
+    >
+      {theme === "dark" ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
+    </button>
+  );
+}
+
+export default function AppLayout() {
+  const { data: user } = useCurrentUser();
+  const { toggle } = useTheme();
+  const location = useLocation();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  const activeMode: Mode = location.pathname.startsWith("/rag") ? "rag" : "llm";
+  const isAdmin = !!user?.permissions?.includes("admin");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    applyDocumentTitle(pageTitleForPath(location.pathname));
+  }, [location.pathname]);
 
   return (
-    <div className={`h-screen flex flex-col ${bgSecondary}`}>
-      {/* ═══ 顶部 Header ═══ */}
-      <header
-        className={`h-12 ${bg} border-b ${border} flex items-center px-3 md:px-4 flex-shrink-0 z-10`}
+    <div id="app-shell" className="flex h-screen overflow-hidden bg-canvas">
+      {/* 键盘用户不必穿过整条侧栏（导航 + 全部会话行）才能碰到正文 */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-[--radius-md] focus:bg-surface focus:px-3 focus:py-2 focus:text-[--text-sm] focus:font-medium focus:text-ink focus:shadow-pop"
       >
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 mr-2"
-        >
-          <svg
-            className="w-5 h-5 text-gray-600 dark:text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
+        跳到主要内容
+      </a>
+
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
+        <SidebarBody
+          isAdmin={isAdmin}
+          mode={activeMode}
+          userName={user?.name ?? "未登录"}
+          userEmail={user?.email ?? ""}
+          onOpenPalette={() => setPaletteOpen(true)}
+        />
+      </aside>
+
+      {drawerOpen && (
+        <>
+          <div
+            className="anim-fade fixed inset-0 z-30 bg-[var(--overlay)] md:hidden"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <aside className="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-line bg-surface shadow-modal md:hidden">
+            <SidebarBody
+              isAdmin={isAdmin}
+              mode={activeMode}
+              userName={user?.name ?? "未登录"}
+              userEmail={user?.email ?? ""}
+              onNavigate={() => setDrawerOpen(false)}
             />
-          </svg>
-        </button>
+          </aside>
+        </>
+      )}
 
-        <div className="flex items-center gap-2">
-          <img src="/src/assets/icon.png" alt="" className="w-6 h-6" />
-          <span
-            className={`font-semibold ${textPrimary} text-sm hidden sm:block`}
-          >
-            Ametrine
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1 md:gap-2 ml-auto">
-          <nav className="hidden md:flex items-center gap-1">
-            {otherNavItems.map((item) => {
-              const isActive =
-                location.pathname === item.path ||
-                location.pathname.startsWith(item.path + "/");
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${isActive ? active : `${textSecondary} ${hover}`}`}
-                >
-                  <span className="text-sm">{item.icon}</span>
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-surface px-3 md:hidden">
           <button
-            onClick={toggleTheme}
-            className={`p-1.5 rounded-lg ${textSecondary} ${hover} text-sm`}
-            title={theme === "light" ? "切换深色模式" : "切换浅色模式"}
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="打开导航"
+            className="a-btn a-btn-ghost !px-1.5"
           >
-            {theme === "light" ? "🌙" : "☀️"}
+            <MenuIcon className="h-5 w-5" />
           </button>
+          <img src={brandIcon} alt="" className="h-4 w-4" />
+          <span className="flex-1 text-[--text-sm] font-semibold text-ink">Ametrine</span>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            aria-label="搜索与跳转"
+            className="a-btn a-btn-ghost !px-1.5"
+          >
+            <SearchIcon className="h-4 w-4" />
+          </button>
+          <ThemeButton />
+        </header>
 
-          <div className="relative ml-1">
-            <button
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className={`flex items-center gap-2 px-2 py-1 rounded-lg ${hover} transition-colors`}
-            >
-              <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-medium">
-                {user?.name?.charAt(0)?.toUpperCase() || "U"}
-              </div>
-              <span className="text-xs text-gray-700 dark:text-gray-300 hidden sm:block">
-                {user?.name}
-              </span>
-              <svg
-                className={`w-3 h-3 ${textMuted}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-
-            {userMenuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setUserMenuOpen(false)}
-                />
-                <div
-                  className={`absolute right-0 top-full mt-1 w-48 rounded-lg shadow-lg border ${border} ${bg} py-1 z-20`}
-                >
-                  <div className={`px-4 py-2 border-b ${borderLight}`}>
-                    <p className={`text-sm font-medium ${textPrimary}`}>
-                      {user?.name}
-                    </p>
-                    <p className={`text-xs ${textTertiary} truncate`}>
-                      {user?.email}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      navigate("/profile");
-                      setUserMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${textSecondary} ${hover}`}
-                  >
-                    <span>👤</span>个人资料
-                  </button>
-                  <button
-                    onClick={() => {
-                      navigate("/settings");
-                      setUserMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${textSecondary} ${hover}`}
-                  >
-                    <span>⚙️</span>系统设置
-                  </button>
-                  <div className={`border-t ${borderLight}`} />
-                  <button
-                    onClick={handleLogout}
-                    className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20`}
-                  >
-                    <span>🚪</span>退出登录
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* ═══ 主体 ═══ */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* 桌面端左侧栏 */}
-        <aside
-          className={`w-56 ${bg} border-r ${border} flex-col flex-shrink-0 hidden md:flex`}
+        <main
+          key={location.pathname}
+          id="main-content"
+          tabIndex={-1}
+          className="anim-page min-h-0 flex-1 overflow-y-auto outline-none"
         >
-          <SidebarContent />
-        </aside>
-
-        {/* 移动端抽屉 */}
-        {mobileMenuOpen && (
-          <>
-            <div
-              className="md:hidden fixed inset-0 z-20 bg-black/50"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <aside
-              className={`md:hidden fixed left-0 top-0 bottom-0 w-56 ${bg} z-30 flex flex-col shadow-xl`}
-            >
-              <div
-                className={`p-3 border-b ${border} flex justify-between items-center`}
-              >
-                <span className={`font-semibold ${textPrimary} text-sm`}>
-                  Ametrine
-                </span>
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="p-1 text-gray-400 hover:text-gray-600"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <SidebarContent />
-            </aside>
-          </>
-        )}
-
-        {/* 主内容 */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
           <Outlet />
         </main>
       </div>
 
-      {/* 移动端底部导航 */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex justify-around py-2 z-10">
-        {[
-          { path: "/chat", icon: "💬", label: "Chat" },
-          { path: "/rag", icon: "🔍", label: "RAG" },
-          { path: "/dashboard", icon: "📊", label: "仪表盘" },
-          { path: "/settings", icon: "⚙️", label: "设置" },
-        ].map((item) => (
-          <button
-            key={item.path}
-            onClick={() => {
-              if (
-                item.path.startsWith("/chat") ||
-                item.path.startsWith("/rag")
-              ) {
-                const mode = item.path === "/chat" ? "llm" : "rag";
-                handleNewChat(mode);
-              } else {
-                navigate(item.path);
-              }
-            }}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 text-[10px] ${
-              location.pathname.startsWith(item.path)
-                ? "text-indigo-600 dark:text-indigo-400"
-                : "text-gray-500 dark:text-gray-400"
-            }`}
-          >
-            <span className="text-base">{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
+      {paletteOpen && (
+        <CommandPalette
+          onClose={() => setPaletteOpen(false)}
+          isAdmin={isAdmin}
+          onToggleTheme={toggle}
+        />
+      )}
     </div>
   );
 }

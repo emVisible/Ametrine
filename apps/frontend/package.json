@@ -7,6 +7,10 @@
     "dev": "vite --port 8000",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "tsc -b --pretty false && eslint . && vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -36,6 +40,7 @@
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^5.0.2"
   }
 }

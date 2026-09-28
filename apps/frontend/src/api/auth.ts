@@ -26,8 +26,20 @@ export const authAPI = {
     })
 
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ message: '登录失败' }))
-      throw new Error(error.message || `HTTP ${res.status}`)
+      const raw = await res.text().catch(() => '')
+      let detail = raw
+      try {
+        const parsed = JSON.parse(raw) as { detail?: unknown }
+        if (typeof parsed?.detail === 'string') detail = parsed.detail
+      } catch {
+        /* 非 JSON 时原样透出 */
+      }
+      // 后端会区分「用户不存在」与「密码错误」，那是用户枚举的口子；
+      // 前端不给它露出来的机会，统一措辞，其他故障仍然如实报
+      if (/not found|incorrect|invalid|unauthorized/i.test(detail)) {
+        throw new Error('用户名或密码不正确')
+      }
+      throw new Error(detail || `登录失败（HTTP ${res.status}）`)
     }
 
     return await res.json()

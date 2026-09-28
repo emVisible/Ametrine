@@ -1,59 +1,103 @@
 // src/api/rag.ts
-import useAuthStore from '../stores/useAuthStore';
-import { apiClient } from './client'
+// 知识库资源的 HTTP 边界。返回类型集中在这里，页面层不再到处 `any`。
+import useAuthStore from "../stores/useAuthStore";
+import { apiClient } from "./client";
+import type {
+  KbChunk,
+  KbCollection,
+  KbDatabase,
+  KbDocument,
+} from "../types/knowledge";
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000/api";
 
-// ─── 数据库 (PG) ───
 export const databaseAPI = {
-  getAll: () => apiClient<any[]>('/relation/database/all'),
-  get: (name: string) => apiClient<any>(`/relation/database/get?name=${name}`),
-  create: (data: { name: string; description: string; tenant_id?: number | null }) =>
-    apiClient('/relation/database/create', { method: 'POST', body: data }),
-}
+  getAll: () => apiClient<KbDatabase[]>("/relation/database/all"),
+  getMine: () => apiClient<KbDatabase[]>("/relation/database/mine"),
+  get: (name: string) =>
+    apiClient<KbDatabase | null>(
+      `/relation/database/get?name=${encodeURIComponent(name)}`,
+    ),
+  create: (data: {
+    name: string;
+    description?: string;
+    tenant_id?: number | null;
+  }) => apiClient<KbDatabase>("/relation/database/create", { method: "POST", body: data }),
+  delete: (name: string) =>
+    apiClient<{ message: string }>(
+      `/relation/database/delete?name=${encodeURIComponent(name)}`,
+      { method: "DELETE" },
+    ),
+};
 
-// ─── 集合 (PG) ───
 export const collectionAPI = {
-  getAll: () => apiClient<any[]>('/relation/collection/all'),
+  getAll: () => apiClient<KbCollection[]>("/relation/collection/all"),
   getByDatabase: (database_id: number) =>
-    apiClient<any[]>(`/relation/collection/all/specific?database_id=${database_id}`),
+    apiClient<KbCollection[]>(
+      `/relation/collection/all/specific?database_id=${database_id}`,
+    ),
   get: (collection_name: string) =>
-    apiClient<any>(`/relation/collection/get?collection_name=${collection_name}`),
-  create: (data: { name: string; database_id: number; description: string }) =>
-    apiClient('/relation/collection/create', { method: 'POST', body: data }),
-}
+    apiClient<KbCollection | null>(
+      `/relation/collection/get?collection_name=${encodeURIComponent(collection_name)}`,
+    ),
+  create: (data: {
+    name: string;
+    database_id: number;
+    description?: string;
+  }) => apiClient<KbCollection>("/relation/collection/create", { method: "POST", body: data }),
+};
 
-// ─── 文档上传 ───
-// 上传还是调向量接口，因为需要触发 embedding + 写入 Milvus
-// 但 PG 里的 Document 记录是在上传过程中由后端同步创建的
-// src/api/rag.ts — 改为调 /relation/document/upload
 export const documentAPI = {
-  upload: async (file: File, collectionName: string, databaseName: string) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('collection_name', collectionName)
-    formData.append('database_name', databaseName)
+  /**
+   * 上传必须是裸 fetch：multipart 不能走 apiClient 的 JSON 序列化。
+   * 后端需要同时拿到 database_name 与 collection_name —— 定位一个 Milvus
+   * collection 靠的是这两个名字，而不是 id（见 docs/refactor/2026-09-28-backend-contract-and-console.md）。
+   */
+  upload: async (
+    file: File,
+    collectionName: string,
+    databaseName: string,
+  ): Promise<{
+    document_id: string;
+    filename: string;
+    chunk_count: number;
+    status: string;
+  }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("collection_name", collectionName);
+    formData.append("database_name", databaseName);
 
+    const token = useAuthStore.getState().token;
     const response = await fetch(`${API_BASE}/relation/document/upload`, {
-      method: 'POST',
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: formData,
-    })
+    });
+
     if (response.status === 401) {
-      useAuthStore.getState().logout()
-      window.location.href = '/login'
-      throw new Error('登录已过期，请重新登录')
+      useAuthStore.getState().logout();
+      window.location.href = "/login";
+      throw new Error("登录已过期，请重新登录");
     }
-
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: '上传失败' }))
-      throw new Error(error.detail || `HTTP ${response.status}`)
+      const error = await response
+        .json()
+        .catch(() => ({ detail: `HTTP ${response.status}` }));
+      throw new Error(error.detail || error.message || "上传失败");
     }
-
-    return response.json()
+    const result = await response.json();
+    return result.data ?? result;
   },
-  getAll: () => apiClient<any[]>('/relation/document/all'),
+  getAll: () => apiClient<KbDocument[]>("/relation/document/all"),
   getByCollection: (collection_id: number) =>
-    apiClient<any[]>(`/relation/document/collection?collection_id=${collection_id}`),
+    apiClient<KbDocument[]>(
+      `/relation/document/collection?collection_id=${collection_id}`,
+    ),
+  get: (document_id: string) =>
+    apiClient<KbDocument | null>(
+      `/relation/document/get?document_id=${encodeURIComponent(document_id)}`,
+    ),
   getChunks: (doc_id: string) =>
-    apiClient<any[]>(`/relation/document/chunk?doc_id=${doc_id}`),
-}
+    apiClient<KbChunk[]>(`/relation/document/chunk?doc_id=${doc_id}`),
+};

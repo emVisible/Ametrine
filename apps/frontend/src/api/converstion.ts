@@ -1,6 +1,13 @@
 // src/api/conversation.ts
 import { apiClient } from './client'
 
+/** 后端 /conversation/{id}/messages 的返回形状 */
+export interface StoredMessage {
+  role: 'user' | 'assistant'
+  content: string
+  created_at?: string
+}
+
 export const conversationAPI = {
   create: (mode: string = 'llm') =>
     apiClient<{ id: string }>('/conversation/create', {
@@ -15,5 +22,5 @@ export const conversationAPI = {
     }),
 
   getMessages: (convId: string) =>
-    apiClient<any[]>(`/conversation/${convId}/messages`),
+    apiClient<StoredMessage[]>(`/conversation/${convId}/messages`),
 }
