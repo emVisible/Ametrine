@@ -58,7 +58,7 @@ chunk needs no vector-store migration.
 ## Quick start
 
 ```bash
-git clone git@github.com:emVisible/Ametrine.git
+git clone https://github.com/emVisible/Ametrine.git
 cd Ametrine
 
 # 1. data tier — PostgreSQL, Redis, Milvus

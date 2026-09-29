@@ -56,7 +56,7 @@ PostgreSQL 存正文与事实，Milvus 存向量。检索返回的是 `(doc_id, 
 ## 快速开始
 
 ```bash
-git clone git@github.com:emVisible/Ametrine.git
+git clone https://github.com/emVisible/Ametrine.git
 cd Ametrine
 
 # 1. 数据层 —— PostgreSQL、Redis、Milvus
