@@ -33,3 +33,15 @@ export function useCurrentUser() {
     retry: false,
   })
 }
+
+/**
+ * 单一的管理员判定口径。
+ *
+ * 后端的建/删知识库与集合、租户与成员变更、授权与配额现在全部只允许管理员，
+ * 前端如果继续给普通用户渲染这些按钮，点下去只会收到一个 403 toast。
+ * 守卫路由用 requiredRoles，界面内的动作可见性用这个 —— 都读同一份 permissions。
+ */
+export function useIsAdmin(): boolean {
+  const { data } = useCurrentUser()
+  return !!data?.permissions?.includes('admin')
+}

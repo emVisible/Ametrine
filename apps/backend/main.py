@@ -31,6 +31,7 @@ from src.middleware.logger import config_logger, log_config
 from src.middleware.response import IResponse
 from src.models import Base
 from src.relation.controller import route_relation
+from src.system.controller import route_system
 from src.user.auth.controller import route_auth
 from src.user.controller import route_base
 from src.user.permissions.controller import route_user_permission
@@ -80,6 +81,7 @@ app.include_router(route_chat, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_conversation, prefix=route_prefix)
 app.include_router(route_user_permission, prefix="/api")
+app.include_router(route_system, prefix=route_prefix)
 
 
 app.add_middleware(
@@ -137,28 +139,35 @@ async def health(
     redis: Redis = Depends(get_redis),
     milvus: MilvusClient = Depends(get_milvus_service),
 ):
+    """外部探针用的存活检查：只回答 ok / 哪个组件不行。
+
+    原来这里把 str(e) 原样返回，而它是匿名可达的 —— psycopg / redis 的连接错误里
+    通常带主机名与端口。带上下文的诊断信息挪到了登录后的 /api/system/overview。
+    """
     status = {
         "status": "ok",
         "version": "0.1.0",
         "services": {},
     }
+
+    def fail(key: str, err: Exception):
+        status["services"][key] = f"error:{type(err).__name__}"
+        status["status"] = "degraded"
+
     try:
         await db.execute(text("SELECT 1"))
         status["services"]["postgres"] = "ok"
     except Exception as e:
-        status["services"]["postgres"] = f"error: {str(e)}"
-        status["status"] = "degraded"
+        fail("postgres", e)
     try:
         redis.ping()
         status["services"]["redis"] = "ok"
     except Exception as e:
-        status["services"]["redis"] = f"error: {str(e)}"
-        status["status"] = "degraded"
+        fail("redis", e)
     try:
         milvus.list_databases()
         status["services"]["milvus"] = "ok"
     except Exception as e:
-        status["services"]["milvus"] = f"error: {str(e)}"
-        status["status"] = "degraded"
+        fail("milvus", e)
 
     return status

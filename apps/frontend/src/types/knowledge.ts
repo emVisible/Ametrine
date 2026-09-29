@@ -56,3 +56,68 @@ export interface Tenant {
   database_name?: string | null;
   member_count?: number;
 }
+
+/* ── GET /relation/tenant/overview ──────────────────────────────
+   融合后的管理台一次取回四张表。原来的调用形状是「列租户 1 次 +
+   每展开一个租户再要 1 次成员 + 每个人的授权又要 1 次」。          */
+
+export interface TenantOverviewMember {
+  user_id: number;
+  name: string;
+  role: string;
+  joined_at: string | null;
+  /** legacy = 这条归属只存在于旧的 user.tenant_id 上，TenantMember 里没有对应行 */
+  source: "member" | "legacy";
+}
+
+export interface TenantOverviewRow {
+  id: number;
+  name: string;
+  member_count: number;
+  owner_count: number;
+  database: { id: number; name: string; collection_count: number } | null;
+  members: TenantOverviewMember[];
+}
+
+export interface TenantOverviewDatabase {
+  id: number;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  collection_count: number;
+  tenant_id: number | null;
+}
+
+export interface TenantOverviewGrant {
+  user_id: number;
+  database_id: number;
+  database_name: string | null;
+  can_read: boolean;
+  can_write: boolean;
+  can_manage: boolean;
+}
+
+/** 总览里的用户行带上了配额字段：折叠面板里就地编辑角色/配额，
+    不需要再为每个人回查 /user/{id}，面板才真的能只发一次请求。 */
+export interface TenantOverviewUser {
+  id: number;
+  name: string;
+  role_id: number;
+  is_active: boolean;
+  email?: string | null;
+  tenant_id?: number | null;
+  last_login_at?: string | null;
+  daily_token_limit?: number | null;
+  daily_token_used?: number | null;
+  monthly_token_limit?: number | null;
+  monthly_token_used?: number | null;
+  total_token_used?: number | null;
+}
+
+export interface TenantOverview {
+  tenants: TenantOverviewRow[];
+  databases: TenantOverviewDatabase[];
+  grants: TenantOverviewGrant[];
+  users: TenantOverviewUser[];
+  unaffiliated_user_count: number;
+}

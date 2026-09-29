@@ -1,15 +1,20 @@
 // src/pages/AdminVector.tsx
-// 知识库控制台：知识库 → 集合 → 文档 三级下钻，层级由 URL 决定（可分享深链、刷新不丢位置）。
-// 原先三个平铺 tab 各自重复「选库→选集合→列卡片」的逻辑，且上传后 window.location.reload()。
+// 知识库控制台：知识库列表 → 就地展开集合 → 点集合才进文档与分块页。
+// 两级在 URL 上仍然是 /admin/vector/:dbId(/:colId)，所以深链、刷新、后退都不变。
+// 历史：最早是三个平铺 tab 各自重复「选库→选集合→列卡片」且上传后整页 reload；
+// 上一版改成三级整页下钻，但「集合」独占一页只会让两个集合名占满屏幕，
+// 也没法在两个知识库之间对着比较 —— 现在收进折叠带。
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useI18n } from "../i18n/context";
 import { intlLocale } from "../i18n";
+import { useIsAdmin } from "../hooks/useAuth";
 import { resolveDrilldown } from "../utils/drilldown";
 import { paginate } from "../utils/pagination";
 import {
   Breadcrumbs,
   DataTable,
+  Disclosure,
   EmptyState,
   Loading,
   Modal,
@@ -33,6 +38,7 @@ import { useChunks } from "../hooks/queries";
 import type { KbCollection, KbDatabase, KbDocument } from "../types/knowledge";
 import {
   BookIcon,
+  ChevronRightIcon,
   DatabaseIcon,
   FileIcon,
   LayersIcon,
@@ -74,85 +80,287 @@ function IndexStatusBadge({ doc }: { doc: KbDocument }) {
   return <StatusBadge tone="neutral">{t("admin.vector.noIndexInfo")}</StatusBadge>;
 }
 
-/* ─────────────── 第一级：知识库 ─────────────── */
+/* ─────────────── 第一级 + 第二级：知识库列表，集合就地展开 ─────────────── */
+
+/**
+ * 一个知识库 = 一行折叠。
+ *
+ * 集合原本是独立的一整页：点开一个库就把知识库列表换掉，只看两三个集合名
+ * 不值得占一屏，也没法在两个库之间对着一眼比较。现在展开带内直接列集合，
+ * 地址栏仍写 /admin/vector/:dbId —— 分享与刷新回到同一个展开态，
+ * 只有点到具体集合才进第三级（分块与索引）。
+ */
+function DatabaseRow({
+  database,
+  collections,
+  documentsByCollection,
+  expanded,
+  onOpen,
+  onClose,
+}: {
+  database: KbDatabase;
+  collections: KbCollection[];
+  documentsByCollection: Map<number, KbDocument[]>;
+  expanded: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  // 后端把建集合收紧成管理员专属后，普通成员进来是只读的：
+  // 继续显示按钮只会换来一个 403。
+  const isAdmin = useIsAdmin();
+  const [creating, setCreating] = useState(false);
+  const [query, setQuery] = useState("");
+  const [form, setForm] = useState({ name: "", description: "" });
+  const create = useCreateCollection(database.id);
+
+  // 展开带里的统计用全量集合算，不受下面的过滤影响：
+  // 搜索时头部如果跟着变成「2 个集合」，读数就会在输入过程中乱跳。
+  const stats = useMemo(() => {
+    let docs = 0;
+    let failed = 0;
+    let pending = 0;
+    for (const c of collections) {
+      const list = documentsByCollection.get(c.id) ?? [];
+      docs += list.length;
+      for (const d of list) {
+        if (d.meta?.index_status === "failed") failed += 1;
+        else if (d.meta?.index_status === "pending") pending += 1;
+      }
+    }
+    return { docs, failed, pending };
+  }, [collections, documentsByCollection]);
+
+  const rows = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return [...collections]
+      .filter(
+        (c) =>
+          !needle ||
+          c.name.toLowerCase().includes(needle) ||
+          (c.description ?? "").toLowerCase().includes(needle),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
+  }, [collections, query]);
+
+  return (
+    <Disclosure
+      open={expanded}
+      onToggle={expanded ? onClose : onOpen}
+      title={
+        <span className="flex min-w-0 items-center gap-2.5">
+          <DatabaseIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 truncate font-medium text-ink">
+              {database.name}
+              {/* 整列都是「可用」时徽章没有信息量，只标异常 */}
+              {database.is_active === false && (
+                <StatusBadge tone="neutral">{t("common.inactive")}</StatusBadge>
+              )}
+            </span>
+            <span className="block truncate text-[11px] text-ink-subtle">
+              {database.description || t("ui.noDescription")}
+            </span>
+          </span>
+        </span>
+      }
+      meta={
+        <>
+          {database.tenant_name ? (
+            <span className="text-[11px] text-ink-muted">
+              {database.tenant_name}
+            </span>
+          ) : (
+            <span className="text-[11px] text-ink-subtle">
+              {t("admin.vector.unbound")}
+            </span>
+          )}
+          <span className="tnum text-[11px] text-ink-subtle">
+            {t("admin.vector.rowStats", {
+              cols: collections.length,
+              docs: stats.docs,
+            })}
+          </span>
+          {/* 正常态不占注意力，只有失败和待处理值得在收起时就看见 */}
+          {stats.failed > 0 && (
+            <StatusBadge tone="danger">
+              {t("admin.vector.failedN", { n: stats.failed })}
+            </StatusBadge>
+          )}
+          {stats.pending > 0 && (
+            <StatusBadge tone="warning">
+              {t("admin.vector.pendingN", { n: stats.pending })}
+            </StatusBadge>
+          )}
+        </>
+      }
+      actions={
+        isAdmin && (
+          <button
+            type="button"
+            className="a-btn a-btn-outline !py-1 text-[11px]"
+            onClick={() => setCreating(true)}
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            {t("admin.vector.newCol")}
+          </button>
+        )
+      }
+    >
+      <div className="flex items-center justify-between gap-2">
+        <SearchInput
+          value={query}
+          onValueChange={setQuery}
+          placeholder={t("admin.vector.searchCol")}
+          className="w-full max-w-xs"
+        />
+        <span className="shrink-0 text-[11px] text-ink-subtle tnum">
+          {t("admin.vector.colCount", { n: rows.length })}
+        </span>
+      </div>
+
+      {!rows.length ? (
+        <p className="py-4 text-center text-[--text-sm] text-ink-subtle">
+          {collections.length
+            ? t("admin.vector.noColMatch")
+            : t("admin.vector.noCol")}
+        </p>
+      ) : (
+        <ul className="mt-2 divide-y divide-line-subtle border-t border-line-subtle">
+          {rows.map((col) => {
+            const docs = documentsByCollection.get(col.id) ?? [];
+            const indexed = docs.filter(
+              (d) => d.meta?.index_status === "indexed",
+            ).length;
+            return (
+              <li key={col.id}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/vector/${database.id}/${col.id}`)}
+                  className="flex w-full items-center gap-3 py-2 text-left transition-ui hover:bg-surface-hover"
+                >
+                  <LayersIcon className="h-3.5 w-3.5 shrink-0 text-ink-subtle" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[--text-sm] text-ink">
+                      {col.name}
+                    </span>
+                    <span className="block truncate text-[11px] text-ink-subtle">
+                      {col.description || t("ui.noDescription")}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[11px] text-ink-muted tnum">
+                    {t("admin.vector.docStats", {
+                      docs: docs.length,
+                      indexed,
+                    })}
+                  </span>
+                  <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 text-ink-subtle" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <Modal
+        open={creating}
+        onClose={() => setCreating(false)}
+        title={t("admin.vector.newCol")}
+        description={t("admin.vector.newColDesc", { name: database.name })}
+        footer={
+          <>
+            <button
+              type="button"
+              className="a-btn a-btn-ghost"
+              onClick={() => setCreating(false)}
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              className="a-btn a-btn-primary"
+              disabled={create.isPending || !form.name.trim()}
+              onClick={() =>
+                create.mutate(
+                  {
+                    name: form.name.trim(),
+                    description: form.description.trim(),
+                  },
+                  {
+                    onSuccess: () => {
+                      setCreating(false);
+                      setForm({ name: "", description: "" });
+                    },
+                  },
+                )
+              }
+            >
+              {create.isPending ? t("common.creating") : t("common.create")}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3.5">
+          <TextInput
+            label={t("common.name")}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder={t("admin.vector.colNameExample")}
+            autoFocus
+            hint={t("admin.vector.colNameHint")}
+          />
+          <TextInput
+            label={t("common.description")}
+            optional={t("auth.optionalField")}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+        </div>
+      </Modal>
+    </Disclosure>
+  );
+}
 
 function DatabaseList({
   databases,
   collectionsByDb,
+  documentsByCollection,
+  expandedId,
 }: {
   databases: KbDatabase[];
   collectionsByDb: Map<number, KbCollection[]>;
+  documentsByCollection: Map<number, KbDocument[]>;
+  /** 由 URL 决定展开哪一个：折叠态是可分享、可刷新的位置，不是临时 UI 状态 */
+  expandedId: number | null;
 }) {
-  const navigate = useNavigate();
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const isAdmin = useIsAdmin();
   const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", tenant_id: "" });
 
   const { data: tenants } = useTenants();
   const create = useCreateDatabase();
 
+  const needle = query.trim().toLowerCase();
   const rows = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     return databases
       .filter(
         (db) =>
           !needle ||
           db.name.toLowerCase().includes(needle) ||
-          (db.description ?? "").toLowerCase().includes(needle),
+          (db.description ?? "").toLowerCase().includes(needle) ||
+          // 搜索要能穿过折叠层：只按库名搜的话，知道集合名就找不到它所在的库
+          (collectionsByDb.get(db.id) ?? []).some(
+            (c) =>
+              c.name.toLowerCase().includes(needle) ||
+              (c.description ?? "").toLowerCase().includes(needle),
+          ),
       )
       .sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
-  }, [databases, query]);
-
-  const paged = paginate(rows, page);
-
-  const columns: Column<KbDatabase>[] = [
-    {
-      key: "name",
-      header: t("common.database"),
-      cell: (db) => (
-        <div className="flex items-center gap-2.5">
-          <DatabaseIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 truncate font-medium text-ink">
-              {db.name}
-              {/* 整列都是「可用」时徽章没有信息量，只标异常 */}
-              {db.is_active === false && (
-                <StatusBadge tone="neutral">{t("common.inactive")}</StatusBadge>
-              )}
-            </p>
-            <p className="truncate text-[11px] text-ink-subtle">
-              {db.description || t("ui.noDescription")}
-            </p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "tenant",
-      header: t("common.tenant"),
-      hideBelow: "md",
-      width: "12rem",
-      cell: (db) =>
-        db.tenant_name ? (
-          <span className="text-ink-muted">{db.tenant_name}</span>
-        ) : (
-          <span className="text-ink-subtle">{t("admin.vector.unbound")}</span>
-        ),
-    },
-    {
-      key: "collections",
-      header: t("common.collection"),
-      align: "right",
-      width: "6rem",
-      cell: (db) => (
-        <span className="tnum text-ink-muted">
-          {collectionsByDb.get(db.id)?.length ?? 0}
-        </span>
-      ),
-    },
-  ];
+  }, [databases, needle, collectionsByDb]);
 
   return (
     <>
@@ -160,66 +368,66 @@ function DatabaseList({
         title={t("page.vector")}
         description={t("admin.vector.pageDesc")}
         actions={
-          <button
-            type="button"
-            className="a-btn a-btn-primary"
-            onClick={() => setCreating(true)}
-          >
-            <PlusIcon className="h-4 w-4" />
-            {t("admin.vector.newDb")}
-          </button>
+          isAdmin && (
+            <button
+              type="button"
+              className="a-btn a-btn-primary"
+              onClick={() => setCreating(true)}
+            >
+              <PlusIcon className="h-4 w-4" />
+              {t("admin.vector.newDb")}
+            </button>
+          )
         }
       />
 
       <Panel
-        bodyClass="px-4 py-3"
+        bodyClass="px-3 py-3"
         title={t("admin.vector.dbCount", { n: databases.length })}
         actions={
           <SearchInput
             value={query}
-            onValueChange={(v) => {
-              setQuery(v);
-              setPage(1);
-            }}
+            onValueChange={setQuery}
             placeholder={t("admin.vector.searchDb")}
             className="w-56"
           />
         }
-        footer={
-          <Pagination paged={paged} onPageChange={setPage} />
-        }
       >
-        <DataTable
-          columns={columns}
-          rows={paged.items}
-          rowKey={(db) => db.id}
-          onRowClick={(db) => navigate(`/admin/vector/${db.id}`)}
-          empty={
-            <EmptyState
-              icon={LibraryIcon}
-              title={
-                query ? t("admin.vector.noDbMatch") : t("admin.vector.noDb")
-              }
-              description={
-                query
-                  ? t("common.tryKeyword")
-                  : t("admin.vector.noDbDesc")
-              }
-              action={
-                query ? undefined : (
-                  <button
-                    type="button"
-                    className="a-btn a-btn-primary"
-                    onClick={() => setCreating(true)}
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                    {t("admin.vector.newDb")}
-                  </button>
-                )
-              }
-            />
-          }
-        />
+        {!rows.length ? (
+          <EmptyState
+            icon={LibraryIcon}
+            title={needle ? t("admin.vector.noDbMatch") : t("admin.vector.noDb")}
+            description={
+              needle ? t("common.tryKeyword") : t("admin.vector.noDbDesc")
+            }
+            action={
+              needle || !isAdmin ? undefined : (
+                <button
+                  type="button"
+                  className="a-btn a-btn-primary"
+                  onClick={() => setCreating(true)}
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  {t("admin.vector.newDb")}
+                </button>
+              )
+            }
+          />
+        ) : (
+          <div className="space-y-2">
+            {rows.map((db) => (
+              <DatabaseRow
+                key={db.id}
+                database={db}
+                collections={collectionsByDb.get(db.id) ?? []}
+                documentsByCollection={documentsByCollection}
+                expanded={expandedId === db.id}
+                onOpen={() => navigate(`/admin/vector/${db.id}`)}
+                onClose={() => navigate("/admin/vector")}
+              />
+            ))}
+          </div>
+        )}
       </Panel>
 
       <Modal
@@ -286,210 +494,6 @@ function DatabaseList({
               })),
             ]}
             hint={t("admin.vector.tenantHint")}
-          />
-        </div>
-      </Modal>
-    </>
-  );
-}
-
-/* ─────────────── 第二级：集合 ─────────────── */
-
-function CollectionList({
-  database,
-  collections,
-  documentsByCollection,
-}: {
-  database: KbDatabase;
-  collections: KbCollection[];
-  documentsByCollection: Map<number, KbDocument[]>;
-}) {
-  const navigate = useNavigate();
-  const { t } = useI18n();
-  const [page, setPage] = useState(1);
-  const [creating, setCreating] = useState(false);
-  const [query, setQuery] = useState("");
-  const [form, setForm] = useState({ name: "", description: "" });
-  const create = useCreateCollection(database.id);
-
-  // 与上层知识库列表同一套交互：集合名可能很长且数量不少，按名字过滤是这里唯一有用的检索维度
-  const rows = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return [...collections]
-      .filter(
-        (c) =>
-          !needle ||
-          c.name.toLowerCase().includes(needle) ||
-          (c.description ?? "").toLowerCase().includes(needle),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
-  }, [collections, query]);
-  const paged = paginate(rows, page);
-
-  const columns: Column<KbCollection>[] = [
-    {
-      key: "name",
-      header: t("common.collection"),
-      cell: (col) => (
-        <div className="flex items-center gap-2.5">
-          <LayersIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
-          <div className="min-w-0">
-            <p className="truncate font-medium text-ink">{col.name}</p>
-            <p className="truncate text-[11px] text-ink-subtle">
-              {col.description || t("ui.noDescription")}
-            </p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "documents",
-      header: t("common.document"),
-      align: "right",
-      width: "6rem",
-      cell: (col) => (
-        <span className="tnum text-ink-muted">
-          {documentsByCollection.get(col.id)?.length ?? 0}
-        </span>
-      ),
-    },
-    {
-      key: "created",
-      header: t("common.createdAt"),
-      align: "right",
-      width: "10rem",
-      hideBelow: "md",
-      cell: (col) => (
-        <span className="tnum text-ink-subtle">
-          {col.created_at?.slice(0, 10) || "—"}
-        </span>
-      ),
-    },
-  ];
-
-  return (
-    <>
-      <PageHeader
-        title={database.name}
-        description={database.description || t("ui.noDescription")}
-        breadcrumb={
-          <Breadcrumbs
-            items={[
-              { label: t("page.vector"), to: "/admin/vector" },
-              { label: database.name },
-            ]}
-          />
-        }
-        actions={
-          <button
-            type="button"
-            className="a-btn a-btn-primary"
-            onClick={() => setCreating(true)}
-          >
-            <PlusIcon className="h-4 w-4" />
-            {t("admin.vector.newCol")}
-          </button>
-        }
-      />
-
-      <Panel
-        title={t("admin.vector.colCount", { n: collections.length })}
-        bodyClass="px-4 py-3"
-        actions={
-          <SearchInput
-            value={query}
-            onValueChange={(v) => {
-              setQuery(v);
-              setPage(1);
-            }}
-            placeholder={t("admin.vector.searchCol")}
-            className="w-56"
-          />
-        }
-        footer={
-          <Pagination paged={paged} onPageChange={setPage} />
-        }
-      >
-        <DataTable
-          columns={columns}
-          rows={paged.items}
-          rowKey={(col) => col.id}
-          onRowClick={(col) => navigate(`/admin/vector/${database.id}/${col.id}`)}
-          empty={
-            <EmptyState
-              icon={LayersIcon}
-              title={
-                query ? t("admin.vector.noColMatch") : t("admin.vector.noCol")
-              }
-              description={
-                query
-                  ? t("admin.vector.colSearchHint")
-                  : t("admin.vector.noColDesc")
-              }
-              action={
-                query ? undefined : (
-                  <button
-                    type="button"
-                    className="a-btn a-btn-primary"
-                    onClick={() => setCreating(true)}
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                    {t("admin.vector.newCol")}
-                  </button>
-                )
-              }
-            />
-          }
-        />
-      </Panel>
-
-      <Modal
-        open={creating}
-        onClose={() => setCreating(false)}
-        title={t("admin.vector.newCol")}
-        description={t("admin.vector.newColDesc", { name: database.name })}
-        footer={
-          <>
-            <button
-              type="button"
-              className="a-btn a-btn-ghost"
-              onClick={() => setCreating(false)}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="button"
-              className="a-btn a-btn-primary"
-              disabled={create.isPending || !form.name.trim()}
-              onClick={() =>
-                create.mutate(
-                  {
-                    name: form.name.trim(),
-                    description: form.description.trim(),
-                  },
-                  { onSuccess: () => setCreating(false) },
-                )
-              }
-            >
-              {create.isPending ? t("common.creating") : t("common.create")}
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-3.5">
-          <TextInput
-            label={t("common.name")}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder={t("admin.vector.colNameExample")}
-            autoFocus
-            hint={t("admin.vector.colNameHint")}
-          />
-          <TextInput
-            label={t("common.description")}
-            optional={t("auth.optionalField")}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
         </div>
       </Modal>
@@ -792,41 +796,32 @@ function DocumentList({
 // 加载中的骨架要按 URL 深度给：整页换成一个转圈会让页头、面板、表格集体塌陷，
 // 数据到位后所有内容一起下跳；更深的问题是第一帧没有 databases，
 // resolveDrilldown 会把一个合法深链判成「这个知识库不存在」——假报错。
+// 只剩两种骨架：集合已经并入知识库列表的展开带，不再是独立的一页。
 // 表头存文案键：模块级常量存译文的话，切语言后骨架仍然是旧语言。
-const SKELETON_LEVELS: Record<
-  0 | 1 | 2,
-  {
-    key: string;
-    headerKey: string;
-    width?: string;
-    align?: "left" | "right" | "center";
-  }[]
-> = {
-  0: [
+const SKELETON_LEVELS = {
+  list: [
     { key: "name", headerKey: "common.database" },
     { key: "tenant", headerKey: "common.tenant", width: "12rem" },
     { key: "collections", headerKey: "common.collection", width: "6rem", align: "right" },
   ],
-  1: [
-    { key: "name", headerKey: "common.collection" },
-    { key: "docs", headerKey: "common.document", width: "6rem", align: "right" },
-    { key: "created", headerKey: "common.createdAt", width: "9rem", align: "right" },
-  ],
-  2: [
+  documents: [
     { key: "title", headerKey: "common.document" },
     { key: "status", headerKey: "admin.vector.indexStatus", width: "10rem" },
     { key: "chunks", headerKey: "common.chunks", width: "5rem", align: "right" },
     { key: "created", headerKey: "admin.vector.uploadedAt", width: "9rem", align: "right" },
   ],
-};
+} as const;
 
-function ConsoleSkeleton({ depth }: { depth: 0 | 1 | 2 }) {
+function ConsoleSkeleton({ depth }: { depth: 0 | 2 }) {
   const { t } = useI18n();
-  const columns: Column<never>[] = SKELETON_LEVELS[depth].map((c) => ({
+  const columns: Column<never>[] = (depth === 2
+    ? SKELETON_LEVELS.documents
+    : SKELETON_LEVELS.list
+  ).map((c) => ({
     key: c.key,
     header: t(c.headerKey),
-    width: c.width,
-    align: c.align,
+    width: "width" in c ? c.width : undefined,
+    align: "align" in c ? c.align : undefined,
     cell: () => null,
   }));
   return (
@@ -835,7 +830,7 @@ function ConsoleSkeleton({ depth }: { depth: 0 | 1 | 2 }) {
       aria-busy="true"
       aria-label={t("admin.vector.loadingKb")}
     >
-      {depth > 0 && <span className="skeleton mb-3 block h-3 w-28" />}
+      {depth === 2 && <span className="skeleton mb-3 block h-3 w-28" />}
       <div className="mb-5 space-y-2">
         <span className="skeleton block h-6 w-44" />
         <span className="skeleton block h-3 w-80" />
@@ -862,8 +857,7 @@ export default function AdminVectorPage() {
     error,
   } = useKnowledgeIndex();
 
-  if (isLoading)
-    return <ConsoleSkeleton depth={colId ? 2 : dbId ? 1 : 0} />;
+  if (isLoading) return <ConsoleSkeleton depth={colId ? 2 : 0} />;
 
   if (error)
     return (
@@ -886,17 +880,15 @@ export default function AdminVectorPage() {
 
   return (
     <div className="mx-auto w-full max-w-[68rem] px-4 py-6 md:px-8">
-      {view.level === "databases" && (
+      {/* databases 与 collections 渲染同一个列表，区别只是哪一行展开着：
+          集合不再是独立的一页。URL 仍然是 /admin/vector/:dbId，
+          所以深链、刷新、后退的行为都没有变。 */}
+      {(view.level === "databases" || view.level === "collections") && (
         <DatabaseList
           databases={databases}
           collectionsByDb={collectionsByDb}
-        />
-      )}
-      {view.level === "collections" && (
-        <CollectionList
-          database={view.database}
-          collections={collectionsByDb.get(view.database.id) ?? []}
           documentsByCollection={documentsByCollection}
+          expandedId={view.level === "collections" ? view.database.id : null}
         />
       )}
       {view.level === "documents" && (

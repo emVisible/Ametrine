@@ -4,7 +4,6 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 from src.client import get_relation_db
 from src.models import Database, Tenant
-from src.user.auth.service import is_admin
 
 
 class DatabaseService:
@@ -63,46 +62,18 @@ class DatabaseService:
     async def database_get_all_for_user(self, user_id: int):
         """返回用户可访问的数据库列表。
 
-        判定口径必须和 PermissionService.can_read_database 一致，否则会出现
-        「列表里看不到、但直接提问却能检索到」的分裂：那里承认租户间接授权，
-        这里以前只查直接授权行。两条来源（直接授权 + 所属租户绑定的库）现在都取。
+        判定口径来自 accessible_database_ids —— 与 can_read_database、概览统计共用一个函数，
+        否则就会出现「列表里看不到、但提问时却能检索到」的分裂。
         """
-        from src.models import UserDatabasePermission, User, TenantMember
+        from src.user.permissions.service import accessible_database_ids
 
-        user_result = await self.relation_db.execute(
-            select(User).where(User.id == user_id)
-        )
-        user = user_result.scalar_one_or_none()
-        if user and is_admin(user):
-            return await self.database_get_all_service()
-
-        perm_result = await self.relation_db.execute(
-            select(UserDatabasePermission.database_id).where(
-                UserDatabasePermission.user_id == user_id,
-                UserDatabasePermission.can_read == True,
-            )
-        )
-        db_ids = {row[0] for row in perm_result.all()}
-
-        member_result = await self.relation_db.execute(
-            select(TenantMember.tenant_id).where(TenantMember.user_id == user_id)
-        )
-        tenant_ids = [row[0] for row in member_result.all()]
-        if tenant_ids:
-            # 归属关系在 Tenant.database_id 上（Database 侧没有 tenant_id 列）。
-            bound_result = await self.relation_db.execute(
-                select(Tenant.database_id).where(
-                    Tenant.id.in_(tenant_ids), Tenant.database_id.is_not(None)
-                )
-            )
-            db_ids.update(row[0] for row in bound_result.all())
-
-        if not db_ids:
-            return []
-
-        result = await self.relation_db.execute(
-            select(Database).where(Database.id.in_(db_ids))
-        )
+        ids = await accessible_database_ids(self.relation_db, user_id)
+        query = select(Database)
+        if ids is not None:
+            if not ids:
+                return []
+            query = query.where(Database.id.in_(ids))
+        result = await self.relation_db.execute(query.order_by(Database.name))
         tenants_by_db = await self._tenant_names_by_database_id()
         return await self._rows(result.scalars().all(), tenants_by_db)
 

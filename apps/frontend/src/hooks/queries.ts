@@ -8,12 +8,14 @@ import {
 } from "@tanstack/react-query";
 import { collectionAPI, databaseAPI, documentAPI } from "../api/rag";
 import { apiClient } from "../api/client";
+import { systemAPI, type SystemOverview } from "../api/system";
 import { tenantAPI } from "../api/tenant";
 import { useI18n } from "../i18n/context";
 import { useToast } from "./useToast";
 import type { KbCollection, KbDocument } from "../types/knowledge";
 
 export const qk = {
+  systemOverview: ["system", "overview"] as const,
   databases: ["knowledge", "databases"] as const,
   collections: (dbId: number) => ["knowledge", "collections", dbId] as const,
   collectionsAll: ["knowledge", "collections", "all"] as const,
@@ -23,6 +25,20 @@ export const qk = {
   tenants: ["access", "tenants"] as const,
   tenantOverview: ["access", "tenant-overview"] as const,
 };
+
+/**
+ * 概览页的聚合读数。
+ *
+ * staleTime 给到 60s：这是首屏，但它同时也是最容易被反复切回来的页面
+ * （侧栏「概览」→ 对话 → 概览），每次挂载都重跑 6 条聚合查询 + 3 个网络探测不划算。
+ */
+export function useSystemOverview() {
+  return useQuery<SystemOverview>({
+    queryKey: qk.systemOverview,
+    queryFn: () => systemAPI.overview(),
+    staleTime: 60_000,
+  });
+}
 
 /**
  * 融合面板的唯一数据源。

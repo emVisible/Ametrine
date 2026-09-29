@@ -15,6 +15,51 @@ from src.models import (
 )
 
 
+async def accessible_database_ids(relation_db: AsyncSession, user_id: int):
+    """这个用户能读哪些知识库。返回 None 表示「不受限制」（管理员）。
+
+    这个口径原来写了三份且互不一致：can_read_database 承认租户间接授权，
+    /database/mine 只查直接授权行，概览又是另一套 —— 于是「列表里看不到、
+    但直接提问却能检索到」会同时发生。收敛成一个函数，三处共用。
+    """
+    user_result = await relation_db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+    if is_admin_(user):
+        return None
+
+    perm_result = await relation_db.execute(
+        select(UserDatabasePermission.database_id).where(
+            UserDatabasePermission.user_id == user_id,
+            UserDatabasePermission.can_read == True,
+        )
+    )
+    ids = {row[0] for row in perm_result.all()}
+
+    member_result = await relation_db.execute(
+        select(TenantMember.tenant_id).where(TenantMember.user_id == user_id)
+    )
+    tenant_ids = [row[0] for row in member_result.all()]
+    if tenant_ids:
+        # 归属列在 Tenant.database_id 上，Database 侧没有 tenant_id
+        bound_result = await relation_db.execute(
+            select(Tenant.database_id).where(
+                Tenant.id.in_(tenant_ids), Tenant.database_id.is_not(None)
+            )
+        )
+        ids.update(row[0] for row in bound_result.all())
+
+    # 旧口径：只有 user.tenant_id、没有 TenantMember 行的历史数据也要算进来
+    if user and user.tenant_id is not None:
+        legacy_result = await relation_db.execute(
+            select(Tenant.database_id).where(
+                Tenant.id == user.tenant_id, Tenant.database_id.is_not(None)
+            )
+        )
+        ids.update(row[0] for row in legacy_result.all())
+
+    return ids
+
+
 class PermissionService:
     def __init__(self, relation_db: AsyncSession):
         self.relation_db = relation_db
@@ -189,52 +234,15 @@ class PermissionService:
 
     # ═══ 资源过滤 ═══
     async def get_accessible_databases(self, user_id: int):
-        if await self.is_admin(user_id):
-            return await self._get_all_databases()
-
-        # 直接授权 + 租户授权
-        direct_result = await self.relation_db.execute(
-            select(UserDatabasePermission.database_id).where(
-                UserDatabasePermission.user_id == user_id,
-                UserDatabasePermission.can_read == True,
-            )
+        ids = await accessible_database_ids(self.relation_db, user_id)
+        query = select(Database, Tenant.name).outerjoin(
+            Tenant, Tenant.database_id == Database.id
         )
-        direct_ids = [r[0] for r in direct_result.all()]
-
-        # 通过租户（归属列在 Tenant.database_id 上，不是 Database.tenant_id）
-        member_result = await self.relation_db.execute(
-            select(TenantMember.tenant_id).where(
-                TenantMember.user_id == user_id,
-            )
-        )
-        tenant_ids = [r[0] for r in member_result.all()]
-        tenant_db_ids = []
-        if tenant_ids:
-            db_result = await self.relation_db.execute(
-                select(Tenant.database_id).where(
-                    Tenant.id.in_(tenant_ids), Tenant.database_id.is_not(None)
-                )
-            )
-            tenant_db_ids = [r[0] for r in db_result.all()]
-
-        all_ids = set(direct_ids + tenant_db_ids)
-        if not all_ids:
-            return []
-
-        result = await self.relation_db.execute(
-            select(Database, Tenant.name)
-            .outerjoin(Tenant, Tenant.database_id == Database.id)
-            .where(Database.id.in_(all_ids))
-            .order_by(Database.name)
-        )
-        return self._rows(result.all())
-
-    async def _get_all_databases(self):
-        result = await self.relation_db.execute(
-            select(Database, Tenant.name)
-            .outerjoin(Tenant, Tenant.database_id == Database.id)
-            .order_by(Database.name)
-        )
+        if ids is not None:
+            if not ids:
+                return []
+            query = query.where(Database.id.in_(ids))
+        result = await self.relation_db.execute(query.order_by(Database.name))
         return self._rows(result.all())
 
     @staticmethod
