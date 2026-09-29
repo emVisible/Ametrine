@@ -181,7 +181,6 @@ export const en: Messages = {
       "This knowledge base has no collections — it can't be searched until a document is uploaded",
     pickKb: "Knowledge base",
     pickCol: "Collection",
-    rerank: "Rerank",
     noReference:
       "This answer cites no knowledge-base chunks: nothing was relevant enough, or the relevance threshold filtered every candidate. Try a more specific question.",
     references: "Sources",
@@ -258,6 +257,11 @@ export const en: Messages = {
       rowStats: "{cols} collections · {docs} documents",
       docStats: "{docs} docs · {indexed} indexed",
       failedN: "{n} failed",
+      docDeleted: "Document deleted",
+      docDeleteFailed: "Couldn't delete the document: {msg}",
+      deleteDocTitle: "Delete \"{name}\"?",
+      deleteDocMsg:
+        "Removes its vector index and chunks; the stored source file is deleted too. This cannot be undone.",
       pendingN: "{n} pending",
       searchCol: "Search collections",
       noColMatch: "No matching collections",

@@ -9,6 +9,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useI18n } from "../i18n/context";
 import { intlLocale } from "../i18n";
 import { useIsAdmin } from "../hooks/useAuth";
+import { useConfirm } from "../hooks/useConfirm";
 import { resolveDrilldown } from "../utils/drilldown";
 import { paginate } from "../utils/pagination";
 import {
@@ -30,6 +31,7 @@ import {
 import {
   useCreateCollection,
   useCreateDatabase,
+  useDeleteDocument,
   useKnowledgeIndex,
   useTenants,
   useUploadDocument,
@@ -587,6 +589,9 @@ function DocumentList({
   documents: KbDocument[];
 }) {
   const { t } = useI18n();
+  const confirm = useConfirm();
+  const isAdmin = useIsAdmin();
+  const remove = useDeleteDocument();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [uploading, setUploading] = useState(false);
@@ -675,13 +680,36 @@ function DocumentList({
       align: "right",
       width: "6rem",
       cell: (doc) => (
-        <button
-          type="button"
-          className="a-btn a-btn-outline !py-1 text-[11px]"
-          onClick={() => setViewing(doc)}
-        >
-          {t("admin.vector.viewChunks")}
-        </button>
+        <div className="flex justify-end gap-1.5">
+          <button
+            type="button"
+            className="a-btn a-btn-outline !py-1 text-[11px]"
+            onClick={() => setViewing(doc)}
+          >
+            {t("admin.vector.viewChunks")}
+          </button>
+          {/* 知识库原来只能往里加：传错了、传重了都清不掉。
+              删除是破坏性动作，所以只在管理员视角出现，且必须过确认。 */}
+          {isAdmin && (
+            <button
+              type="button"
+              className="a-btn a-btn-danger !py-1 text-[11px]"
+              disabled={remove.isPending}
+              onClick={() =>
+                confirm({
+                  title: t("admin.vector.deleteDocTitle", {
+                    name: doc.title || t("rag.untitled"),
+                  }),
+                  message: t("admin.vector.deleteDocMsg"),
+                  confirmLabel: t("common.del"),
+                  tone: "danger",
+                }).then((ok) => ok && remove.mutate(String(doc.id)))
+              }
+            >
+              {t("common.del")}
+            </button>
+          )}
+        </div>
       ),
     },
   ];

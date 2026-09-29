@@ -177,7 +177,6 @@ export const zh = {
     scopeNoCol: "这个知识库还没有集合，上传文档前它不能用于检索",
     pickKb: "选择知识库",
     pickCol: "选择集合",
-    rerank: "重排序",
     noReference:
       "这次回答没有引用知识库分块：可能没有足够相关的段落，也可能是相关性阈值把候选都过滤掉了。换个更具体的说法再试。",
     references: "引用来源",
@@ -249,6 +248,11 @@ export const zh = {
       rowStats: "{cols} 个集合 · {docs} 篇文档",
       docStats: "{docs} 篇 · 已索引 {indexed}",
       failedN: "{n} 篇失败",
+      docDeleted: "文档已删除",
+      docDeleteFailed: "删除文档失败：{msg}",
+      deleteDocTitle: "删除「{name}」？",
+      deleteDocMsg:
+        "会同时移除它的向量索引与分块，已落盘的原始文件也会删掉。不可撤销。",
       pendingN: "{n} 篇待处理",
       searchCol: "搜索集合",
       noColMatch: "没有匹配的集合",

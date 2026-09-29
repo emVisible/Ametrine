@@ -49,6 +49,11 @@ export const collectionAPI = {
 };
 
 export const documentAPI = {
+  remove: (documentId: string) =>
+    apiClient<{ message: string; removed_file: boolean }>(
+      `/relation/document/${documentId}`,
+      { method: "DELETE" },
+    ),
   /**
    * 上传必须是裸 fetch：multipart 不能走 apiClient 的 JSON 序列化。
    * 后端需要同时拿到 database_name 与 collection_name —— 定位一个 Milvus

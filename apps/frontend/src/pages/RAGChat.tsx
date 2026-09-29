@@ -20,7 +20,7 @@ import {
   Composer,
   type ChatMessage,
 } from "../components/chat";
-import { StatusBadge, Toggle } from "../components/ui";
+import { StatusBadge } from "../components/ui";
 import ScopePicker from "../components/ScopePicker";
 import type { KbCollection } from "../types/knowledge";
 import {
@@ -165,7 +165,6 @@ export default function RAGChatPage() {
   const [input, setInput] = useState("");
   const [selectedDbId, setSelectedDbId] = useState<number | null>(null);
   const [selectedColId, setSelectedColId] = useState<number | null>(null);
-  const [enableRerank, setEnableRerank] = useState(true);
 
   const {
     messages,
@@ -226,7 +225,6 @@ export default function RAGChatPage() {
         chat_history: history,
         database_name: selectedDb.name,
         collection_name: selectedCol.name,
-        rerank: enableRerank,
       },
       (token) => useSessionStore.getState().appendToken(id, token),
       (refs) => {
@@ -246,7 +244,6 @@ export default function RAGChatPage() {
     streaming,
     selectedDb,
     selectedCol,
-    enableRerank,
     ensureSession,
     clearError,
   ]);
@@ -324,11 +321,6 @@ export default function RAGChatPage() {
                 // 换库必然使已选集合失效；点集合时才会带上 colId
                 setSelectedColId(colId);
               }}
-            />
-            <Toggle
-              checked={enableRerank}
-              onChange={setEnableRerank}
-              label={t("chat.rerank")}
             />
           </>
         }

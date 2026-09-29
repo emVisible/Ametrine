@@ -3,7 +3,7 @@ from hashlib import sha256
 from os import getenv
 from pathlib import Path
 from time import time
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pymilvus import MilvusClient
@@ -13,6 +13,8 @@ from src.llm.service import LLMService, get_llm_service
 from src.middleware.tags import ControllerTag
 from src.relation.collections.service import CollectionService, get_collection_service
 from src.relation.databases.service import DatabaseService, get_database_service
+from src.user.auth.service import get_current_user
+from src.user.permissions.service import PermissionService, get_permission_service
 from src.utils.other import use_vector_database
 from src.vector.documents.loader import process_documents
 from .service import DocumentService, get_document_service
@@ -67,13 +69,19 @@ async def upload_document(
     collection_name: str = Form(...),
     database_name: str = Form(default="default"),
     file: UploadFile = File(...),
-    # PG
+    # 上传是写操作，原来却完全不认人：任何登录用户（甚至按旧代码是任何人）
+    # 都能往任意集合里塞文档，而且 uploader 一律写死成 "admin"，
+    # 事后既查不到是谁传的，也没法按人审计。
+    # 依赖顺序沿用 /api/llm 那条教训：鉴权与权限要排在会打 Milvus/模型的依赖之前。
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
     pg_service: DocumentService = Depends(get_document_service),
     collection_service: CollectionService = Depends(get_collection_service),
     # Milvus + LLM
     milvus: MilvusClient = Depends(get_milvus_service),
     llm_service: LLMService = Depends(get_llm_service),
 ):
+    await perm_service.require_write_database(current_user.id, database_name)
     # ── 1. 保存文件 ──
     doc_dir = getenv("DOC_ADDR")
     Path(doc_dir).mkdir(parents=True, exist_ok=True)
@@ -89,20 +97,33 @@ async def upload_document(
             f.write(contents)
 
         # ── 2. 分块 + 向量化 ──
+        # 去重放在分块之前：sha256 早就存进 meta 了，但从来没被查过，
+        # 所以重复上传同一个文件会在 Milvus 里堆出两份一样的向量，
+        # 检索时同一页内容占掉好几个名额。
+        collection = await collection_service.collection_get_service(name=collection_name)
+        if not collection:
+            raise HTTPException(status_code=404, detail="Collection not found in PG")
+
+        duplicate = await pg_service.document_find_by_digest(
+            collection_id=collection.id, sha256=digest
+        )
+        if duplicate:
+            tmp_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status_code=409,
+                detail=f"该文件已存在于集合 {collection_name}（{duplicate}）",
+            )
+
         chunks = process_documents(is_multiple=False, file_path=str(tmp_path))
         embeddings = llm_service.embedding_model.embed_documents(
             [chunk.page_content for chunk in chunks]
         )
 
         # ── 3. 写 PG：Document ──
-        collection = await collection_service.collection_get_service(name=collection_name)
-        if not collection:
-            raise HTTPException(status_code=404, detail="Collection not found in PG")
-
         await pg_service.document_create_service(
             id=document_id,
             title=safe_filename,
-            uploader="admin",
+            uploader=current_user.name,
             collection_id=collection.id,
             meta={
                 "source": chunks[0].metadata.get("source", ""),
@@ -164,3 +185,35 @@ async def upload_document(
                 meta={"index_status": "failed", "index_error": str(e)},
             )
         raise HTTPException(status_code=500, detail=str(e))
+
+@route_document.delete("/{document_id}", summary="删除文档（PG + Milvus 同步级联）")
+async def delete_document(
+    document_id: UUID,
+    # 知识库原来只能往里加：没有任何删除入口，传错了、传重了、
+    # 或者文档里有不该被检索到的内容都清不掉。这是同类产品的基线能力。
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
+    pg_service: DocumentService = Depends(get_document_service),
+    milvus: MilvusClient = Depends(get_milvus_service),
+):
+    doc = await pg_service.document_locate_service(document_id=document_id)
+    await perm_service.require_write_database(current_user.id, doc["database_name"])
+
+    # 先删向量、后删关系行：反过来一旦 Milvus 失败，PG 已经没了，
+    # 那批向量就变成谁也查不到的孤儿。这个顺序下 Milvus 失败时 PG 保持完整，可重试。
+    milvus.use_database(db_name=doc["database_name"])
+    try:
+        milvus.delete(
+            collection_name=doc["collection_name"],
+            filter='doc_id == "%s"' % doc["document_id"],
+        )
+        milvus.flush(collection_name=doc["collection_name"])
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail="向量删除失败，文档未删除，可直接重试：%s" % type(exc).__name__,
+        )
+
+    return await pg_service.document_delete_service(
+        document_id=document_id, stored_path=doc.get("stored_path")
+    )

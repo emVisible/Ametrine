@@ -1,10 +1,11 @@
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from src.client import get_relation_db
-from src.models import Document, DocumentChunk
+from src.models import Collection, Database, Document, DocumentChunk
 
 
 class DocumentService:
@@ -28,6 +29,73 @@ class DocumentService:
         await self.relation_db.commit()
         await self.relation_db.refresh(document)
         return document
+
+    async def document_find_by_digest(self, collection_id: int, sha256: str):
+        """同一集合里内容完全相同的文档标题，没有则 None。
+
+        sha256 从第一天起就写进 meta，但从来没被查过 —— 于是重复上传同一个文件
+        会在 Milvus 里堆出两份一样的向量，检索时同一页内容连占好几个名额。
+        """
+        result = await self.relation_db.execute(
+            select(Document.title)
+            .where(
+                Document.collection_id == collection_id,
+                Document.meta["sha256"].astext == sha256,
+            )
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def document_locate_service(self, document_id: UUID):
+        """一次拿齐删除所需的归属信息：文档 -> 集合 -> 数据库 + 落盘路径。
+
+        原来要拿这些得三次查询，而删除路径上多一次查询就多一个失败点。
+        """
+        result = await self.relation_db.execute(
+            select(
+                Document.id,
+                Document.title,
+                Document.meta,
+                Collection.name,
+                Database.name,
+            )
+            .join(Collection, Collection.id == Document.collection_id)
+            .join(Database, Database.id == Collection.database_id)
+            .where(Document.id == document_id)
+        )
+        row = result.first()
+        if not row:
+            raise HTTPException(status_code=404, detail="文档不存在")
+        doc_id, title, meta, collection_name, database_name = row
+        return {
+            "document_id": str(doc_id),
+            "title": title,
+            "collection_name": collection_name,
+            "database_name": database_name,
+            "stored_path": (meta or {}).get("stored_path"),
+        }
+
+    async def document_delete_service(self, document_id: UUID, stored_path=None):
+        """删 PG 文档（分块由 ORM 级联带走）并清掉落盘文件。"""
+        result = await self.relation_db.execute(
+            select(Document).where(Document.id == document_id)
+        )
+        doc = result.scalar_one_or_none()
+        if not doc:
+            raise HTTPException(status_code=404, detail="文档不存在")
+        doc_title = doc.title
+        await self.relation_db.delete(doc)
+        await self.relation_db.commit()
+        removed_file = False
+        if stored_path:
+            path = Path(stored_path)
+            if path.is_file():
+                path.unlink()
+                removed_file = True
+        return {
+            "message": f"文档 {doc_title} 已删除",
+            "removed_file": removed_file,
+        }
 
     async def document_get_all_service(self):
         result = await self.relation_db.execute(select(Document))

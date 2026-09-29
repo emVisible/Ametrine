@@ -53,10 +53,17 @@ export function useTenantOverview(enabled = true) {
   });
 }
 
+/**
+ * 只列当前用户可检索的知识库。
+ *
+ * 以前控制台和检索选择器都读 /database/all —— 那是「所有库」，
+ * 于是成员会看到自己读不到的库，选中之后才吃一个 403。
+ * /database/mine 一直存在却没人调用；管理员它照样返回全部，所以管理侧不受影响。
+ */
 export function useDatabases() {
   return useQuery({
     queryKey: qk.databases,
-    queryFn: () => databaseAPI.getAll(),
+    queryFn: () => databaseAPI.getMine(),
   });
 }
 
@@ -199,6 +206,25 @@ export function useCreateCollection(databaseId: number) {
     },
     successKey: "admin.vector.colCreated",
     errorKey: "admin.vector.colCreateFailed",
+  });
+}
+
+/**
+ * 删除文档：PG 行 + Milvus 向量 + 落盘文件一起清。
+ *
+ * 后端刻意先删向量再删关系行，失败时 PG 保持完整，
+ * 所以这里失败可以直接重试而不会留下谁也查不到的孤儿向量。
+ */
+export function useDeleteDocument() {
+  const queryClient = useQueryClient();
+  return useResourceMutation({
+    mutationFn: (documentId: string) => documentAPI.remove(documentId),
+    invalidate: () => {
+      // 删除会改变链路上每一层的计数，整组失效比逐键推断可靠
+      queryClient.invalidateQueries({ queryKey: ["knowledge"] });
+    },
+    successKey: "admin.vector.docDeleted",
+    errorKey: "admin.vector.docDeleteFailed",
   });
 }
 
