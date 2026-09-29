@@ -57,17 +57,22 @@ async def delete_collection(
     service: CollectionService = Depends(get_collection_service),
     vector_collection_service: VectorCollectionService = Depends(get_vector_collection_service),
 ):
-    # 1. 先删 PG（原来这里绕开 service 直接摸 relation_db，service 层早有同名方法）
-    await service.collection_delete_service(name=collection_name)
-
-    # 2. 同步删 Milvus
+    # 顺序和删除文档一致：先删向量、后删关系行。
+    # 原来先删 PG 再用 `except: pass` 吞掉 Milvus 的失败 ——
+    # 于是 Milvus 里留下一堆 PG 已经不再引用的孤儿集合，
+    # 界面看不到、也再也删不掉（删除入口查的是 PG）。
     try:
         await vector_collection_service.collection_delete_service(
             collection_name=collection_name,
             database_name=database_name,
         )
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail=f"向量集合删除失败，PG 记录未删除，可直接重试：{type(exc).__name__}",
+        )
+
+    await service.collection_delete_service(name=collection_name)
 
     return {"message": f"Collection {collection_name} deleted"}
 
