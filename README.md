@@ -1,176 +1,140 @@
-## 简介
+<img src="apps/frontend/public/logo.svg" alt="Ametrine" width="220" />
 
-Ametrine——基于 RAG 的本地知识库系统
+> A self-hosted Retrieval-Augmented-Generation workspace: your documents, your models, your database — no vendor in the loop.
 
-后端：FastAPI + LangChain + Xinference + Milvus + PostgreSQL, 基于 uv 进行包管理
+**English** · [简体中文](README_zh.md)
 
-特性
+Ametrine is a local-first knowledge base built around RAG. It ingests real documents,
+splits them semantically, embeds them into Milvus, and answers questions with citations you can
+click open. Multi-tenancy, per-knowledge-base permissions, token quotas, and chunk-level curation
+are part of the product, not bolted on.
 
-- 基于 Milvus 的多租户模式（租户与数据库一一绑定）
-- 传统+向量数据库（Milvus + PostgreSQL）
-- 支持 Rerank Model
-- 文档预处理：语义切分（Semantic） + 常用文件格式解析（Unstructured）
-- 文档回溯
-- SSE 流式渲染
-- Agent：支持 Playwright、Wikipedia、DuckDuckGo、Shell
-- 前端：多 Session 历史对话记录 & 自动滚动 & 日夜主题切换 & 配套后台
+---
 
-## 系统要求
+## Highlights
 
-最低配置
-OS: Ubuntu 20.04
-GPU: 没有也行 | 能跑就行
-Disk: 30G
-Memory: 16G
+| Area | What you get |
+| --- | --- |
+| Retrieval | Dense vector search, optional cross-encoder reranking, per-request `top_k`, relevance threshold, and a **hit-testing panel** that shows exactly what a query recalled before any model is called |
+| Curation | Per-chunk **exclude / edit (re-embed) / delete**, whole-document toggle, live counts — fix a bad split without re-uploading the file |
+| Provenance | Citations are stored with the message (`message.meta`), so an answer stays verifiable after a refresh, a cache clear, or a different device |
+| Multi-tenancy | Each tenant owns one knowledge base (one Milvus database); members get read / write / manage grants per base |
+| Quota | Daily and monthly token budgets derived from stored messages, enforced at the model boundary with `429`; `0` means unlimited |
+| Conversation | SSE streaming that survives switching sessions, lazy session creation, bilingual UI (zh / en), light and dark themes, browser-based voice input |
 
-推荐配置
-OS: Ubuntu 20.04
-GPU: 2080ti 22G | 3090 | ...
-Disk: 60G+
-Memory: 32G+
-
-本项目开发使用 3080 或 2080ti，开发模式下所需最低显存约为 10G, 测试部署使用 3090x2
-
-Models
-对于常规开发模式，一张 10G 显存的卡可够用, 以 3080 和 2080ti 为例
-
-- LLM
-  - qwen3 1.7B (dev) 显存占用 5.2G
-- Embedding
-  - bge-m3 显存占用 2.4G
-- Rerank
-  - bge-reranker-base(dev) 显存占用 1.3G
-  - minicpm-reranker(product) 显存占用 12G
-- Image
-  - GOT-OCR2_0 (OCR Model) 显存占用 3G
-
-语音输入不占显存：由浏览器的 Web Speech API 完成。
-原先自建 ASR（Xinference `audio` + SenseVoiceSmall，约 160 个额外依赖）已整体移除，
-`xinference[audio]` 也不再进入 apps/inference 的依赖。
-
-## 依赖安装
-
-概要
-
-- 安装 nvm; 安装 yarn
-- 安装 python3.10 (项目开发所使用的版本); isort, black-formatter 等 Python 相关插件
-- 安装 postgreSQL 并创建对应数据库
-
-### 前端
-
-进入 apps/frontend
+## Architecture
 
 ```
-yarn
+apps/
+├── frontend/   React 19 · Vite · Tailwind v4 · Zustand · TanStack Query · React Router 7
+├── backend/    FastAPI · SQLAlchemy 2 (async) · LangChain loaders · pymilvus
+├── inference/  Isolated Xinference environment (no vLLM, therefore no pinned torch)
+└── database/   Docker Compose: PostgreSQL 16 + pgvector, Redis 7, Milvus 2.5, etcd, MinIO
 ```
 
-### 后端
+| Service | Port | Notes |
+| --- | --- | --- |
+| Frontend | `8000` | Vite dev server, proxies `/api` to the backend |
+| Backend | `3000` | OpenAPI at `/docs`; liveness probe is `GET /health` (root, **not** `/api/health`) |
+| Xinference | `9997` | LLM · embedding · rerank models |
+| PostgreSQL | `5432` | Relations, documents, chunks, messages, grants |
+| Milvus | `19530` | Vectors; one Milvus database per tenant |
+| Milvus UI | `9091` | Optional inspection |
+| Redis | `6379` | Short-lived citation cache between stream and history |
 
-进入 apps/backend
-推荐使用 uv 安装
+PostgreSQL holds the text and the truth; Milvus holds the vectors. Retrieval returns
+`(doc_id, chunk_id)` pairs and the body is hydrated from PostgreSQL, which is why excluding a
+chunk needs no vector-store migration.
 
-```
-uv pip install
-```
+## Requirements
 
-### 数据库
+- Ubuntu 20.04+ (development happens inside WSL2)
+- Python 3.11 – 3.12 and [uv](https://docs.astral.sh/uv/)
+- Node.js ≥ 20 (the dev script pins 25 via `fnm`) with `pnpm`
+- Docker Compose for the data tier
+- A GPU is optional. A ~10 GB card runs a development set: one small instruct LLM, `bge-m3` for
+  embeddings, `bge-reranker-base` for reranking. Nothing is downloaded unless you ask for it.
 
-#### PostgreSQL
+## Quick start
 
-ubuntu 下安装 PostgreSQL
+```bash
+git clone git@github.com:emVisible/Ametrine.git
+cd Ametrine
 
-```
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-```
+# 1. data tier — PostgreSQL, Redis, Milvus
+docker compose -f apps/database/docker-compose.yml up -d
 
-验证安装成功
+# 2. configuration — copy the templates and fill them in (never commit the result)
+cp apps/backend/.env.example  apps/backend/.env
+cp apps/frontend/.env.example apps/frontend/.env
 
-```
-sudo -u postgres psql -c "SELECT version();"
-```
+# 3. application environment
+cd apps/backend && uv sync && uv run alembic upgrade head && cd ../..
 
-安装后会自动创建一个名为 postgres 的系统用户, 切换至该账户
+# 4. inference environment + models (skippable: the app boots without them)
+bash scripts/setup_inference_env.sh
+bash scripts/load_models.sh apps/backend
 
-```
-sudo -i -u postgres
-```
-
-进入交互, 修改密码
-
-```
-psql
-\password postgres
-```
-
-创建对应的数据库
-
-```
-sudo -u postgres createdb ametrine
-// 或者用SQL
-CREATE DATABASE ametrine OWNER postgres
-```
-
-Vscode 安装插件：Database Client, 可连接到 postgre 上进行可视化管理
-
-至此, 后端与 Postgre 的连接可以在 apps/backend/base/database 填入并应正常连接(pip 安装了 psycopg2-binary 的前提下)
-
-#### Redis
-
-```
-sudo apt install redis
+# 5. everything else — frontend, Xinference, backend in one tmux session
+./dev.sh
 ```
 
-## 项目启动
+Open <http://localhost:8000>. Interactive API documentation is at
+<http://localhost:3000/docs>.
 
-可以前端、Xinference、Milvus、后端这四部分单独启动后, 可运行 dev.sh 一键启动
+## Configuration
 
-### 前端
+`apps/backend/.env` is not tracked; `.env.example` documents every key. The values that matter
+most:
 
-apps/frontend 下进入开发模式
+| Key | Meaning |
+| --- | --- |
+| `SECRET_KEY` | JWT signing secret. Generate a fresh one per deployment — tokens are unverifiable if it is shared or committed |
+| `POSTGRE_ADDR` | Async SQLAlchemy DSN (`postgresql+asyncpg://user:pass@host:5432/ametrine`) |
+| `MILVUS_HOST` / `MILVUS_PORT` / `MILVUS_METRIC_TYPE` | Vector store target. With `L2`, smaller distance means better match |
+| `XINFERENCE_MAIN_ADDR` · `XINFERENCE_{LLM,EMBEDDING,RERANK}_MODEL_ID` | Which models to call, by model **uid** |
+| `XINFERENCE_API_KEY` | Leave empty for an unauthenticated Xinference; set it once server auth is on |
+| `K` / `P` / `MIN_RELEVANCE_SCORE` | Candidate count, final context size, rerank relevance floor |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` / `SEMANTIC_SPLITTER` | Ingestion splitting; existing documents keep the profile they were indexed with |
+| `EMBEDDING_DIMENSION` | Must match the embedding model, and changing it means re-indexing |
 
-```
-yarn dev
-```
+## Checks
 
-### Xinference
-
-启动 xinference
-
-启动主节点，用于部署 LLM、Embedding、Rerank 模型（仅开发）
-生产模式时，建议 LLM 独占一张 GPU，其余的 Embedding、Rerank、Audio 模型放在另一张 GPU 上
-
-```
-uv run -- env xinference-local
-```
-
-启动子节点，用于部署 Audio 等模型
-
-```
-uv run -- env xinference-local --endpoint 9998
+```bash
+cd apps/frontend && pnpm check     # typecheck + lint + 57 unit tests
+cd apps/backend  && uv run alembic upgrade head
 ```
 
-### 后端
+## Security model
 
-apps/backend 下运行
+- Requests are authenticated with a signed JWT; roles are `user`, `manager`, `admin`.
+- Every knowledge-base read and write is authorised against the caller's grants — the checks run
+  before the vector store or the models are touched, so an unauthorised request gets `403`, not a
+  stack trace from an unrelated dependency.
+- Cross-tenant access is denied per route, not per UI: listing documents, opening a document, or
+  reading its chunks all resolve the owning database first.
+- Admin-owned fields (roles, token limits) cannot be changed by self-service.
+- Token usage is computed from persisted assistant messages, so a limit cannot be dodged by
+  clearing browser storage.
 
-两行命令均可, 建议使用原生 uvicorn 命令
+## Known limitations
 
-```
-uv run --env uvicorn main:app --port 3000 --reload
-uv run fastapi dev --reload --port 3000
-```
+- Generation is request-scoped on the server. Switching conversations inside the app keeps the
+  stream alive; closing the tab does not.
+- Retrieval is dense-only. Hybrid BM25 / sparse search with RRF fusion would need new scalar
+  fields on existing Milvus collections, i.e. a full re-index.
+- Agent and tool-call output has a table and a streaming event reserved for it, but no agent
+  runtime ships on this branch.
+- Voice input uses the browser's Web Speech API, so it depends on browser support and a network
+  round-trip to the browser vendor's speech service.
 
-### Milvus
+## Contributing
 
-apps/database 下
-启动 milvus, 基于 Docker
+Issues and pull requests are welcome. If you find a correctness bug — especially one that makes a
+wrong answer look right — open an issue first; those get priority.
 
-```
-bash standalone_embed.sh
-```
+## Acknowledgements
 
-## 最后
+Built with FastAPI, LangChain, Milvus, Xinference, PostgreSQL and React.
 
-使用中如果遇到什么问题, 欢迎提 issue 或在 discussion 中讨论，项目会长期更进，如果项目对你有什么帮助, 就给个 ⭐️ 吧
-致我们终将逝去的青春 🌙
+*To the youth we are letting go of.* 🌙

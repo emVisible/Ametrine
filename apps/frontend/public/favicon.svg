@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="Ametrine">
+  <!--
+    Ametrine 的品牌标记：一颗两种颜色的宝石。
+    上半（台面 + 冠部）用金色，下半（亭部）用紫水晶色 ——
+    这块矿石本来就叫「紫黄晶」，颜色分区不是装饰，而是名字本身。
+
+    这是唯一的正典标记：不依赖字体、不依赖渐变、不依赖滤镜，
+    16 px 到 40 px 都不糊，深浅两种背景下都不需要换色。
+  -->
+  <path d="M4 3h16l3 6H1Z" fill="#d9a13c"/>
+  <path d="M1 9h22L12 22Z" fill="#5a4bd4"/>
+</svg>

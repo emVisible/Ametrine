@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 222 64" width="222" height="64" role="img" aria-label="Ametrine">
+  <!--
+    品牌横版锁定：标记 + 字标。
+    标记本体与 favicon.svg 完全一致（唯一的正典标记是那个 24 格图形）；
+    这里只是把它放大 5/3 并排上字标。
+
+    画布宽度是按实测内容算出来的，不是凑整数：标记 x 10–58、字标 x 66–212，
+    左右留白各 10。原先写 240 会让右边凭空多出 31 px 的空隙，居中摆放时整组字
+    看起来偏左。
+
+    字标用 #6d5fd8 而不是近黑：README 会出现在 GitHub 的深色背景上，
+    近黑字标在深色模式里等于隐形。这个紫在浅底约 4.9:1、深底约 3.8:1，
+    按大字号（22 px / 600）标准两侧都站得住。
+  -->
+  <g transform="translate(10,8) scale(2)">
+    <path d="M4 3h16l3 6H1Z" fill="#d9a13c"/>
+    <path d="M1 9h22L12 22Z" fill="#5a4bd4"/>
+  </g>
+  <text x="66" y="41"
+        font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="22" font-weight="600" letter-spacing="3.2" fill="#6d5fd8">AMETRINE</text>
+</svg>
