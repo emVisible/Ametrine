@@ -19,6 +19,8 @@ import { useDialogFocus } from "../hooks/useDialogFocus";
 import { useRovingTabs } from "../hooks/useRovingTabs";
 import type { Page } from "../utils/pagination";
 import {
+  CheckIcon,
+  ChevronDownIcon,
   ChevronRightIcon,
   CloseIcon,
   RefreshIcon,
@@ -446,6 +448,156 @@ export function Select({
   );
 }
 
+/**
+ * 紧凑下拉选择器（listbox）。
+ *
+ * 换掉原生 `<select>` 的原因有两个，都是实测出来的：
+ *  1. 展开面板由浏览器绘制，深色主题下是一整块刺眼的白列表，盖住半个会话区；
+ *  2. 触发器宽度按**最长 option** 撑开，检索范围那两个选择器会把输入工具行顶得很宽。
+ * 这里把宽度交给调用方（`className`），面板用应用自己的卡片样式并限高滚动。
+ */
+export function Picker<T extends string | number>({
+  label,
+  value,
+  options,
+  onChange,
+  placeholder = "请选择",
+  disabled,
+  className = "",
+  panelClassName = "w-56",
+}: {
+  label: string;
+  value: T | null;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  panelClassName?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const root = useRef<HTMLDivElement>(null);
+  const listId = useId();
+  const selected = options.find((o) => o.value === value);
+
+  // 高亮初始值在「打开」这个动作里算，而不是放在 effect 里同步 state。
+  // effect 只负责点外面收起。
+  const openPanel = () => {
+    const i = options.findIndex((o) => o.value === value);
+    setActive(i < 0 ? 0 : i);
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const commit = (i: number) => {
+    const o = options[i];
+    if (!o) return;
+    onChange(o.value);
+    setOpen(false);
+    root.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+    if (!open) {
+      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openPanel();
+      }
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => Math.min(i + 1, options.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActive(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActive(options.length - 1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      commit(active);
+    }
+  };
+
+  return (
+    <div ref={root} className={`relative min-w-0 ${className}`} onKeyDown={onKeyDown}>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-label={label}
+        onClick={() => (open ? setOpen(false) : openPanel())}
+        className={`flex w-full items-center gap-1.5 rounded-[--radius-md] border border-line bg-surface-sunken px-2 py-1 text-left text-[11px] transition-ui ${
+          disabled
+            ? "cursor-not-allowed opacity-50"
+            : "hover:border-accent-border focus-visible:border-accent"
+        }`}
+      >
+        <span
+          className={`min-w-0 flex-1 truncate ${
+            selected ? "text-ink" : "text-ink-subtle"
+          }`}
+        >
+          {selected?.label ?? placeholder}
+        </span>
+        <ChevronDownIcon
+          className={`h-3 w-3 shrink-0 text-ink-subtle transition-ui ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label={label}
+          tabIndex={-1}
+          className={`a-card anim-pop absolute bottom-full z-30 mb-1 max-h-56 overflow-y-auto py-1 shadow-pop ${panelClassName}`}
+        >
+          {options.length === 0 ? (
+            <li className="px-3 py-2 text-[11px] text-ink-subtle">没有可选项</li>
+          ) : (
+            options.map((o, i) => (
+              <li key={o.value} role="option" aria-selected={o.value === value}>
+                <button
+                  type="button"
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => commit(i)}
+                  className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] transition-ui ${
+                    i === active ? "bg-surface-hover text-ink" : "text-ink-muted"
+                  }`}
+                >
+                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                  {o.value === value && (
+                    <CheckIcon className="h-3.5 w-3.5 shrink-0 text-accent-ink" />
+                  )}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
 /** 下划线式页签。Settings、组织与权限等页面共用，避免各写一份 tab 逻辑。 */
 export function Tabs<T extends string>({
   value,

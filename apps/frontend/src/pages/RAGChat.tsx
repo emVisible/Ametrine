@@ -6,7 +6,7 @@ import { useSessionMessages } from "../hooks/useSessionMessages";
 import { useCollections, useDatabases } from "../hooks/queries";
 import VoiceInput from "../components/VoiceInput";
 import { EmptyState, ErrorNotice, MessageList, Composer, type ChatMessage } from "../components/chat";
-import { Select, StatusBadge, Toggle } from "../components/ui";
+import { Picker, StatusBadge, Toggle } from "../components/ui";
 import { FileIcon, InfoIcon, QuoteIcon, SearchIcon, WarningIcon } from "../components/icons";
 
 interface Reference {
@@ -270,53 +270,41 @@ export default function RAGChatPage() {
           scopeReady ? "输入问题，检索当前集合…" : "请先选择知识库与集合"
         }
         hint="Enter 发送 · Shift + Enter 换行"
-        header={
-          <>
-            <span className="a-section-title">检索范围</span>
-            {scopeReady ? (
-              <StatusBadge tone="accent">
-                {selectedDb!.name}
-                <span className="opacity-50" aria-hidden>
-                  /
-                </span>
-                {selectedCol!.name}
-              </StatusBadge>
-            ) : (
-              <StatusBadge tone="neutral">未选择</StatusBadge>
-            )}
-          </>
-        }
         trailing={
           <>
-            <Select
-              aria-label="选择知识库"
-              value={selectedDbId ?? ""}
-              onChange={(e) => {
-                setSelectedDbId(e.target.value ? Number(e.target.value) : null);
+            {/* 用 Picker 而不是原生 select：浏览器绘制的白面板会在深色主题下盖住半个会话区，
+                而触发器按最长 option 撑宽，把工具行顶得很占屏。宽度在这里显式收住。 */}
+            <Picker
+              label="选择知识库"
+              value={selectedDbId}
+              onChange={(v) => {
+                setSelectedDbId(v);
                 // 换库必然使已选集合失效，直接在动作里清掉而不是用 effect 同步
                 setSelectedColId(null);
               }}
               placeholder="选择知识库"
-              className="!w-auto !py-1 text-[11px]"
+              className="w-36 shrink-0"
+              panelClassName="w-64"
               options={(databases ?? []).map((db) => ({
                 value: db.id,
                 label: db.name,
               }))}
             />
-            <Select
-              aria-label="选择集合"
-              value={selectedColId ?? ""}
-              onChange={(e) =>
-                setSelectedColId(e.target.value ? Number(e.target.value) : null)
-              }
-              disabled={!selectedDbId}
+            <Picker
+              label="选择集合"
+              value={selectedColId}
+              onChange={(v) => setSelectedColId(v)}
               placeholder="选择集合"
-              className="!w-auto !py-1 text-[11px]"
+              disabled={!selectedDbId}
+              className="w-28 shrink-0"
               options={(collections ?? []).map((col) => ({
                 value: col.id,
                 label: col.name,
               }))}
             />
+            <span className="min-w-0 flex-1 truncate text-right text-[11px] text-ink-subtle">
+              {scopeReady ? `${selectedDb!.name} / ${selectedCol!.name}` : "未选择检索范围"}
+            </span>
             <Toggle
               checked={enableRerank}
               onChange={setEnableRerank}

@@ -81,8 +81,7 @@ export default function OnboardingTour({
               上一步
             </button>
           )}
-          // 原先「有跳转链接就不渲染下一步」，而三步里有两步带链接，
-          // 于是第 1 步只能点走、第 3 步的链接永远不出现——引导根本走不完
+          {/* 这两行必须留在 JSX 注释里：写成 // 会被当作子节点渲染到卡片上 */}
           <button
             type="button"
             onClick={() => (last ? onFinish() : setStep(step + 1))}
