@@ -301,6 +301,10 @@ export default function RAGChatPage() {
     selectedCol,
     ensureSession,
     clearError,
+    // 漏了这两个的话：切了重排开关、改了召回条数，下一次仍会按上一次的值发请求
+    // （useCallback 没重建，body 里封的是旧闭包），而界面上看着已经改过了。
+    enableRerank,
+    topK,
   ]);
 
   const view: ChatMessage[] = messages.map((m, i) => {
