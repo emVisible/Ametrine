@@ -149,7 +149,7 @@ function SessionRow({
       <button
         type="button"
         onClick={onOpen}
-        className="relative w-full cursor-default px-3 py-1.5 text-left"
+        className="relative w-full cursor-default py-1.5 pl-10 pr-8 text-left"
       >
         <ActiveBar show={active} />
         <span
@@ -281,32 +281,19 @@ function ConversationZone({
   const newLabel = mode === "rag" ? t("nav.newRag") : t("nav.newChat");
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col border-t border-line-subtle pt-2">
-      <div className="flex items-center gap-1 px-3 pb-1.5">
-        <h2 className="a-section-title flex-1">{t("nav.sessions")}</h2>
-        <button
-          type="button"
-          onClick={() =>
-            createSession(mode).then((id) => {
-              navigate(`/${MODE_ROUTE[mode]}/${id}`, { replace: true });
-              onNavigate?.();
-            })
-          }
-          aria-label={newLabel}
-          title={newLabel}
-          className="a-btn a-btn-ghost !px-1 !py-0.5"
-        >
-          <PlusIcon className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
-      <div className="px-2 pb-2">
+    <section className="flex min-h-0 flex-1 flex-col pt-2">
+      {/* 分隔线内缩而不是通栏：通栏那道线会被读成「另一块面板的顶边」，
+          整条侧栏就变成两段硬拼在一起 */}
+      <div className="mx-2 border-t border-line-subtle" />
+      {/* 模式切换本身就是这一区的标题。以前上面另起一行写「对话」、下面 tab 又叫「对话」，
+          同一个词两种含义贴在一起，而「新建」孤悬在右边 —— 现在 tab 与 + 同一行同一基线 */}
+      <div className="flex items-center gap-1 px-2 py-2">
         <div
           ref={tabsRef}
           role="tablist"
           aria-label={t("nav.modeLabel")}
           onKeyDown={onTabsKeyDown}
-          className="flex rounded-[--radius-md] bg-surface-sunken p-0.5"
+          className="flex min-w-0 flex-1 rounded-[--radius-md] bg-surface-sunken p-0.5"
         >
           {(
             [
@@ -323,7 +310,7 @@ function ConversationZone({
                 tabIndex={selected ? 0 : -1}
                 type="button"
                 onClick={() => switchMode(m)}
-                className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-[--radius-sm] py-1 text-[11px] transition-ui ${
+                className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-[--radius-sm] py-1 text-[12px] transition-ui ${
                   selected
                     ? "bg-surface font-medium text-ink shadow-card"
                     : "text-ink-subtle hover:text-ink-muted"
@@ -335,6 +322,20 @@ function ConversationZone({
             );
           })}
         </div>
+        <button
+          type="button"
+          onClick={() =>
+            createSession(mode).then((id) => {
+              navigate(`/${MODE_ROUTE[mode]}/${id}`, { replace: true });
+              onNavigate?.();
+            })
+          }
+          aria-label={newLabel}
+          title={newLabel}
+          className="a-btn a-btn-ghost shrink-0 !px-1.5 !py-1"
+        >
+          <PlusIcon className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="px-2 pb-2">
@@ -358,7 +359,7 @@ function ConversationZone({
         ) : (
           groups.map((g) => (
             <div key={g.bucket} className="mb-0.5">
-              <h3 className="a-section-title px-3 pb-1 pt-2 opacity-70">
+              <h3 className="a-section-title pb-1 pt-2 pl-10 pr-3 opacity-70">
                 {t(`nav.buckets.${g.bucket}`)}
               </h3>
               <ul className="anim-stagger">
@@ -515,7 +516,7 @@ function SidebarBody({
         <span className="text-[10px] text-ink-subtle tnum">v{APP_VERSION}</span>
       </div>
 
-      <nav aria-label={t("nav.main")} className="shrink-0 space-y-px px-2 py-2.5">
+      <nav aria-label={t("nav.main")} className="shrink-0 space-y-px px-2 py-2">
         {NAV.filter((e) => !e.adminOnly || isAdmin).map(({ to, labelKey, Icon, exact }) => (
           <NavLink
             key={to}
@@ -523,7 +524,7 @@ function SidebarBody({
             end={exact}
             onClick={onNavigate}
             className={({ isActive }) =>
-              `relative flex items-center gap-2.5 rounded-[--radius-md] px-2.5 py-1.5 text-[--text-sm] transition-ui ${
+              `relative flex items-center gap-2 rounded-[--radius-md] px-2 py-1.5 text-[--text-sm] transition-ui ${
                 isActive
                   ? "bg-accent-soft font-medium text-accent-ink"
                   : "text-ink-muted hover:bg-surface-hover hover:text-ink"

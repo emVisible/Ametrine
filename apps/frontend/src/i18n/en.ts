@@ -77,7 +77,6 @@ export const en: Messages = {
   },
   nav: {
     main: "Main navigation",
-    sessions: "Chats",
     sessionHistory: "Session history",
     newChat: "New chat",
     newRag: "New retrieval chat",

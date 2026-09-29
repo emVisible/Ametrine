@@ -74,7 +74,6 @@ export const zh = {
   },
   nav: {
     main: "主导航",
-    sessions: "对话",
     sessionHistory: "会话历史",
     newChat: "新建对话",
     newRag: "新建检索会话",
