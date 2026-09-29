@@ -50,7 +50,7 @@ class TenantService:
 
         管理台原来的调用形状是：列租户 1 次 + 每展开一个租户再要 1 次成员 +
         每个用户的知识库授权又要 1 次 —— 折叠面板需要同时看到这些数字，
-        于是首屏就是 1+N+M 次往返。这里固定 6 条分组查询，与数据量无关。
+        于是首屏就是 1+N+M 次往返。这里换成固定 7 条分组查询，与数据量无关。
         """
         tenants_rows = await self.relation_db.execute(
             select(Tenant.id, Tenant.name, Tenant.database_id, Database.name)
@@ -90,7 +90,20 @@ class TenantService:
             .order_by(UserDatabasePermission.user_id)
         )
         users_rows = await self.relation_db.execute(
-            select(User.id, User.name, User.role_id, User.is_active).order_by(User.name)
+            select(
+                User.id,
+                User.name,
+                User.role_id,
+                User.is_active,
+                User.email,
+                User.tenant_id,
+                User.last_login_at,
+                User.daily_token_limit,
+                User.daily_token_used,
+                User.monthly_token_limit,
+                User.monthly_token_used,
+                User.total_token_used,
+            ).order_by(User.name)
         )
 
         collection_counts: dict[int, int] = {
@@ -114,8 +127,8 @@ class TenantService:
             )
         )
         for tenant_id, user_id, name in legacy_rows.all():
-            bucket = members_by_tenant.setdefault(tenant_id, {})
-            bucket.setdefault(
+            legacy_bucket = members_by_tenant.setdefault(tenant_id, {})
+            legacy_bucket.setdefault(
                 user_id,
                 {
                     "user_id": user_id,
@@ -130,7 +143,10 @@ class TenantService:
         tenants = []
         for tenant_id, name, database_id, database_name in tenants_rows.all():
             tenant_bindings[tenant_id] = database_id
-            members = sorted(bucket.values(), key=lambda m: m["name"])
+            members = sorted(
+                members_by_tenant.get(tenant_id, {}).values(),
+                key=lambda m: m["name"],
+            )
             tenants.append(
                 {
                     "id": tenant_id,
@@ -186,8 +202,34 @@ class TenantService:
         ]
 
         users = [
-            {"id": uid, "name": uname, "role_id": role_id, "is_active": is_active}
-            for uid, uname, role_id, is_active in users_rows.all()
+            {
+                "id": uid,
+                "name": uname,
+                "role_id": role_id,
+                "is_active": is_active,
+                "email": email,
+                "tenant_id": user_tenant_id,
+                "last_login_at": last_login.isoformat() if last_login else None,
+                "daily_token_limit": daily_limit,
+                "daily_token_used": daily_used or 0,
+                "monthly_token_limit": monthly_limit,
+                "monthly_token_used": monthly_used or 0,
+                "total_token_used": total_used or 0,
+            }
+            for (
+                uid,
+                uname,
+                role_id,
+                is_active,
+                email,
+                user_tenant_id,
+                last_login,
+                daily_limit,
+                daily_used,
+                monthly_limit,
+                monthly_used,
+                total_used,
+            ) in users_rows.all()
         ]
 
         member_user_ids = {m["user_id"] for b in members_by_tenant.values() for m in b.values()}

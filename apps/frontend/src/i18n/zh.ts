@@ -296,7 +296,8 @@ export const zh = {
       docUploadFailed: "上传失败：{msg}",
     },
     access: {
-      pageDesc: "成员、租户与知识库授权共同决定「谁能检索到什么」",
+      pageDesc:
+        "租户决定成员能检索到哪些知识库。展开一个租户，它的成员、绑定与每个人的授权都在同一处编辑。",
       adminRequired: "需要管理员权限",
       adminRequiredDesc: "只有管理员可以查看成员与租户配置。",
       detailTabs: "用户详情",
@@ -365,6 +366,31 @@ export const zh = {
       tenantCreateFailed: "创建租户失败：{msg}",
       tenantDeleted: "租户已删除",
       tenantDeleteFailed: "删除租户失败：{msg}",
+      // ── 融合后的折叠面板 ──
+      searchAll: "搜索租户、成员或知识库",
+      expandAll: "全部展开",
+      collapseAll: "全部收起",
+      matchCount: "命中 {n} 个租户",
+      statTenants: "{n} 个租户",
+      statMembers: "{n} 名成员",
+      statDatabases: "{n} 个知识库",
+      statCollections: "{n} 个集合",
+      collectionCount: "{n} 个集合",
+      grantCount: "单独授权 {n} 个",
+      quotaSection: "用量配额",
+      grantsSection: "知识库授权",
+      viaTenant: "随租户",
+      grantViaTenantHint: "该库已随租户可读，不必再单独挂一条授权",
+      removeMemberTitle: "把 {name} 移出这个租户？",
+      removeMemberMsg:
+        "移出后他会立刻失去该租户知识库的读权限；单独授权过的其他知识库不受影响。",
+      legacyMembersNote:
+        "{names} 的归属来自旧的「单租户」字段，还没有对应的成员记录。加入或移出一次即可对齐。",
+      deleteTenantWithMembersMsg:
+        "不可撤销。这个租户还有 {n} 名成员，删除后他们会失去随租户的知识库读权限。",
+      unassigned: "未分配租户",
+      unassignedDesc:
+        "这些人还不属于任何租户，只能通过下面的单独授权访问知识库。",
     },
   },
   dash: {
@@ -459,6 +485,8 @@ export const zh = {
     pageLoading: "页面加载中",
     checkingIdentity: "正在确认身份…",
     accountLoadFailed: "暂时读不到你的账号信息",
+    expand: "展开",
+    collapse: "收起",
   },
   tour: {
     modalTitle: "快速上手 · {title}",

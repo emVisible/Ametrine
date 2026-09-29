@@ -26,7 +26,12 @@ function has(dict: unknown, path: string): boolean {
 }
 
 // t("a.b") / t('a.b') / translate(lang, "a.b")。带 ${} 的动态路径匹配不到，属于预期跳过。
-const CALL = /\bt(?:ranslate)?\(\s*(?:[A-Za-z_]\w*\s*,\s*)?["']([a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+)["']/g;
+//
+// 段内允许驼峰（[A-Za-z]）：字典几乎全是 admin.access.pageDesc 这种形状，
+// 上一版这里写的是 [a-z][a-z0-9]*，于是**每一个以大写段结尾的键都被整体跳过**，
+// 这条审计实际上只覆盖了少数键 —— 补上驼峰后一次性暴露出几十个漏翻。
+const CALL =
+  /\bt(?:ranslate)?\(\s*(?:[A-Za-z_]\w*\s*,\s*)?["']([a-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+)["']/g;
 
 const SKIP = /i18n[/\\](zh|en|index|context)\.ts$|i18n[/\\]keys\.test\.ts$/;
 

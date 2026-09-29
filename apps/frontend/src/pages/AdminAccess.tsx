@@ -1,54 +1,47 @@
 // src/pages/AdminAccess.tsx
-// 成员、租户、知识库授权原本是三个割裂的界面（用户管理 / 租户 / 用户详情里的权限页签），
-// 但它们回答的是同一个问题：谁能检索到什么。这里合成一个「组织与权限」。
+// 租户与成员原本是两套容器：成员行点开一个带三页签的弹窗，租户行点开另一个成员弹窗，
+// 而「谁属于哪个租户」在两边各编辑一次 —— 同一个关系有两个入口、两种形状，
+// 且租户页签里为了算一个「是否已加入」的布尔值，会为每个租户再发一次成员请求。
+// 这里合成一个折叠列表：租户是一行，展开即见它的成员、绑定知识库与每个人的授权，
+// 容器范式只剩 Disclosure 一种，数据只剩 /relation/tenant/overview 一次请求。
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useConfirm } from "../hooks/useConfirm";
 import { Link } from "react-router";
-import { apiClient } from "../api/client";
-import { tenantAPI } from "../api/tenant";
-import { useToast } from "../hooks/useToast";
+import { useConfirm } from "../hooks/useConfirm";
 import { useCurrentUser } from "../hooks/useAuth";
 import { useI18n } from "../i18n/context";
 import { intlLocale } from "../i18n";
 import {
-  qk,
   useCreateTenant,
-  useDatabases,
   useDeleteTenant,
-  useTenantMembers,
-  useTenants,
-  useUserPermissions,
-  useUsers,
+  usePatchUser,
+  useTenantOverview,
+  useToggleGrant,
+  useToggleMember,
 } from "../hooks/queries";
 import {
-  DataTable,
+  Disclosure,
   EmptyState,
-  InfoRow,
+  ErrorState,
+  Loading,
   Modal,
   PageHeader,
-  Pagination,
   Panel,
   SearchInput,
   Select,
   StatusBadge,
-  Tabs,
   TextInput,
-
-  type Column,
 } from "../components/ui";
 import {
   BuildingIcon,
-  LibraryIcon,
+  ChevronDownIcon,
   PlusIcon,
   ShieldIcon,
-  UsersIcon,
+  TrashIcon,
+  UserIcon,
 } from "../components/icons";
-import type { Tenant } from "../types/knowledge";
-import type { User } from "../types/user";
-import { paginate } from "../utils/pagination";
+import type { TenantOverview, TenantOverviewUser } from "../types/knowledge";
 
-/** 存文案键而不是文案：模块级常量存译文的话，切语言后这张表仍然是旧语言 */
+/** 存文案键而不是文案：模块级常量存译文的话，切语言后仍然是旧语言 */
 const ROLE_KEYS: Record<number, string> = {
   1: "common.roleUser",
   2: "common.roleManager",
@@ -66,106 +59,26 @@ function roleTone(roleId: number) {
   return roleId === 3 ? ("accent" as const) : ("neutral" as const);
 }
 
-/* ───────────── 成员详情 ───────────── */
+/**
+ * 展开状态是一个扁平的 key 集合，而不是「租户开没开」「成员开没开」两个 state：
+ * 搜索命中要连带展开父级，两个 state 就得互相猜对方的层级。
+ */
+const tenantKey = (id: number) => `t:${id}`;
+const memberKey = (tenantId: number, userId: number) => `m:${tenantId}:${userId}`;
 
-function TenantMembershipList({ user }: { user: User }) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { t } = useI18n();
-  const { data: tenants } = useTenants();
-
-  const toggle = useMutation({
-    mutationFn: (vars: { tenantId: number; join: boolean }) =>
-      vars.join
-        ? tenantAPI.addMember(vars.tenantId, user.id)
-        : tenantAPI.removeMember(vars.tenantId, user.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["access"] });
-      toast(t("admin.access.tenantsUpdated"), "success");
-    },
-    onError: (e: Error) =>
-      toast(t("admin.access.changeFailed", { msg: e.message }), "error"),
-  });
-
-  if (!tenants?.length)
-    return (
-      <EmptyState
-        icon={BuildingIcon}
-        title={t("admin.access.noTenant")}
-        description={t("admin.access.noTenantInMember")}
-      />
-    );
-
-  return (
-    <ul className="divide-y divide-line-subtle">
-      {tenants.map((tenant) => (
-        <TenantMemberRow
-          key={tenant.id}
-          tenant={tenant}
-          userId={user.id}
-          busy={toggle.isPending}
-          onToggle={(join) => toggle.mutate({ tenantId: tenant.id, join })}
-        />
-      ))}
-    </ul>
-  );
-}
-
-function TenantMemberRow({
-  tenant,
-  userId,
-  busy,
-  onToggle,
-}: {
-  tenant: Tenant;
-  userId: number;
-  busy: boolean;
-  onToggle: (join: boolean) => void;
-}) {
-  const { t } = useI18n();
-  const { data: members, isLoading } = useTenantMembers(tenant.id);
-  const joined = !!members?.some((m) => m.user_id === userId);
-
-  return (
-    <li className="flex items-center gap-3 py-2.5">
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[--text-sm] text-ink">{tenant.name}</p>
-        {tenant.database && (
-          <p className="truncate text-[11px] text-ink-subtle">
-            {t("admin.access.boundDb", { db: tenant.database })}
-          </p>
-        )}
-      </div>
-      {isLoading ? (
-        <span className="text-[11px] text-ink-subtle">{t("common.loading")}</span>
-      ) : (
-        joined && <StatusBadge tone="accent">{t("admin.access.memberBadge")}</StatusBadge>
-      )}
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => onToggle(!joined)}
-        className={`a-btn !py-1 text-[11px] ${joined ? "a-btn-danger" : "a-btn-outline"}`}
-      >
-        {joined ? t("admin.access.remove") : t("admin.access.join")}
-      </button>
-    </li>
-  );
-}
+/* ───────────── 配额（管理员侧） ───────────── */
 
 /**
- * 管理员侧的配额编辑。
- *
  * 配额从「系统设置 → 用量配额」搬到这里：那是每个账号自己的页面，
- * 把上限按钮放在那儿等于让用户自己改自己的配额（后端 PATCH 当时只挡了 role_id）。
- * 只发 limit；用量由后端统计，目前还没接上（设置页已把这点写在脸上）。
+ * 把上限按钮放在那儿等于让用户自己改自己的配额。
+ * 只发 limit；用量由后端统计，目前 daily/monthly 两个字段还没有写入方（写在文案里）。
  */
 function QuotaEditor({
   user,
   disabled,
   onSave,
 }: {
-  user: User;
+  user: TenantOverviewUser;
   disabled: boolean;
   onSave: (body: Record<string, number>) => void;
 }) {
@@ -188,673 +101,493 @@ function QuotaEditor({
   ];
 
   return (
-    <div className="divide-y divide-line-subtle">
+    <div className="flex flex-wrap gap-x-6 gap-y-2">
       {rows.map((row) => (
-        <div
-          key={row.field}
-          className="flex flex-wrap items-center justify-between gap-2 py-2.5"
-        >
-          <div className="min-w-0">
-            <p className="text-[--text-sm] text-ink">{row.title}</p>
-            <p className="text-[11px] text-ink-subtle tnum">
-              {t("settings.quotaUsed", {
-                used: row.used.toLocaleString(intlLocale()),
-                limit: row.current.toLocaleString(intlLocale()),
-              })}
-            </p>
+        <div key={row.field} className="min-w-[13rem] flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-ink-muted">{row.title}</span>
+            <Select
+              aria-label={`${row.title} · ${user.name}`}
+              value={row.current}
+              className="!w-auto !py-1 text-[11px]"
+              disabled={disabled}
+              options={row.options.map((v) => ({
+                value: v,
+                label: v.toLocaleString(intlLocale()),
+              }))}
+              onChange={(v) => {
+                const next = Number(v);
+                if (next === row.current) return;
+                onSave({ [row.field]: next });
+              }}
+            />
           </div>
-          <Select
-            aria-label={row.title}
-            value={row.current}
-            className="!w-auto !py-1 text-[11px]"
-            disabled={disabled}
-            options={row.options.map((v) => ({
-              value: v,
-              label: v.toLocaleString(intlLocale()),
-            }))}
-            onChange={(v) => {
-              const next = Number(v);
-              if (next === row.current) return;
-              onSave({ [row.field]: next });
-            }}
-          />
+          <p className="mt-1 text-[11px] text-ink-subtle tnum">
+            {t("settings.quotaUsed", {
+              used: row.used.toLocaleString(intlLocale()),
+              limit: row.current.toLocaleString(intlLocale()),
+            })}
+          </p>
         </div>
       ))}
     </div>
   );
 }
 
-function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
-  const [tab, setTab] = useState<"info" | "grants" | "tenants">("info");
+/* ───────────── 成员行 ───────────── */
+
+function MemberRow({
+  user,
+  tenantId,
+  overview,
+  open,
+  onToggle,
+  forcedOpen,
+}: {
+  user: TenantOverviewUser;
+  /** 从「未分配」分组里渲染时传 null：那里没有「随租户可读」的库可标注 */
+  tenantId: number | null;
+  overview: TenantOverview;
+  open: boolean;
+  onToggle: () => void;
+  /** 搜索命中时代码上展开，但视觉上不该显示成用户手动点开 */
+  forcedOpen: boolean;
+}) {
   const { t } = useI18n();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
   const confirm = useConfirm();
-  const { data: databases } = useDatabases();
-  const { data: perms } = useUserPermissions(user.id);
+  const patch = usePatchUser(user.id);
+  const toggleMember = useToggleMember();
+  const grants = useToggleGrant();
+  const [pendingRole, setPendingRole] = useState<number | null>(null);
 
-  const patch = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      apiClient(`/user/${user.id}`, { method: "PATCH", body }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.users });
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-      toast(t("admin.access.updated"), "success");
-    },
-    onError: (e: Error) =>
-      toast(t("common.updateFailed", { msg: e.message }), "error"),
-  });
-
-  const grant = useMutation({
-    mutationFn: (vars: { dbId: number; on: boolean }) =>
-      vars.on
-        ? apiClient(`/user/permission/${user.id}/databases/${vars.dbId}`, {
-            method: "POST",
-            body: { can_read: true, can_write: true, can_manage: false },
-          })
-        : apiClient(`/user/permission/${user.id}/databases/${vars.dbId}`, {
-            method: "DELETE",
-          }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: qk.userPermissions(user.id) }),
-    onError: (e: Error) =>
-      toast(t("admin.access.grantFailed", { msg: e.message }), "error"),
-  });
+  const myGrants = overview.grants.filter((g) => g.user_id === user.id);
+  const tenantDbIds = new Set(
+    tenantId == null
+      ? []
+      : overview.tenants
+          .filter((x) => x.id === tenantId)
+          .flatMap((x) => (x.database ? [x.database.id] : [])),
+  );
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={user.name}
-      description={user.email || t("nav.noEmail")}
-      width="max-w-lg"
-    >
-      <Tabs
-        ariaLabel={t("admin.access.detailTabs")}
-        value={tab}
-        onChange={setTab}
-        items={[
-          { key: "info", label: t("common.basicInfo") },
-          { key: "grants", label: t("admin.access.tabGrants"), badge: perms?.length ?? 0 },
-          { key: "tenants", label: t("admin.access.tabTenants") },
-        ]}
-      />
-
-      {tab === "info" && (
-        <div className="divide-y divide-line-subtle">
-          <InfoRow label={t("admin.access.userId")} value={user.id} />
-          <InfoRow
-            label={t("common.accountStatus")}
-            value={
-              user.is_active ? (
-                <StatusBadge tone="success" dot>
-                  {t("common.active")}
-                </StatusBadge>
-              ) : (
-                <StatusBadge tone="danger">{t("common.disabled")}</StatusBadge>
+    <Disclosure
+      level={1}
+      open={open || forcedOpen}
+      onToggle={onToggle}
+      title={
+        <span className="flex items-center gap-2">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-[9px] font-semibold text-ink-muted">
+            {user.name.charAt(0).toUpperCase()}
+          </span>
+          <span className="truncate font-medium text-ink">{user.name}</span>
+          {!user.is_active && (
+            <StatusBadge tone="danger">{t("common.disabled")}</StatusBadge>
+          )}
+        </span>
+      }
+      meta={
+        <>
+          <StatusBadge tone={roleTone(user.role_id)}>
+            {t(roleKeyOf(user.role_id))}
+          </StatusBadge>
+          {myGrants.length > 0 && (
+            <span className="tnum text-[11px] text-ink-subtle">
+              {t("admin.access.grantCount", { n: myGrants.length })}
+            </span>
+          )}
+        </>
+      }
+      actions={
+        tenantId != null && (
+          <button
+            type="button"
+            className="a-btn a-btn-ghost !py-1 text-[11px] text-danger"
+            disabled={toggleMember.isPending}
+            onClick={() =>
+              confirm({
+                title: t("admin.access.removeMemberTitle", {
+                  name: user.name,
+                }),
+                message: t("admin.access.removeMemberMsg"),
+                confirmLabel: t("admin.access.remove"),
+                tone: "danger",
+              }).then((ok) =>
+                ok &&
+                toggleMember.mutate({
+                  tenantId: tenantId,
+                  userId: user.id,
+                  join: false,
+                }),
               )
             }
+          >
+            {t("admin.access.remove")}
+          </button>
+        )
+      }
+    >
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[11px] font-medium text-ink-muted">
+            {t("common.role")}
+          </span>
+          <Select
+            aria-label={`${t("admin.access.changeRole")} · ${user.name}`}
+            value={pendingRole ?? user.role_id}
+            className="!w-auto !py-1 text-[11px]"
+            panelClassName="w-36"
+            disabled={patch.isPending}
+            options={[1, 2, 3].map((roleId) => ({
+              value: roleId,
+              label: t(roleKeyOf(roleId)),
+            }))}
+            onChange={(v) => {
+              const roleId = Number(v);
+              setPendingRole(roleId);
+              confirm({
+                title: t("admin.access.changeRoleTitle", {
+                  name: user.name,
+                  role: t(roleKeyOf(roleId)),
+                }),
+                message:
+                  roleId === 3
+                    ? t("admin.access.changeRoleAdminMsg")
+                    : t("admin.access.changeRoleMsg"),
+                confirmLabel: t("admin.access.confirmChange"),
+                tone: "accent",
+              }).then((ok) => {
+                setPendingRole(null);
+                if (ok) patch.mutate({ role_id: roleId });
+              });
+            }}
           />
-          <InfoRow
-            label={t("common.registeredAt")}
-            value={<span className="tnum">{user.created_at?.slice(0, 10) || "—"}</span>}
-          />
-          <InfoRow
-            label={t("common.lastLogin")}
-            value={
-              <span className="tnum">
-                {user.last_login_at?.slice(0, 10) || t("common.neverLoggedIn")}
-              </span>
-            }
-          />
-          <InfoRow
-            label={t("common.totalTokens")}
-            value={
-              <span className="tnum">
-                {(user.total_token_used ?? 0).toLocaleString(intlLocale())}
-              </span>
-            }
-          />
-          {/* 配额从个人设置页搬到这里：它是管理员的资源策略，
-              放在「我的设置」里就等于让用户自己改自己的上限 */}
+        </div>
+
+        <div className="border-t border-line-subtle pt-2.5">
+          <p className="mb-1.5 text-[11px] font-medium text-ink-muted">
+            {t("admin.access.quotaSection")}
+          </p>
           <QuotaEditor
             user={user}
             disabled={patch.isPending}
             onSave={(body) => patch.mutate(body)}
           />
-          <div className="flex items-center justify-between gap-3 pt-3">
-            <span className="text-[--text-sm] text-ink-muted">{t("common.role")}</span>
-            <div className="flex items-center gap-2">
-              <StatusBadge tone={roleTone(user.role_id)}>
-                {t(roleKeyOf(user.role_id))}
-              </StatusBadge>
-              <Select
-                aria-label={t("admin.access.changeRole")}
-                value={user.role_id}
-                className="!w-auto !py-1 text-[11px]"
-                disabled={patch.isPending}
-                options={[1, 2, 3].map((roleId) => ({
-                  value: roleId,
-                  label: t(roleKeyOf(roleId)),
-                }))}
-                onChange={(v) => {
-                  const roleId = Number(v);
-                  if (roleId === user.role_id) return;
-                  confirm({
-                    title: t("admin.access.changeRoleTitle", {
-                      name: user.name,
-                      role: t(roleKeyOf(roleId)),
-                    }),
-                    message:
-                      roleId === 3
-                        ? t("admin.access.changeRoleAdminMsg")
-                        : t("admin.access.changeRoleMsg"),
-                    confirmLabel: t("admin.access.confirmChange"),
-                    tone: "accent",
-                  }).then((ok) => ok && patch.mutate({ role_id: roleId }));
-                }}
-              />
-            </div>
-          </div>
         </div>
-      )}
 
-      {tab === "grants" && (
-        <div>
-          <p className="mb-2.5 text-[11px] leading-relaxed text-ink-muted">
-            {t("admin.access.grantsHint")}
+        <div className="border-t border-line-subtle pt-2.5">
+          <p className="mb-1.5 text-[11px] font-medium text-ink-muted">
+            {t("admin.access.grantsSection")}
           </p>
-          {!databases?.length ? (
-            <EmptyState
-              icon={LibraryIcon}
-              title={t("admin.vector.noDb")}
-              action={
-                <Link to="/admin/vector" className="a-btn a-btn-outline">
-                  {t("admin.access.goCreateDb")}
-                </Link>
-              }
-            />
+          {!overview.databases.length ? (
+            <Link to="/admin/vector" className="a-btn a-btn-outline !py-1 text-[11px]">
+              {t("admin.access.goCreateDb")}
+            </Link>
           ) : (
-            <ul className="divide-y divide-line-subtle">
-              {databases.map((db) => {
-                const perm = perms?.find((p) => p.database_id === db.id);
-                const granted = !!perm;
-                return (
-                  <li key={db.id} className="flex items-center gap-3 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[--text-sm] text-ink">{db.name}</p>
-                      {db.tenant_name && (
-                        <p className="truncate text-[11px] text-ink-subtle">
-                          {t("admin.access.tenantOf", { name: db.tenant_name })}
-                        </p>
-                      )}
-                    </div>
-                    {granted && (
-                      <StatusBadge tone={perm!.can_write ? "success" : "neutral"}>
-                        {perm!.can_write
-                          ? t("admin.access.grantReadWrite")
-                          : t("admin.access.grantReadOnly")}
-                      </StatusBadge>
-                    )}
-                    <button
-                      type="button"
-                      disabled={grant.isPending}
-                      onClick={() => grant.mutate({ dbId: db.id, on: !granted })}
-                      className={`a-btn !py-1 text-[11px] ${granted ? "a-btn-danger" : "a-btn-outline"}`}
-                    >
-                      {granted ? t("admin.access.revoke") : t("admin.access.grant")}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <>
+              <ul className="flex flex-wrap gap-1.5">
+                {overview.databases.map((db) => {
+                  const perm = myGrants.find((g) => g.database_id === db.id);
+                  const granted = !!perm;
+                  // 本租户绑定的库：成员身份已经给了读权限，再单独挂一条就是重复记录
+                  const viaTenant = tenantDbIds.has(db.id);
+                  return (
+                    <li key={db.id}>
+                      <button
+                        type="button"
+                        aria-pressed={granted}
+                        disabled={grants.isPending}
+                        onClick={() =>
+                          grants.mutate({ userId: user.id, dbId: db.id, on: !granted })
+                        }
+                        className={`a-btn !py-1 text-[11px] ${
+                          granted ? "a-btn-primary" : "a-btn-outline"
+                        }`}
+                        title={
+                          viaTenant && !granted
+                            ? t("admin.access.grantViaTenantHint")
+                            : granted
+                              ? t("admin.access.revoke")
+                              : t("admin.access.grant")
+                        }
+                      >
+                        {db.name}
+                        {granted && (
+                          <span className="ml-1 opacity-80">
+                            {perm?.can_write
+                              ? t("admin.access.grantReadWrite")
+                              : t("admin.access.grantReadOnly")}
+                          </span>
+                        )}
+                        {!granted && viaTenant && (
+                          <span className="ml-1 text-ink-subtle">
+                            {t("admin.access.viaTenant")}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-ink-subtle">
+                {t("admin.access.grantsHint")}
+              </p>
+            </>
           )}
         </div>
-      )}
 
-      {tab === "tenants" && <TenantMembershipList user={user} />}
-    </Modal>
-  );
-}
-
-/* ───────────── 成员列表 ───────────── */
-
-function MembersPanel() {
-  const { t } = useI18n();
-  const [query, setQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
-  const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<User | null>(null);
-  const { data: result, isLoading } = useUsers();
-  const users = useMemo(() => result?.users ?? [], [result]);
-
-  const rows = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return users
-      .filter((u) => !roleFilter || String(u.role_id) === roleFilter)
-      .filter(
-        (u) =>
-          !needle ||
-          u.name.toLowerCase().includes(needle) ||
-          (u.email ?? "").toLowerCase().includes(needle),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
-  }, [users, query, roleFilter]);
-
-  const paged = paginate(rows, page);
-
-  const columns: Column<User>[] = [
-    {
-      key: "name",
-      header: t("common.members"),
-      cell: (u) => (
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-[10px] font-semibold text-ink-muted">
-            {u.name.charAt(0).toUpperCase()}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line-subtle pt-2.5 text-[11px] text-ink-subtle tnum">
+          <span>
+            {t("common.lastLogin")}：
+            {user.last_login_at?.slice(0, 10) || t("common.neverLoggedIn")}
           </span>
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 truncate font-medium text-ink">
-              {u.name}
-              {/* 正常态不需要徽章，只有异常值得占用注意力 */
-              !u.is_active && (
-                <StatusBadge tone="danger">{t("common.disabled")}</StatusBadge>
-              )}
-            </p>
-            <p className="truncate text-[11px] text-ink-subtle">
-              {u.email || t("nav.noEmail")}
-            </p>
-          </div>
+          <span>
+            {t("common.totalTokens")}：
+            {(user.total_token_used ?? 0).toLocaleString(intlLocale())}
+          </span>
+          {user.email && <span className="truncate">{user.email}</span>}
         </div>
-      ),
-    },
-    {
-      key: "role",
-      header: t("common.role"),
-      width: "7rem",
-      cell: (u) => (
-        <StatusBadge tone={roleTone(u.role_id)}>
-          {t(roleKeyOf(u.role_id))}
-        </StatusBadge>
-      ),
-    },
-    {
-      key: "lastLogin",
-      header: t("common.lastLogin"),
-      width: "9rem",
-      hideBelow: "md",
-      cell: (u) => (
-        <span className="tnum text-ink-subtle">
-          {u.last_login_at?.slice(0, 10) || t("common.neverLoggedIn")}
-        </span>
-      ),
-    },
-    {
-      key: "tokens",
-      header: t("common.totalTokens"),
-      align: "right",
-      width: "8rem",
-      hideBelow: "sm",
-      cell: (u) => (
-        <span className="tnum text-ink-muted">
-          {(u.total_token_used ?? 0).toLocaleString(intlLocale())}
-        </span>
-      ),
-    },
-  ];
-
-  return (
-    <>
-      <Panel
-        bodyClass="px-4 py-3"
-        title={t("admin.access.memberCount", {
-          shown: rows.length,
-          total: users.length,
-        })}
-        actions={
-          <>
-            <Select
-              aria-label={t("admin.access.filterByRole")}
-              value={roleFilter}
-              onChange={(v) => {
-                setRoleFilter(String(v));
-                setPage(1);
-              }}
-              className="!w-auto !py-1 text-[11px]"
-              panelClassName="w-36"
-              placeholder={t("admin.access.allRoles")}
-              options={[
-                { value: "", label: t("admin.access.allRoles") },
-                ...[1, 2, 3].map((roleId) => ({
-                  value: String(roleId),
-                  label: t(roleKeyOf(roleId)),
-              }))]}
-            />
-            <SearchInput
-              value={query}
-              onValueChange={(v) => {
-                setQuery(v);
-                setPage(1);
-              }}
-              placeholder={t("admin.access.searchMembers")}
-              className="w-52"
-            />
-          </>
-        }
-        footer={
-          <Pagination paged={paged} onPageChange={setPage} />
-        }
-      >
-        <DataTable
-          columns={columns}
-          rows={paged.items}
-          rowKey={(u) => u.id}
-          loading={isLoading}
-          onRowClick={setSelected}
-          empty={
-            <EmptyState
-              icon={UsersIcon}
-              title={
-                query || roleFilter
-                  ? t("admin.access.noMemberMatch")
-                  : t("admin.access.noMembers")
-              }
-              description={
-                query || roleFilter
-                  ? t("admin.access.memberSearchHint")
-                  : t("admin.access.noMembersDesc")
-              }
-            />
-          }
-        />
-      </Panel>
-
-      {selected && (
-        <MemberDetail user={selected} onClose={() => setSelected(null)} />
-      )}
-    </>
+      </div>
+    </Disclosure>
   );
 }
 
-/* ───────────── 租户 ───────────── */
+/* ───────────── 租户行 ───────────── */
 
-function TenantMembersModal({
-  tenant,
-  onClose,
+function AddMemberInline({
+  tenantId,
+  overview,
 }: {
-  tenant: Tenant;
-  onClose: () => void;
+  tenantId: number;
+  overview: TenantOverview;
 }) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { t } = useI18n();
-  const [pick, setPick] = useState("");
-  const { data: members, isLoading } = useTenantMembers(tenant.id);
-  const { data: userResult } = useUsers();
+  const toggleMember = useToggleMember();
+  const [pick, setPick] = useState<number | null>(null);
 
-  const add = useMutation({
-    mutationFn: (userId: number) => tenantAPI.addMember(tenant.id, userId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.tenantMembers(tenant.id) });
-      setPick("");
-      toast(t("admin.access.joinedTenant"), "success");
-    },
-    onError: (e: Error) =>
-      toast(t("admin.access.joinFailed", { msg: e.message }), "error"),
-  });
+  const inTenant = new Set(
+    overview.tenants.find((x) => x.id === tenantId)?.members.map((m) => m.user_id) ??
+      [],
+  );
+  const candidates = overview.users.filter((u) => !inTenant.has(u.id));
 
-  const remove = useMutation({
-    mutationFn: (userId: number) => tenantAPI.removeMember(tenant.id, userId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: qk.tenantMembers(tenant.id) }),
-    onError: (e: Error) =>
-      toast(t("admin.access.removeFailed", { msg: e.message }), "error"),
-  });
-
-  const memberIds = new Set((members ?? []).map((m) => m.user_id));
-  const candidates = (userResult?.users ?? []).filter((u) => !memberIds.has(u.id));
+  if (!candidates.length) return null;
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={t("admin.access.tenantMembersTitle", { name: tenant.name })}
-      description={
-        tenant.database
-          ? t("admin.access.tenantDbBound", { db: tenant.database })
-          : t("admin.access.tenantNoDb")
-      }
-    >
-      <div className="flex items-end gap-2">
-        <div className="flex-1">
-          <Select
-            label={t("admin.access.addMember")}
-            value={pick}
-            onChange={(v) => setPick(String(v))}
-            placeholder={
-              candidates.length
-                ? t("admin.access.pickMember")
-                : t("admin.access.noMembersToAdd")
-            }
-            options={candidates.map((u) => ({
+    <div className="mt-2.5 flex items-end gap-2 border-t border-line-subtle pt-2.5">
+      <div className="min-w-0 flex-1">
+        <Select
+          label={t("admin.access.addMember")}
+          value={pick ?? ""}
+          onChange={(v) => setPick(v === "" ? null : Number(v))}
+          placeholder={t("admin.access.pickMember")}
+          options={[
+            { value: "", label: t("admin.access.pickMember") },
+            ...candidates.map((u) => ({
               value: String(u.id),
               label: u.email ? `${u.name} · ${u.email}` : u.name,
-            }))}
-          />
-        </div>
-        <button
-          type="button"
-          className="a-btn a-btn-primary"
-          disabled={!pick || add.isPending}
-          onClick={() => add.mutate(Number(pick))}
-        >
-          <PlusIcon className="h-4 w-4" />
-          {t("common.add")}
-        </button>
+            })),
+          ]}
+        />
       </div>
-
-      <div className="mt-4 border-t border-line-subtle pt-2">
-        {isLoading ? (
-          <p className="py-6 text-center text-[--text-sm] text-ink-subtle">
-            {t("admin.access.loadingMembers")}
-          </p>
-        ) : !members?.length ? (
-          <p className="py-6 text-center text-[--text-sm] text-ink-subtle">
-            {t("admin.access.tenantNoMembers")}
-          </p>
-        ) : (
-          <ul className="divide-y divide-line-subtle">
-            {members.map((m) => {
-              const u = userResult?.users.find((x) => x.id === m.user_id);
-              return (
-                <li key={m.user_id} className="flex items-center gap-3 py-2.5">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-[10px] font-semibold text-ink-muted">
-                    {(u?.name ?? "?").charAt(0).toUpperCase()}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[--text-sm] text-ink">
-                      {u?.name ?? t("admin.access.userNumbered", { id: m.user_id })}
-                    </p>
-                    {m.role && m.role !== "member" && (
-                      <p className="text-[11px] text-ink-subtle">{m.role}</p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="a-btn a-btn-danger !py-1 text-[11px]"
-                    disabled={remove.isPending}
-                    onClick={() => remove.mutate(m.user_id)}
-                  >
-                    {t("admin.access.remove")}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </Modal>
+      <button
+        type="button"
+        className="a-btn a-btn-primary !py-1.5 text-[11px]"
+        disabled={pick == null || toggleMember.isPending}
+        onClick={() => {
+          if (pick == null) return;
+          toggleMember.mutate(
+            { tenantId, userId: pick, join: true },
+            { onSuccess: () => setPick(null) },
+          );
+        }}
+      >
+        <PlusIcon className="h-3.5 w-3.5" />
+        {t("common.add")}
+      </button>
+    </div>
   );
 }
 
-function TenantsPanel({ onCreate }: { onCreate: () => void }) {
-  const confirm = useConfirm();
-  const { toast } = useToast();
+function TenantSection({
+  tenant,
+  overview,
+  isOpen,
+  onToggle,
+  searching,
+  onDelete,
+}: {
+  tenant: TenantOverview["tenants"][number];
+  overview: TenantOverview;
+  isOpen: (key: string) => boolean;
+  onToggle: (key: string) => void;
+  searching: boolean;
+  onDelete: (tenant: TenantOverview["tenants"][number]) => void;
+}) {
   const { t } = useI18n();
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [managing, setManaging] = useState<Tenant | null>(null);
-  const { data: tenants, isLoading } = useTenants();
-  const remove = useDeleteTenant();
+  const usersById = useMemo(
+    () => new Map(overview.users.map((u) => [u.id, u])),
+    [overview.users],
+  );
+  const open = isOpen(tenantKey(tenant.id));
 
-  const rows = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return (tenants ?? [])
-      .filter((tenant) => !needle || tenant.name.toLowerCase().includes(needle))
-      .sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
-  }, [tenants, query]);
-
-  const paged = paginate(rows, page);
-
-  const columns: Column<Tenant>[] = [
-    {
-      key: "name",
-      header: t("common.tenant"),
-      cell: (tenant) => (
-        <div className="flex items-center gap-2.5">
-          <BuildingIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
-          <span className="font-medium text-ink">{tenant.name}</span>
-        </div>
-      ),
-    },
-    {
-      key: "database",
-      header: t("admin.access.boundDbHeader"),
-      cell: (tenant) =>
-        tenant.database ? (
-          <Link to="/admin/vector" className="text-accent-ink hover:underline">
-            {tenant.database}
-          </Link>
-        ) : (
-          <StatusBadge tone="warning">{t("admin.access.unboundDb")}</StatusBadge>
-        ),
-    },
-    {
-      key: "actions",
-      header: "",
-      align: "right",
-      width: "11rem",
-      cell: (tenant) => (
-        <div className="flex justify-end gap-1.5">
-          <button
-            type="button"
-            className="a-btn a-btn-outline !py-1 text-[11px]"
-            onClick={() => setManaging(tenant)}
-          >
-            {t("common.members")}
-          </button>
-          <button
-            type="button"
-            className="a-btn a-btn-danger !py-1 text-[11px]"
-            disabled={remove.isPending}
-            onClick={() =>
-              confirm({
-                title: t("admin.access.deleteTenantTitle", { name: tenant.name }),
-                message: t("admin.access.deleteTenantMsg"),
-                confirmLabel: t("admin.access.deleteTenantConfirm"),
-              }).then((ok) => {
-                if (ok) {
-                  remove.mutate(tenant.id);
-                  toast(t("admin.access.tenantDeleted"), "success");
-                }
-              })
-            }
-          >
-            {t("common.del")}
-          </button>
-        </div>
-      ),
-    },
-  ];
+  // 只有 TenantMember 之外的旧口径归属值得单独提示：它们不会随「移出」一起消失，
+  // 不写出来的话界面看起来就是「有成员但没人可管」。
+  const legacy = tenant.members.filter((m) => m.source === "legacy");
 
   return (
-    <>
-      <Panel
-        bodyClass="px-4 py-3"
-        title={t("admin.access.tenantCount", { n: rows.length })}
-        actions={
-          <>
-            <button
-              type="button"
-              className="a-btn a-btn-outline !py-1 text-[11px]"
-              onClick={onCreate}
+    <Disclosure
+      open={open}
+      onToggle={() => onToggle(tenantKey(tenant.id))}
+      title={
+        <span className="flex items-center gap-2">
+          <BuildingIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
+          <span className="truncate font-medium text-ink">{tenant.name}</span>
+        </span>
+      }
+      meta={
+        <>
+          <span className="tnum text-[11px] text-ink-subtle">
+            {t("admin.access.memberCount", {
+              shown: tenant.member_count,
+              total: tenant.member_count,
+            })}
+          </span>
+          {tenant.database ? (
+            <Link
+              to={`/admin/vector/${tenant.database.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="truncate text-[11px] text-accent-ink hover:underline"
             >
-              <PlusIcon className="h-3.5 w-3.5" />
-              {t("admin.access.newTenant")}
-            </button>
-            <SearchInput
-              value={query}
-              onValueChange={(v) => {
-                setQuery(v);
-                setPage(1);
-              }}
-              placeholder={t("admin.access.searchTenants")}
-              className="w-52"
-            />
-          </>
-        }
-        footer={
-          <Pagination paged={paged} onPageChange={setPage} />
-        }
-      >
-        <DataTable
-          columns={columns}
-          rows={paged.items}
-          rowKey={(tenant) => tenant.id}
-          loading={isLoading}
-          empty={
-            <EmptyState
-              icon={BuildingIcon}
-              title={
-                query
-                  ? t("admin.access.noTenantMatch")
-                  : t("admin.access.noTenant")
-              }
-              description={
-                query
-                  ? t("common.tryKeyword")
-                  : t("admin.access.noTenantDesc")
-              }
-              action={
-                <button type="button" className="a-btn a-btn-primary" onClick={onCreate}>
-                  <PlusIcon className="h-4 w-4" />
-                  {t("admin.access.newTenant")}
-                </button>
-              }
-            />
-          }
-        />
-      </Panel>
-
-      {managing && (
-        <TenantMembersModal tenant={managing} onClose={() => setManaging(null)} />
+              {tenant.database.name}
+              <span className="ml-1 text-ink-subtle tnum">
+                {t("admin.access.collectionCount", {
+                  n: tenant.database.collection_count,
+                })}
+              </span>
+            </Link>
+          ) : (
+            <StatusBadge tone="warning">{t("admin.access.unboundDb")}</StatusBadge>
+          )}
+        </>
+      }
+      actions={
+        <button
+          type="button"
+          className="a-btn a-btn-ghost !px-1.5 !py-1 text-[11px] text-danger"
+          title={t("admin.access.deleteTenantTitle", { name: tenant.name })}
+          onClick={() => onDelete(tenant)}
+        >
+          <TrashIcon className="h-3.5 w-3.5" />
+          <span className="sr-only">{t("common.del")}</span>
+        </button>
+      }
+    >
+      {!tenant.members.length ? (
+        <p className="py-2 text-[--text-sm] text-ink-subtle">
+          {t("admin.access.tenantNoMembers")}
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {tenant.members.map((m) => {
+            const user = usersById.get(m.user_id);
+            if (!user) return null;
+            return (
+              <li key={m.user_id}>
+                <MemberRow
+                  user={user}
+                  tenantId={tenant.id}
+                  overview={overview}
+                  open={isOpen(memberKey(tenant.id, m.user_id))}
+                  onToggle={() => onToggle(memberKey(tenant.id, m.user_id))}
+                  forcedOpen={searching}
+                />
+              </li>
+            );
+          })}
+        </ul>
       )}
-    </>
+
+      {legacy.length > 0 && (
+        <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-ink-subtle">
+          <ShieldIcon className="mt-0.5 h-3 w-3 shrink-0" />
+          {t("admin.access.legacyMembersNote", {
+            names: legacy.map((m) => m.name).join("、"),
+          })}
+        </p>
+      )}
+
+      <AddMemberInline tenantId={tenant.id} overview={overview} />
+    </Disclosure>
   );
 }
 
 /* ───────────── 页面 ───────────── */
 
 export default function AdminAccessPage() {
-  const [tab, setTab] = useState<"members" | "tenants">("members");
+  const { t } = useI18n();
+  const confirm = useConfirm();
+  const { data: me } = useCurrentUser();
+  const isAdmin = !!me?.permissions?.includes("admin");
+  const { data: overview, isLoading, error, refetch } = useTenantOverview(isAdmin);
+  const [query, setQuery] = useState("");
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  const { t } = useI18n();
-  const { data: user } = useCurrentUser();
-  const { data: userResult } = useUsers();
-  const { data: tenants } = useTenants();
   const create = useCreateTenant();
+  const remove = useDeleteTenant();
 
-  if (!user?.permissions?.includes("admin"))
+  const isOpen = (key: string) => openKeys.has(key);
+  const onToggle = (key: string) =>
+    setOpenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const needle = query.trim().toLowerCase();
+  const searching = needle !== "";
+
+  const { tenantRows, unassigned } = useMemo(() => {
+    const tenants = overview?.tenants ?? [];
+    const byId = new Map(overview?.users.map((u) => [u.id, u]) ?? []);
+    const affiliated = new Set<number>();
+    const keep = new Set<number>();
+    for (const tenant of tenants) {
+      for (const m of tenant.members) affiliated.add(m.user_id);
+      const hit =
+        !searching ||
+        tenant.name.toLowerCase().includes(needle) ||
+        (tenant.database?.name.toLowerCase().includes(needle) ?? false) ||
+        tenant.members.some(
+          (m) =>
+            m.name.toLowerCase().includes(needle) ||
+            (byId.get(m.user_id)?.email ?? "").toLowerCase().includes(needle),
+        );
+      if (hit) keep.add(tenant.id);
+    }
+    return {
+      tenantRows: tenants.filter((x) => keep.has(x.id)),
+      // 「未分配」不参与搜索：它的判据是「不属于任何租户」，
+      // 搜索时如果照常显示，同一个人会在命中租户和这里各出现一次。
+      unassigned: searching
+        ? []
+        : (overview?.users ?? []).filter((u) => !affiliated.has(u.id)),
+    };
+  }, [overview, needle, searching]);
+
+  const askDeleteTenant = (tenant: TenantOverview["tenants"][number]) =>
+    confirm({
+      title: t("admin.access.deleteTenantTitle", { name: tenant.name }),
+      message: tenant.member_count
+        ? t("admin.access.deleteTenantWithMembersMsg", { n: tenant.member_count })
+        : t("admin.access.deleteTenantMsg"),
+      confirmLabel: t("admin.access.deleteTenantConfirm"),
+    }).then((ok) => ok && remove.mutate(tenant.id));
+
+  if (!me) return null;
+
+  if (!isAdmin) {
     return (
       <div className="mx-auto w-full max-w-[68rem] px-4 py-6 md:px-8">
         <PageHeader title={t("page.access")} />
@@ -867,34 +600,156 @@ export default function AdminAccessPage() {
         </Panel>
       </div>
     );
+  }
+
+  const allKeys = overview
+    ? overview.tenants.map((x) => tenantKey(x.id))
+    : [];
+  const everyOpen = allKeys.length > 0 && allKeys.every((k) => openKeys.has(k));
 
   return (
     <div className="mx-auto w-full max-w-[68rem] px-4 py-6 md:px-8">
       <PageHeader
         title={t("page.access")}
         description={t("admin.access.pageDesc")}
+        actions={
+          <button
+            type="button"
+            className="a-btn a-btn-primary"
+            onClick={() => setCreating(true)}
+          >
+            <PlusIcon className="h-4 w-4" />
+            {t("admin.access.newTenant")}
+          </button>
+        }
       />
 
-      <Tabs
-        ariaLabel={t("page.access")}
-        value={tab}
-        onChange={setTab}
-        items={[
-          {
-            key: "members",
-            label: t("common.members"),
-            badge: userResult?.total ?? userResult?.users.length ?? 0,
-          },
-          {
-            key: "tenants",
-            label: t("common.tenants"),
-            badge: tenants?.length ?? 0,
-          },
-        ]}
-      />
+      {overview && (
+        <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-subtle tnum">
+          <span>{t("admin.access.statTenants", { n: overview.tenants.length })}</span>
+          <span>{t("admin.access.statMembers", { n: overview.users.length })}</span>
+          <span>{t("admin.access.statDatabases", { n: overview.databases.length })}</span>
+          <span>{t("admin.access.statCollections", { n: overview.databases.reduce((s, d) => s + d.collection_count, 0) })}</span>
+        </p>
+      )}
 
-      {tab === "members" && <MembersPanel />}
-      {tab === "tenants" && <TenantsPanel onCreate={() => setCreating(true)} />}
+      <Panel bodyClass="px-3 py-3">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder={t("admin.access.searchAll")}
+            className="w-full max-w-xs"
+          />
+          <button
+            type="button"
+            className="a-btn a-btn-ghost !py-1 text-[11px]"
+            disabled={!allKeys.length}
+            onClick={() =>
+              setOpenKeys(everyOpen ? new Set<string>() : new Set(allKeys))
+            }
+          >
+            <ChevronDownIcon
+              className={`h-3.5 w-3.5 transition-ui ${everyOpen ? "rotate-180" : ""}`}
+            />
+            {everyOpen ? t("admin.access.collapseAll") : t("admin.access.expandAll")}
+          </button>
+          {searching && (
+            <span className="text-[11px] text-ink-subtle tnum">
+              {t("admin.access.matchCount", { n: tenantRows.length })}
+            </span>
+          )}
+        </div>
+
+        {isLoading ? (
+          <Loading />
+        ) : error ? (
+          <ErrorState error={error} onRetry={() => refetch()} />
+        ) : !overview || !overview.tenants.length ? (
+          <EmptyState
+            icon={BuildingIcon}
+            title={searching ? t("admin.access.noTenantMatch") : t("admin.access.noTenant")}
+            description={
+              searching ? t("common.tryKeyword") : t("admin.access.noTenantDesc")
+            }
+            action={
+              searching ? undefined : (
+                <button
+                  type="button"
+                  className="a-btn a-btn-primary"
+                  onClick={() => setCreating(true)}
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  {t("admin.access.newTenant")}
+                </button>
+              )
+            }
+          />
+        ) : (
+          <div className="space-y-2">
+            {tenantRows.map((tenant) => (
+              <TenantSection
+                key={tenant.id}
+                tenant={tenant}
+                overview={overview}
+                isOpen={isOpen}
+                onToggle={onToggle}
+                searching={searching}
+                onDelete={askDeleteTenant}
+              />
+            ))}
+
+            {/* 「未分配」是列表末尾的一个伪租户：它让「这个人还进不去任何库」
+                在同一个容器里可见，而不是散落在两个页签之间。 */}
+            {unassigned.length > 0 && (
+              <Disclosure
+                open={isOpen(tenantKey(-1))}
+                onToggle={() => onToggle(tenantKey(-1))}
+                title={
+                  <span className="flex items-center gap-2">
+                    <UserIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
+                    <span className="truncate font-medium text-ink">
+                      {t("admin.access.unassigned")}
+                    </span>
+                  </span>
+                }
+                meta={
+                  <span className="tnum text-[11px] text-ink-subtle">
+                    {t("admin.access.memberCount", {
+                      shown: unassigned.length,
+                      total: unassigned.length,
+                    })}
+                  </span>
+                }
+              >
+                <p className="mb-2 text-[11px] leading-relaxed text-ink-muted">
+                  {t("admin.access.unassignedDesc")}
+                </p>
+                <ul className="space-y-1.5">
+                  {unassigned.map((u) => (
+                    <li key={u.id}>
+                      <MemberRow
+                        user={u}
+                        tenantId={null}
+                        overview={overview}
+                        open={isOpen(memberKey(-1, u.id))}
+                        onToggle={() => onToggle(memberKey(-1, u.id))}
+                        forcedOpen={false}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </Disclosure>
+            )}
+
+            {searching && !tenantRows.length && (
+              <p className="py-6 text-center text-[--text-sm] text-ink-subtle">
+                {t("admin.access.noMemberMatch")}
+              </p>
+            )}
+          </div>
+        )}
+      </Panel>
 
       <Modal
         open={creating}

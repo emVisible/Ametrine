@@ -122,6 +122,88 @@ export function Panel({
   );
 }
 
+/* ───────────────────────── 折叠行 ───────────────────────── */
+
+/**
+ * 管理台唯一的「在行内展开」容器。
+ *
+ * 之前同一个问题有两种容器：租户的成员开弹窗、成员的行开带页签的弹窗、
+ * 而租户列表自己又是一张表 —— 视觉上就是两块硬拼的东西。收敛成这一个：
+ * 头行给摘要与计数，展开带给该行的全部内容，箭头方向即状态。
+ *
+ * open 由调用方持有：搜索命中要自动展开、跨行状态要能记住，
+ * 组件自己藏状态的话这两件事都做不到。
+ */
+export function Disclosure({
+  open,
+  onToggle,
+  title,
+  meta,
+  actions,
+  children,
+  level = 0,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  title: ReactNode;
+  /** 头行右侧的摘要区：计数、标签、状态徽章 */
+  meta?: ReactNode;
+  /** 头行最右的常驻操作（不被折叠吞掉的那几个） */
+  actions?: ReactNode;
+  children: ReactNode;
+  /** 嵌套层级：子级用 1，靠缩进而不是再画一个边框来表明归属 */
+  level?: 0 | 1;
+}) {
+  const { t } = useI18n();
+  const panelId = useId();
+
+  return (
+    <div
+      className={
+        level === 0
+          ? "a-card overflow-hidden"
+          : "rounded-md border border-line-subtle bg-surface-sunken/40"
+      }
+    >
+      <div className="flex items-center gap-2 px-3 py-2">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+        >
+          <ChevronRightIcon
+            className={`h-3.5 w-3.5 shrink-0 text-ink-subtle transition-ui ${
+              open ? "rotate-90" : ""
+            }`}
+          />
+          <span className="sr-only">
+            {open ? t("ui.collapse") : t("ui.expand")}
+          </span>
+          <span className="min-w-0 flex-1 truncate">{title}</span>
+          {meta && (
+            <span className="flex shrink-0 items-center gap-2">{meta}</span>
+          )}
+        </button>
+        {actions && (
+          <span className="flex shrink-0 items-center gap-1.5">{actions}</span>
+        )}
+      </div>
+
+      {open && (
+        <div
+          id={panelId}
+          role="group"
+          className="border-t border-line-subtle px-3 py-2.5"
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ───────────────────────── 状态反馈 ───────────────────────── */
 
 export function Loading({ label }: { label?: string }) {

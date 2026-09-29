@@ -313,7 +313,7 @@ export const en: Messages = {
     },
     access: {
       pageDesc:
-        "Members, tenants and knowledge-base grants together decide who can search what",
+        "A tenant decides which knowledge bases its members can search. Expand one to edit its members, binding and per-person grants in the same place.",
       adminRequired: "Admin rights required",
       adminRequiredDesc: "Only admins can view members and tenant configuration.",
       detailTabs: "User details",
@@ -384,6 +384,32 @@ export const en: Messages = {
       tenantCreateFailed: "Couldn't create the tenant: {msg}",
       tenantDeleted: "Tenant deleted",
       tenantDeleteFailed: "Couldn't delete the tenant: {msg}",
+      // ── Fused collapsible panel ──
+      searchAll: "Search tenants, members or knowledge bases",
+      expandAll: "Expand all",
+      collapseAll: "Collapse all",
+      matchCount: "{n} tenants matched",
+      statTenants: "{n} tenants",
+      statMembers: "{n} members",
+      statDatabases: "{n} knowledge bases",
+      statCollections: "{n} collections",
+      collectionCount: "{n} collections",
+      grantCount: "{n} direct",
+      quotaSection: "Usage quota",
+      grantsSection: "Knowledge base access",
+      viaTenant: "via tenant",
+      grantViaTenantHint:
+        "This base is already readable through the tenant — no separate grant needed",
+      removeMemberTitle: "Remove {name} from this tenant?",
+      removeMemberMsg:
+        "They immediately lose read access to this tenant's knowledge base. Bases granted individually are unaffected.",
+      legacyMembersNote:
+        "{names} belong through the legacy single-tenant field and have no membership record yet. Adding or removing once will reconcile them.",
+      deleteTenantWithMembersMsg:
+        "This cannot be undone. {n} members will lose the tenant's knowledge base access.",
+      unassigned: "No tenant",
+      unassignedDesc:
+        "These people belong to no tenant yet, so they can only reach knowledge bases through the individual grants below.",
     },
   },
   dash: {
@@ -481,6 +507,8 @@ export const en: Messages = {
     pageLoading: "Loading page",
     checkingIdentity: "Confirming your identity…",
     accountLoadFailed: "We can't load your account right now",
+    expand: "Expand",
+    collapse: "Collapse",
   },
   tour: {
     modalTitle: "Quick start · {title}",

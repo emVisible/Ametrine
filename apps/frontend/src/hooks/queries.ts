@@ -11,47 +11,29 @@ import { apiClient } from "../api/client";
 import { tenantAPI } from "../api/tenant";
 import { useI18n } from "../i18n/context";
 import { useToast } from "./useToast";
-import type { UserListResponse } from "../types/user";
 import type { KbCollection, KbDocument } from "../types/knowledge";
 
 export const qk = {
   databases: ["knowledge", "databases"] as const,
   collections: (dbId: number) => ["knowledge", "collections", dbId] as const,
   collectionsAll: ["knowledge", "collections", "all"] as const,
+  documentsAll: ["knowledge", "documents", "all"] as const,
   documents: (colId: number) => ["knowledge", "documents", colId] as const,
   chunks: (docId: number) => ["knowledge", "chunks", docId] as const,
   tenants: ["access", "tenants"] as const,
-  users: ["access", "users"] as const,
-  tenantMembers: (tenantId: number) =>
-    ["access", "tenant-members", tenantId] as const,
-  userPermissions: (userId: number) =>
-    ["access", "user-permissions", userId] as const,
+  tenantOverview: ["access", "tenant-overview"] as const,
 };
 
-/** 成员列表。后端返回 {users,total,offset,limit}，这里只取 users 并保留 total 供诚实展示。 */
-export function useUsers() {
+/**
+ * 融合面板的唯一数据源。
+ * 一次带回：租户 + 每个租户的成员 + 绑定的库与集合数 + 全量授权 + 用户简表（含配额）。
+ * 成员/授权/角色的任何变更都整体失效它 —— 见 useAccessMutation。
+ */
+export function useTenantOverview(enabled = true) {
   return useQuery({
-    queryKey: qk.users,
-    queryFn: () => apiClient<UserListResponse>("/user/all"),
-  });
-}
-
-export function useTenantMembers(tenantId: number | null) {
-  return useQuery({
-    queryKey: qk.tenantMembers(tenantId!),
-    queryFn: () => tenantAPI.getMembers(tenantId!),
-    enabled: tenantId != null,
-  });
-}
-
-export function useUserPermissions(userId: number | null) {
-  return useQuery({
-    queryKey: qk.userPermissions(userId!),
-    queryFn: () =>
-      apiClient<{ database_id: number; can_read?: boolean; can_write?: boolean }[]>(
-        `/user/permission/${userId}`,
-      ),
-    enabled: userId != null,
+    queryKey: qk.tenantOverview,
+    queryFn: () => tenantAPI.getOverview(),
+    enabled,
   });
 }
 
@@ -111,12 +93,15 @@ export function useTenants() {
  */
 export function useKnowledgeIndex() {
   const { data: databases, isLoading, error, refetch } = useDatabases();
+  // 这里原先用的是 ["knowledge","collections-all"]，与 useAllCollections 的
+  // ["knowledge","collections","all"] 是两份互不相干的缓存：同一个全量集被下载两次，
+  // 而且创建集合后只失效后者，级联选择器会拿着旧数据。键统一到一个常量。
   const { data: collections } = useQuery({
-    queryKey: ["knowledge", "collections-all"],
+    queryKey: qk.collectionsAll,
     queryFn: () => collectionAPI.getAll() as Promise<KbCollection[]>,
   });
   const { data: documents } = useQuery({
-    queryKey: ["knowledge", "documents-all"],
+    queryKey: qk.documentsAll,
     queryFn: () => documentAPI.getAll() as Promise<KbDocument[]>,
   });
 
@@ -222,25 +207,85 @@ export function useUploadDocument(
   });
 }
 
-export function useCreateTenant() {
+/** 租户/成员/授权/角色配额的所有变更都收敛在这里：一处失效，避免改完不刷新。 */
+function useAccessMutation<TVars>(options: {
+  mutationFn: (vars: TVars) => Promise<unknown>;
+  successKey?: string;
+  errorKey: string;
+  /** 除总览之外还要额外失效的键 */
+  also?: readonly (readonly string[])[];
+}) {
   const queryClient = useQueryClient();
-  return useResourceMutation({
+  const { t } = useI18n();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: options.mutationFn,
+    onSuccess: () => {
+      // 总览把四张表揉成一份响应，所以任何一处成员/授权/角色变化都要整体重来；
+      // 单独失效某一张表会让折叠面板上的计数停在旧值。
+      queryClient.invalidateQueries({ queryKey: qk.tenantOverview });
+      queryClient.invalidateQueries({ queryKey: qk.tenants });
+      for (const key of options.also ?? [])
+        queryClient.invalidateQueries({ queryKey: key });
+      if (options.successKey) toast(t(options.successKey), "success");
+    },
+    onError: (error: Error) =>
+      toast(t(options.errorKey, { msg: error.message }), "error"),
+  });
+}
+
+export function useCreateTenant() {
+  return useAccessMutation({
     mutationFn: (body: { name: string }) => tenantAPI.create(body),
-    invalidate: () => queryClient.invalidateQueries({ queryKey: qk.tenants }),
     successKey: "admin.access.tenantCreated",
     errorKey: "admin.access.tenantCreateFailed",
   });
 }
 
 export function useDeleteTenant() {
-  const queryClient = useQueryClient();
-  return useResourceMutation({
+  return useAccessMutation({
     mutationFn: (id: number) => tenantAPI.delete(id),
-    invalidate: () => {
-      queryClient.invalidateQueries({ queryKey: qk.tenants });
-      queryClient.invalidateQueries({ queryKey: qk.databases });
-    },
     successKey: "admin.access.tenantDeleted",
     errorKey: "admin.access.tenantDeleteFailed",
+    // 删租户会解绑它名下的知识库，向量侧列表跟着一起走
+    also: [qk.databases, qk.collectionsAll],
+  });
+}
+
+/** 加入 / 移出租户。成员行的两个按钮共用一个 mutation，pending 才能只禁用那一行。 */
+export function useToggleMember() {
+  return useAccessMutation({
+    mutationFn: (vars: { tenantId: number; userId: number; join: boolean }) =>
+      vars.join
+        ? tenantAPI.addMember(vars.tenantId, vars.userId)
+        : tenantAPI.removeMember(vars.tenantId, vars.userId),
+    errorKey: "admin.access.memberChangeFailed",
+  });
+}
+
+/** 授予 / 收回某个用户对某个知识库的读权限。 */
+export function useToggleGrant() {
+  return useAccessMutation({
+    mutationFn: (vars: { userId: number; dbId: number; on: boolean }) =>
+      vars.on
+        ? apiClient(`/user/permission/${vars.userId}/databases/${vars.dbId}`, {
+            method: "POST",
+            body: { can_read: true, can_write: true, can_manage: false },
+          })
+        : apiClient(`/user/permission/${vars.userId}/databases/${vars.dbId}`, {
+            method: "DELETE",
+          }),
+    errorKey: "admin.access.grantFailed",
+  });
+}
+
+/** 角色与配额：都走 PATCH /user/{id}，后端只允许管理员改这两类字段。 */
+export function usePatchUser(userId: number) {
+  return useAccessMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiClient(`/user/${userId}`, { method: "PATCH", body }),
+    also: [["currentUser"]],
+    errorKey: "common.updateFailed",
   });
 }
