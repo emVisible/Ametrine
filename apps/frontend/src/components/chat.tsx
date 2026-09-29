@@ -138,10 +138,13 @@ function MessageRow({
 }
 
 /**
- * 输入区。以前是「textarea 一行 + 带边框的工具行一行」两层，
- * 把整块顶到 100+px 高，而两侧明明还有横向空间 —— 正文能显示的行数因此被挤掉。
- * 现在控件与输入框同处一条 band：左侧放检索范围等上下文控件，右侧放麦克风与发送，
- * 高度回到一行（输入多行时才自然长高），提示文字只在宽屏上占横向留白。
+ * 输入区。上一版被推翻的原因，这里写成约束：
+ *  - 输入框必须拿到这一行的主要宽度。快捷键提示、检索范围控件都是次要信息，
+ *    和 textarea 抢横向空间就会把输入挤没（检索页上曾只剩两三个字宽）。
+ *  - 提示不该占布局：Enter 发送写进空状态 + title/aria-describedby，界面上不再单独占一格。
+ *  - 检索范围是「当前上下文」而不是「按钮」，所以放输入框上方的细条：
+ *    自己换行、自己占高，不参与输入行的宽度分配。
+ *  - 发送/停止用图标按钮（带 aria-label 与 title），文字标签在窄屏纯属浪费。
  */
 export function Composer({
   value,
@@ -151,7 +154,7 @@ export function Composer({
   busy,
   disabled,
   placeholder,
-  left,
+  context,
   right,
 }: {
   value: string;
@@ -161,9 +164,9 @@ export function Composer({
   busy: boolean;
   disabled?: boolean;
   placeholder: string;
-  /** 输入框左侧的同排控件（如知识库/集合选择器） */
-  left?: ReactNode;
-  /** 输入框右侧、发送按钮之前的控件（如语音输入） */
+  /** 输入框上方的上下文条（如知识库/集合/重排序） */
+  context?: ReactNode;
+  /** 输入框右侧、发送按钮之前的控件（如语音输入；默认不渲染） */
   right?: ReactNode;
 }) {
   const { t } = useI18n();
@@ -174,7 +177,7 @@ export function Composer({
     const el = ref.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 208)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [value]);
 
   const canSend = !!value.trim() && !busy && !disabled;
@@ -185,15 +188,13 @@ export function Composer({
       <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {busy ? t("chat.liveRegion") : ""}
       </span>
-      <div className={`${COLUMN} pb-2.5 pt-2`}>
-        <div className="flex items-end gap-2 rounded-[--radius-lg] border border-line bg-surface px-2 py-1.5 transition-colors focus-within:border-accent">
-          {left}
-          <span
-            className="hidden shrink-0 pb-2 text-[11px] text-ink-subtle xl:inline"
-            aria-hidden
-          >
-            {hint}
-          </span>
+      <div className={`${COLUMN} pb-3 pt-2`}>
+        {context && (
+          <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+            {context}
+          </div>
+        )}
+        <div className="flex items-end gap-1.5 rounded-[--radius-lg] border border-line bg-surface px-2 py-1.5 shadow-card transition-colors focus-within:border-accent">
           <textarea
             ref={ref}
             id="chat-composer"
@@ -210,7 +211,7 @@ export function Composer({
                 if (canSend) onSubmit();
               }
             }}
-            className="min-h-[28px] min-w-[14rem] flex-1 resize-none bg-transparent px-1.5 py-2 text-[--text-sm] leading-relaxed text-ink outline-none placeholder:text-ink-subtle disabled:cursor-not-allowed disabled:text-ink-subtle"
+            className="min-h-[26px] min-w-0 flex-1 resize-none bg-transparent px-1.5 py-1.5 text-[--text-sm] leading-relaxed text-ink outline-none placeholder:text-ink-subtle disabled:cursor-not-allowed disabled:text-ink-subtle"
           />
           {right}
           {busy && onStop ? (
@@ -219,10 +220,9 @@ export function Composer({
               onClick={onStop}
               title={t("chat.stopTitle")}
               aria-label={t("chat.stopTitle")}
-              className="a-btn a-btn-outline shrink-0 !px-2.5 !py-1.5 text-danger"
+              className="a-btn a-btn-outline !h-8 !w-8 shrink-0 !px-0 !py-0 text-danger"
             >
-              <StopIcon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{t("common.stop")}</span>
+              <StopIcon className="h-4 w-4" />
             </button>
           ) : (
             <button
@@ -231,10 +231,9 @@ export function Composer({
               disabled={!canSend}
               title={t("chat.send")}
               aria-label={t("chat.send")}
-              className="a-btn a-btn-primary shrink-0 !px-2.5 !py-1.5"
+              className="a-btn a-btn-primary !h-8 !w-8 shrink-0 !px-0 !py-0"
             >
-              <SendIcon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{t("chat.send")}</span>
+              <SendIcon className="h-4 w-4" />
             </button>
           )}
         </div>

@@ -170,7 +170,7 @@ export const en: Messages = {
       "Answers come from the model only, without retrieval. Switch to Retrieve for document-grounded answers.",
     emptyRagTitle: "Answer from your knowledge base",
     emptyRagDesc:
-      "Pick a knowledge base below first — answers will only cite chunks inside it.",
+      "Pick a knowledge base in the bar above the input first — answers will only cite chunks inside it.",
     emptyRagCol: "Then pick a collection to narrow the search.",
     ragPlaceholder: "Ask a question to search this collection…",
     needScope: "Choose a knowledge base and collection first",
@@ -421,6 +421,15 @@ export const en: Messages = {
     systemDefault: "System default",
     uiLang: "Interface language",
     uiLangDesc: "Switch between 中文 and English at any time — stored on this device",
+    voiceInput: "Voice input",
+    voiceOn: "On",
+    voiceOff: "Off",
+    voiceDesc:
+      "Shows the microphone in the composer and dictates with the browser's speech recognition",
+    voiceNet:
+      "Heads up: browser speech recognition is not offline — Chrome sends audio to Google and Edge to Microsoft. Keep this off for air-gapped or intranet deployments.",
+    voiceUnsupported:
+      "This browser has no Web Speech API (SpeechRecognition). Open the app in Chrome or Edge first.",
     savePrefs: "Save preferences",
     prefsSaved: "Preferences saved",
     quotaUpdated: "Quota updated",

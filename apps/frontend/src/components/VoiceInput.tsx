@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../i18n/context";
 import { useToast } from "../hooks/useToast";
+import { useDevicePrefs } from "../stores/devicePrefs";
 import { MicIcon, Spinner, StopIcon } from "./icons";
 
 interface RecognitionAlternative {
@@ -61,6 +62,8 @@ interface VoiceInputProps {
 export default function VoiceInput({ onResult, disabled }: VoiceInputProps) {
   const { t, lang } = useI18n();
   const { toast } = useToast();
+  // 默认关闭：Web Speech 不是本地识别，要用户在设置里明确同意联网（见 stores/devicePrefs.ts）
+  const enabled = useDevicePrefs((s) => s.voiceInput);
   const [listening, setListening] = useState(false);
   const [starting, setStarting] = useState(false);
   const recRef = useRef<Recognition | null>(null);
@@ -81,7 +84,8 @@ export default function VoiceInput({ onResult, disabled }: VoiceInputProps) {
     [],
   );
 
-  if (!supported) return null;
+  // 未在设置里开启、或浏览器根本没有识别能力时：不渲染，也不占输入行的一格
+  if (!enabled || !supported) return null;
 
   const finish = () => {
     const rec = recRef.current;

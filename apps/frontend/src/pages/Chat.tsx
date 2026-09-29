@@ -139,6 +139,9 @@ export default function ChatPage() {
             icon={ChatIcon}
             title={t("chat.emptyChatTitle")}
             description={t("chat.emptyChatDesc")}
+            aside={
+              <p className="text-[11px] text-ink-subtle">{t("chat.enterHint")}</p>
+            }
           />
         }
       />

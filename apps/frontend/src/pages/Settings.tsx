@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import useAuthStore from "../stores/useAuthStore";
+import { speechRecognitionAvailable, useDevicePrefs } from "../stores/devicePrefs";
 import { useTheme } from "../hooks/useTheme";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n/context";
@@ -67,6 +68,10 @@ function PreferencesPanel({ user }: { user: User }) {
     onError: (e: Error) => toast(t("common.saveFailed", { msg: e.message }), "error"),
   });
 
+  const voiceOn = useDevicePrefs((s) => s.voiceInput);
+  const setVoiceInput = useDevicePrefs((s) => s.setVoiceInput);
+  const speechOk = speechRecognitionAvailable();
+
   const update = (key: string, value: unknown) =>
     setPreferences((prev) => ({ ...prev, [key]: value }));
 
@@ -111,6 +116,28 @@ function PreferencesPanel({ user }: { user: User }) {
           {/* 以前这里写的是 preferences.language —— 全站没人读它，是个死控件；
               现在直接接真正的语言开关（界面语言即时生效，记在本机） */}
           <LangSwitcher />
+        </FieldRow>
+
+        <FieldRow
+          title={t("settings.voiceInput")}
+          description={t("settings.voiceDesc")}
+        >
+          <div className="flex flex-col items-end gap-1.5">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={voiceOn}
+              disabled={!speechOk}
+              onClick={() => setVoiceInput(!voiceOn)}
+              className={`a-btn !py-1 ${voiceOn ? "a-btn-primary" : "a-btn-outline"}`}
+            >
+              {voiceOn ? t("settings.voiceOn") : t("settings.voiceOff")}
+            </button>
+            {/* 联网前提是硬信息，不能只写在 tooltip 里：这决定内网部署能不能开 */}
+            <p className="max-w-[24rem] text-right text-[11px] leading-relaxed text-ink-subtle">
+              {speechOk ? t("settings.voiceNet") : t("settings.voiceUnsupported")}
+            </p>
+          </div>
         </FieldRow>
       </div>
 

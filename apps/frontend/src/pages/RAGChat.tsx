@@ -271,6 +271,9 @@ export default function RAGChatPage() {
                   ? t("chat.emptyRagCol")
                   : t("rag.emptyReady")
             }
+            aside={
+              <p className="text-[11px] text-ink-subtle">{t("chat.enterHint")}</p>
+            }
           />
         }
       />
@@ -287,10 +290,10 @@ export default function RAGChatPage() {
         placeholder={
           scopeReady ? t("chat.ragPlaceholder") : t("chat.needScope")
         }
-        left={
+        context={
           <>
             {/* 用 Picker 而不是原生 select：浏览器绘制的白面板会在深色主题下盖住半个会话区，
-                而触发器按最长 option 撑宽，把工具行顶得很占屏。宽度在这里显式收住。 */}
+                而触发器按最长 option 撑宽。宽度在这里显式收住。 */}
             <Picker
               label={t("chat.pickKb")}
               value={selectedDbId}
@@ -300,7 +303,7 @@ export default function RAGChatPage() {
                 setSelectedColId(null);
               }}
               placeholder={t("chat.pickKb")}
-              className="w-32 shrink-0 sm:w-36"
+              className="w-44 shrink-0"
               panelClassName="w-64"
               options={(databases ?? []).map((db) => ({
                 value: db.id,
@@ -313,24 +316,23 @@ export default function RAGChatPage() {
               onChange={(v) => setSelectedColId(v)}
               placeholder={t("chat.pickCol")}
               disabled={!selectedDbId}
-              className="w-24 shrink-0 sm:w-28"
+              className="w-36 shrink-0"
               options={(collections ?? []).map((col) => ({
                 value: col.id,
                 label: col.name,
               }))}
             />
-            {/* 「库 / 集合」是补充信息，只在宽屏上占这份横向留白；
-                窄一点时让位给输入框，否则输入框会被压到两三个字宽 */}
-            <span className="hidden min-w-0 flex-1 truncate pb-2 text-right text-[11px] text-ink-subtle xl:block">
-              {scopeReady
-                ? t("rag.scopeOf", { db: selectedDb!.name, col: selectedCol!.name })
-                : t("chat.scopeNone")}
-            </span>
             <Toggle
               checked={enableRerank}
               onChange={setEnableRerank}
               label={t("chat.rerank")}
             />
+            {/* 当前检索范围是这一条的落点，放在上下文条右端，不去和输入框抢宽度 */}
+            <span className="ml-auto min-w-0 truncate text-[11px] text-ink-subtle">
+              {scopeReady
+                ? t("rag.scopeOf", { db: selectedDb!.name, col: selectedCol!.name })
+                : t("chat.scopeNone")}
+            </span>
           </>
         }
         right={

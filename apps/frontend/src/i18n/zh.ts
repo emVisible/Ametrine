@@ -167,7 +167,7 @@ export const zh = {
       "回答仅来自模型本身，不检索知识库。需要基于文档作答请切换到检索模式。",
     emptyRagTitle: "基于知识库检索作答",
     emptyRagDesc:
-      "先在输入框下方选择知识库，回答只会引用该范围内的文档分块。",
+      "先在输入框上方的上下文条选择知识库，回答只会引用该范围内的文档分块。",
     emptyRagCol: "再选择一个集合来限定检索范围。",
     ragPlaceholder: "输入问题，检索当前集合…",
     needScope: "请先选择知识库与集合",
@@ -403,6 +403,14 @@ export const zh = {
     systemDefault: "系统默认",
     uiLang: "界面语言",
     uiLangDesc: "中英文随时切换，偏好记在本机",
+    voiceInput: "语音输入",
+    voiceOn: "已开启",
+    voiceOff: "已关闭",
+    voiceDesc: "开启后在输入框右侧显示麦克风按钮，用浏览器识别说话内容",
+    voiceNet:
+      "注意：浏览器的语音识别并不离线 —— Chrome 把音频交给 Google 服务器、Edge 交给微软。内网或离线部署请保持关闭。",
+    voiceUnsupported:
+      "当前浏览器没有 Web Speech API（SpeechRecognition）。用 Chrome 或 Edge 打开本应用后再开启。",
     savePrefs: "保存偏好",
     prefsSaved: "偏好设置已保存",
     quotaUpdated: "配额已更新",
