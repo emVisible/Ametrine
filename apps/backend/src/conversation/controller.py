@@ -46,6 +46,8 @@ async def get_messages(
             "role": m.role,
             "content": m.content,
             "created_at": m.created_at.isoformat(),
+            # 带出 meta，历史消息才能把引用一并恢复
+            "meta": m.meta,
         }
         for m in messages
     ]
@@ -81,5 +83,5 @@ async def add_message(
     current_user=Depends(get_current_user),
     service: ConversationService = Depends(get_conversation_service),
 ):
-    msg = await service.add_message(conv_id, dto.role, dto.content)
+    msg = await service.add_message(conv_id, dto.role, dto.content, meta=dto.meta)
     return {"id": str(msg.id)}

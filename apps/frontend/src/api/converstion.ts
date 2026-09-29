@@ -6,6 +6,9 @@ export interface StoredMessage {
   role: 'user' | 'assistant'
   content: string
   created_at?: string
+  /** 引用等附随数据。RAG 的答案离了引用就没有可核对的部分，
+   *  原来它只活在 Redis 的 600 秒里，服务器对「这句引了哪些分块」毫无记录。 */
+  meta?: { references?: unknown[] } | null
 }
 
 export const conversationAPI = {
@@ -26,10 +29,15 @@ export const conversationAPI = {
       method: 'PATCH',
     }),
 
-  addMessage: (convId: string, role: string, content: string) =>
+  addMessage: (
+    convId: string,
+    role: string,
+    content: string,
+    meta?: Record<string, unknown> | null,
+  ) =>
     apiClient(`/conversation/${convId}/message`, {
       method: 'POST',
-      body: { role, content },
+      body: { role, content, meta },
     }),
 
   getMessages: (convId: string) =>

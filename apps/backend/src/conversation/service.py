@@ -85,6 +85,7 @@ class ConversationService:
         role: str,
         content: str,
         status: str = "done",
+        meta: dict | None = None,
     ) -> Message:
         msg = Message(
             id=uuid4(),
@@ -92,6 +93,7 @@ class ConversationService:
             role=role,
             content=content,
             status=status,
+            meta=meta,
         )
         self.relation_db.add(msg)
 

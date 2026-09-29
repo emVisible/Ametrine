@@ -1,6 +1,7 @@
 // src/pages/RAGChat.tsx
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { streamRAG } from "../api/chat";
+import { conversationAPI, type StoredMessage } from "../api/converstion";
 import { type HistoryMessage } from "../stores/sessionStore";
 import useSessionStore from "../stores/sessionStore";
 import {
@@ -10,6 +11,7 @@ import {
   stopStream,
 } from "../stores/streamStore";
 import { useSessionMessages } from "../hooks/useSessionMessages";
+import { useQuery } from "@tanstack/react-query";
 import { useAllCollections, useDatabases } from "../hooks/queries";
 import { useI18n } from "../i18n/context";
 import VoiceInput from "../components/VoiceInput";
@@ -176,6 +178,7 @@ export default function RAGChatPage() {
     error,
     ensureSession,
     clearError,
+    setMessages,
   } = useSessionMessages<RagMessage>("rag");
 
   const { data: databases } = useDatabases();
@@ -201,6 +204,34 @@ export default function RAGChatPage() {
           (c: KbCollection) => c.id === selectedColId,
         );
 
+  const { data: remoteMessages } = useQuery({
+    queryKey: ["messages", sessionId],
+    queryFn: () => conversationAPI.getMessages(sessionId!),
+    enabled: !!sessionId,
+  });
+
+  // 本地 store 为空时从后端回灌，并把 meta.references 一并恢复成引用面板的数据。
+  // 按会话 id 记录「回灌过哪一条」，否则切到第二个会话时 ref 仍为 true，永远拿不到历史。
+  const restoredFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      !sessionId ||
+      restoredFor.current === sessionId ||
+      messages.length > 0 ||
+      !remoteMessages?.length
+    )
+      return;
+    restoredFor.current = sessionId;
+    setMessages(
+      remoteMessages.map((m: StoredMessage) => ({
+        role: m.role,
+        content: m.content,
+        date: m.created_at,
+        references: (m.meta?.references as Reference[]) ?? undefined,
+      })),
+    );
+  }, [remoteMessages, messages.length, sessionId, setMessages]);
+
   const stop = useCallback(() => {
     if (!sessionId) return;
     useSessionStore.getState().discardEmptyTurn(sessionId);
@@ -222,6 +253,11 @@ export default function RAGChatPage() {
     setInput("");
     clearError();
 
+    // 检索对话原来完全不落库：只有 /chat 那条路径会 addMessage。
+    // 于是「最重要的那个模式」在服务器上没有记录，换设备就是一片空白，
+    // 引用更是只活在 Redis 的 600 秒里。
+    conversationAPI.addMessage(id, "user", prompt).catch(() => {});
+
     void streamRAG(
       {
         prompt,
@@ -233,9 +269,23 @@ export default function RAGChatPage() {
       },
       (token) => useSessionStore.getState().appendToken(id, token),
       (refs) => {
-        useSessionStore
+        const references = (refs as Reference[]) || [];
+        useSessionStore.getState().patchLast(id, { references });
+        const last = useSessionStore
           .getState()
-          .patchLast(id, { references: (refs as Reference[]) || [] });
+          .sessions.find((s) => s.id === id)
+          ?.messages.at(-1);
+        if (last?.role === "assistant" && last.content) {
+          // 引用写进 message.meta：答案的可核对部分从此跟着消息走，
+          // 不再受 Redis TTL 与浏览器缓存的摆布。
+          conversationAPI
+            .addMessage(id, "assistant", last.content, {
+              references,
+              database_name: selectedDb.name,
+              collection_name: selectedCol.name,
+            })
+            .catch(() => {});
+        }
         endStream(id);
       },
       (err) => {
