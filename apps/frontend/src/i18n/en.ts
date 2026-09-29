@@ -174,7 +174,10 @@ export const en: Messages = {
     ragPlaceholder: "Ask a question to search this collection…",
     needScope: "Choose a knowledge base and collection first",
     scope: "Scope",
-    scopeNone: "No scope selected",
+    scopePlaceholder: "Pick a knowledge base and collection",
+    scopeNoDb: "No knowledge bases yet — create one on the Knowledge base page",
+    scopeNoCol:
+      "This knowledge base has no collections — it can't be searched until a document is uploaded",
     pickKb: "Knowledge base",
     pickCol: "Collection",
     rerank: "Rerank",
@@ -196,7 +199,6 @@ export const en: Messages = {
     refN: "Citation {n}: ",
     emptyReady:
       "Ask a question — the system searches relevant chunks and answers with citations.",
-    scopeOf: "{db} / {col}",
   },
   voice: {
     start: "Voice input",

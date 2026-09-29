@@ -17,6 +17,7 @@ import type { KbCollection, KbDocument } from "../types/knowledge";
 export const qk = {
   databases: ["knowledge", "databases"] as const,
   collections: (dbId: number) => ["knowledge", "collections", dbId] as const,
+  collectionsAll: ["knowledge", "collections", "all"] as const,
   documents: (colId: number) => ["knowledge", "documents", colId] as const,
   chunks: (docId: number) => ["knowledge", "chunks", docId] as const,
   tenants: ["access", "tenants"] as const,
@@ -66,6 +67,17 @@ export function useCollections(databaseId: number | null) {
     queryKey: qk.collections(databaseId!),
     queryFn: () => collectionAPI.getByDatabase(databaseId!),
     enabled: !!databaseId,
+  });
+}
+
+/**
+ * 一次取回全部集合，供检索范围的级联选择器本地按库分组。
+ * 不用 useCollections 逐库取：hover 预览要的是零延迟，发请求就会看到转圈与内容跳动。
+ */
+export function useAllCollections() {
+  return useQuery({
+    queryKey: qk.collectionsAll,
+    queryFn: () => collectionAPI.getAll(),
   });
 }
 
@@ -181,6 +193,7 @@ export function useCreateCollection(databaseId: number) {
       }),
     invalidate: () => {
       queryClient.invalidateQueries({ queryKey: qk.collections(databaseId) });
+      queryClient.invalidateQueries({ queryKey: qk.collectionsAll });
       queryClient.invalidateQueries({ queryKey: qk.databases });
     },
     successKey: "admin.vector.colCreated",

@@ -1,5 +1,5 @@
 // src/pages/RAGChat.tsx
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { streamRAG } from "../api/chat";
 import { type HistoryMessage } from "../stores/sessionStore";
 import useSessionStore from "../stores/sessionStore";
@@ -10,7 +10,7 @@ import {
   stopStream,
 } from "../stores/streamStore";
 import { useSessionMessages } from "../hooks/useSessionMessages";
-import { useCollections, useDatabases } from "../hooks/queries";
+import { useAllCollections, useDatabases } from "../hooks/queries";
 import { useI18n } from "../i18n/context";
 import VoiceInput from "../components/VoiceInput";
 import {
@@ -20,7 +20,9 @@ import {
   Composer,
   type ChatMessage,
 } from "../components/chat";
-import { Picker, StatusBadge, Toggle } from "../components/ui";
+import { StatusBadge, Toggle } from "../components/ui";
+import ScopePicker from "../components/ScopePicker";
+import type { KbCollection } from "../types/knowledge";
 import {
   FileIcon,
   InfoIcon,
@@ -175,10 +177,27 @@ export default function RAGChatPage() {
   } = useSessionMessages<RagMessage>("rag");
 
   const { data: databases } = useDatabases();
-  const { data: collections } = useCollections(selectedDbId);
+  const { data: allCollections, isLoading: collectionsLoading } =
+    useAllCollections();
+  // 一次性取回后本地分组：级联选择器 hover 时不能再等请求
+  const collectionsByDb = useMemo(() => {
+    const map = new Map<number, KbCollection[]>();
+    for (const c of allCollections ?? []) {
+      const key = c.database_id ?? 0;
+      const list = map.get(key);
+      if (list) list.push(c);
+      else map.set(key, [c]);
+    }
+    return map;
+  }, [allCollections]);
 
   const selectedDb = databases?.find((db) => db.id === selectedDbId);
-  const selectedCol = collections?.find((col) => col.id === selectedColId);
+  const selectedCol =
+    selectedDbId == null || selectedColId == null
+      ? undefined
+      : (collectionsByDb.get(selectedDbId) ?? []).find(
+          (c: KbCollection) => c.id === selectedColId,
+        );
 
   const stop = useCallback(() => {
     if (!sessionId) return;
@@ -292,47 +311,25 @@ export default function RAGChatPage() {
         }
         context={
           <>
-            {/* 用 Picker 而不是原生 select：浏览器绘制的白面板会在深色主题下盖住半个会话区，
-                而触发器按最长 option 撑宽。宽度在这里显式收住。 */}
-            <Picker
-              label={t("chat.pickKb")}
-              value={selectedDbId}
-              onChange={(v) => {
-                setSelectedDbId(v);
-                // 换库必然使已选集合失效，直接在动作里清掉而不是用 effect 同步
-                setSelectedColId(null);
+            {/* 级联选择：hover 到知识库就在右列展开它的集合，点集合一次完成选择。
+                原来的两个下拉把这件事拆成点开→看→再点开→再看四步。 */}
+            <ScopePicker
+              databases={databases ?? []}
+              collectionsByDb={collectionsByDb}
+              dbId={selectedDbId}
+              colId={selectedColId}
+              loading={collectionsLoading}
+              onChange={(dbId, colId) => {
+                setSelectedDbId(dbId);
+                // 换库必然使已选集合失效；点集合时才会带上 colId
+                setSelectedColId(colId);
               }}
-              placeholder={t("chat.pickKb")}
-              className="w-44 shrink-0"
-              panelClassName="w-64"
-              options={(databases ?? []).map((db) => ({
-                value: db.id,
-                label: db.name,
-              }))}
-            />
-            <Picker
-              label={t("chat.pickCol")}
-              value={selectedColId}
-              onChange={(v) => setSelectedColId(v)}
-              placeholder={t("chat.pickCol")}
-              disabled={!selectedDbId}
-              className="w-36 shrink-0"
-              options={(collections ?? []).map((col) => ({
-                value: col.id,
-                label: col.name,
-              }))}
             />
             <Toggle
               checked={enableRerank}
               onChange={setEnableRerank}
               label={t("chat.rerank")}
             />
-            {/* 当前检索范围是这一条的落点，放在上下文条右端，不去和输入框抢宽度 */}
-            <span className="ml-auto min-w-0 truncate text-[11px] text-ink-subtle">
-              {scopeReady
-                ? t("rag.scopeOf", { db: selectedDb!.name, col: selectedCol!.name })
-                : t("chat.scopeNone")}
-            </span>
           </>
         }
         right={

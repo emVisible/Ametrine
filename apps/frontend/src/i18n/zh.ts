@@ -171,7 +171,9 @@ export const zh = {
     ragPlaceholder: "输入问题，检索当前集合…",
     needScope: "请先选择知识库与集合",
     scope: "检索范围",
-    scopeNone: "未选择检索范围",
+    scopePlaceholder: "选择知识库与集合",
+    scopeNoDb: "还没有知识库，先到知识库页创建",
+    scopeNoCol: "这个知识库还没有集合，上传文档前它不能用于检索",
     pickKb: "选择知识库",
     pickCol: "选择集合",
     rerank: "重排序",
@@ -192,7 +194,6 @@ export const zh = {
     refList: "引用来源列表",
     refN: "第 {n} 条引用：",
     emptyReady: "输入问题，系统会检索相关分块并给出带引用的回答。",
-    scopeOf: "{db} / {col}",
   },
   voice: {
     start: "语音输入",
