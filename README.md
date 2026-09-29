@@ -133,6 +133,11 @@ cd apps/backend  && uv run alembic upgrade head
 Issues and pull requests are welcome. If you find a correctness bug — especially one that makes a
 wrong answer look right — open an issue first; those get priority.
 
+## License
+
+Released under the [Apache License 2.0](LICENSE). The file is the canonical text with only the
+copyright line filled in: `Copyright 2026 emVisible`.
+
 ## Acknowledgements
 
 Built with FastAPI, LangChain, Milvus, Xinference, PostgreSQL and React.

@@ -123,6 +123,11 @@ cd apps/backend  && uv run alembic upgrade head
 欢迎 issue 与 PR。如果你发现的是正确性问题 —— 尤其那种「让错误答案看起来很对」的 ——
 请先开 issue，这类问题优先级最高。
 
+## 许可证
+
+以 [Apache License 2.0](LICENSE) 发布。该文件是官方原文，只填了版权行：
+`Copyright 2026 emVisible`。
+
 ## 致谢
 
 基于 FastAPI、LangChain、Milvus、Xinference、PostgreSQL 与 React 构建。
