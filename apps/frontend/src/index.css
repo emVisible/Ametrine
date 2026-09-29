@@ -511,6 +511,123 @@
   .anim-stagger > *:nth-child(5) { animation-delay: 96ms; }
   .anim-stagger > *:nth-child(6) { animation-delay: 120ms; }
 
+  /* ── 登录 / 注册页背景 ──────────────────────────────────────────────
+     Ametrine 是紫黄双色石榴石，所以这块背景讲的是「同一块晶体上的两束光」：
+     紫罗兰与琥珀两团极缓慢地互相绕行，上面叠一层几乎看不见的对角棱线（解理面）。
+     纯 CSS：没有 canvas、没有图片、没有 JS 计时；纯装饰，所以 aria-hidden +
+     pointer-events:none。reduced-motion 由上面的全局规则统一停掉循环。 */
+  .a-auth-scene {
+    --a-auth-violet: var(--c-accent);
+    --a-auth-amber: #c97a1e;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .dark .a-auth-scene {
+    --a-auth-amber: #e0a13f;
+  }
+
+  .a-auth-glow {
+    position: absolute;
+    left: 50%;
+    width: 44rem;
+    height: 44rem;
+    border-radius: 50%;
+    filter: blur(88px);
+    opacity: 0.42;
+    will-change: transform;
+  }
+  .dark .a-auth-glow {
+    opacity: 0.5;
+  }
+  .a-auth-glow-violet {
+    top: -13rem;
+    background: radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--a-auth-violet) 72%, transparent),
+      transparent 68%
+    );
+    animation: a-auth-orbit-a 34s var(--ease-in-out) infinite;
+  }
+  .a-auth-glow-amber {
+    bottom: -17rem;
+    background: radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--a-auth-amber) 60%, transparent),
+      transparent 68%
+    );
+    animation: a-auth-orbit-b 44s var(--ease-in-out) infinite;
+  }
+  .a-auth-facets {
+    position: absolute;
+    inset: -25%;
+    background-image:
+      repeating-linear-gradient(
+        122deg,
+        color-mix(in srgb, var(--a-auth-violet) 14%, transparent) 0 1px,
+        transparent 1px 94px
+      ),
+      repeating-linear-gradient(
+        58deg,
+        color-mix(in srgb, var(--a-auth-amber) 11%, transparent) 0 1px,
+        transparent 1px 132px
+      );
+    opacity: 0.3;
+    -webkit-mask-image: radial-gradient(
+      ellipse 68% 58% at 50% 44%,
+      #000 18%,
+      transparent 76%
+    );
+    mask-image: radial-gradient(
+      ellipse 68% 58% at 50% 44%,
+      #000 18%,
+      transparent 76%
+    );
+    animation: a-auth-drift 64s linear infinite;
+  }
+
+  @keyframes a-auth-orbit-a {
+    0%,
+    100% {
+      transform: translate3d(-58%, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(-40%, 8rem, 0) scale(1.12);
+    }
+  }
+  @keyframes a-auth-orbit-b {
+    0%,
+    100% {
+      transform: translate3d(-42%, -4rem, 0) scale(1.06);
+    }
+    50% {
+      transform: translate3d(-60%, 3rem, 0) scale(0.92);
+    }
+  }
+  @keyframes a-auth-drift {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(94px, -66px, 0);
+    }
+  }
+  /* 关掉动效时留一张静态但构图完整的底 */
+  @media (prefers-reduced-motion: reduce) {
+    .a-auth-glow,
+    .a-auth-facets {
+      animation: none !important;
+    }
+    .a-auth-glow-violet {
+      transform: translate3d(-52%, 2rem, 0);
+    }
+    .a-auth-glow-amber {
+      transform: translate3d(-48%, -2rem, 0);
+    }
+  }
+
   .skeleton {
     background: linear-gradient(
       90deg,

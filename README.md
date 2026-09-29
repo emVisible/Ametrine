@@ -41,10 +41,12 @@ Models
 - Rerank
   - bge-reranker-base(dev) 显存占用 1.3G
   - minicpm-reranker(product) 显存占用 12G
-- Audio
-  - SenseVoiceSmall (STT) 显存占用 1.2G
 - Image
   - GOT-OCR2_0 (OCR Model) 显存占用 3G
+
+语音输入不占显存：由浏览器的 Web Speech API 完成。
+原先自建 ASR（Xinference `audio` + SenseVoiceSmall，约 160 个额外依赖）已整体移除，
+`xinference[audio]` 也不再进入 apps/inference 的依赖。
 
 ## 依赖安装
 

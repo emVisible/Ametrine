@@ -26,7 +26,9 @@ read_env() {
     sed -nE "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\"?([^\"#]*)\"?.*/\1/p" "$BACKEND_DIR/.env" | tail -1 | xargs
 }
 WAIT_MODELS=()
-for key in XINFERENCE_LLM_MODEL_ID XINFERENCE_EMBEDDING_MODEL_ID XINFERENCE_RERANK_MODEL_ID XINFERENCE_STT_MODEL_ID; do
+# 不含 STT：自建 ASR 已移除（语音输入走浏览器 Web Speech API），
+# 再把 SenseVoiceSmall 列进来只会让 wait_for_models 永远等一个不再加载的模型
+for key in XINFERENCE_LLM_MODEL_ID XINFERENCE_EMBEDDING_MODEL_ID XINFERENCE_RERANK_MODEL_ID; do
     v=$(read_env "$key")
     [ -n "$v" ] && WAIT_MODELS+=("$v")
 done

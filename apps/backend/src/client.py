@@ -28,7 +28,6 @@ from .config import (
     xinference_embedding_model_id,
     xinference_llm_model_id,
     xinference_rerank_model_id,
-    xinference_stt_model_id,
     tokenizer_addr,
 )
 
@@ -134,11 +133,6 @@ class CredentialedEmbeddings(Embeddings):
 @lru_cache()
 def get_embedding_model():
     return CredentialedEmbeddings(xinference_embedding_model_id)
-
-
-@lru_cache()
-def get_stt_handle() -> LazyModelHandle:
-    return LazyModelHandle(xinference_stt_model_id)
 
 
 @lru_cache()

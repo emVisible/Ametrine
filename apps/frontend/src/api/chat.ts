@@ -1,5 +1,6 @@
 // src/api/chat.ts
 import useAuthStore from "../stores/useAuthStore";
+import { t } from "../i18n";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000/api";
 
@@ -21,26 +22,26 @@ export interface RAGRequest extends ChatRequest {
 
 /**
  * 后端把「模型未加载」「Milvus 不可用」都表现为裸 500，直接展示 HTTP 码对用户没有意义。
- * 这里把状态码翻译成可行动的中文提示。
+ * 这里把状态码翻译成当前语言里可行动的提示。
  */
 export function describeStatus(status: number): string {
   switch (status) {
     case 400:
-      return "请求不被接受，请检查输入内容或集合选择";
+      return t("errors.badRequest");
     case 401:
-      return "登录已过期，请重新登录";
+      return t("errors.unauthorized");
     case 403:
-      return "没有访问该知识库的权限";
+      return t("errors.forbidden");
     case 404:
-      return "接口或所选集合不存在";
+      return t("errors.notFound");
     case 500:
-      return "后端处理失败，通常是模型尚未加载或向量库不可用。可检查 Xinference 与 Milvus 是否就绪后重试";
+      return t("errors.serverError");
     case 502:
     case 503:
     case 504:
-      return "后端或模型服务暂时不可用，请稍后重试";
+      return t("errors.unavailable");
     default:
-      return `请求失败（HTTP ${status}）`;
+      return t("errors.fallback", { status });
   }
 }
 
@@ -52,7 +53,7 @@ function authHeaders(): Record<string, string> {
 function onUnauthorized(): never {
   // 清态即可，路由层的 ProtectedRoute 负责跳回登录页
   useAuthStore.getState().logout();
-  throw new Error("登录已过期，请重新登录");
+  throw new Error(t("errors.unauthorized"));
 }
 
 /** 后端可能以 SSE 帧（`data: {...}`）或 NDJSON 行返回，两种都要能解。 */
@@ -86,7 +87,7 @@ async function readStream(
 ) {
   const reader = response.body?.getReader();
   if (!reader) {
-    onError(new Error("当前浏览器不支持流式读取"));
+    onError(new Error(t("errors.noStream")));
     return;
   }
 
@@ -113,7 +114,7 @@ async function readStream(
       onComplete();
       return;
     }
-    onError(error instanceof Error ? error : new Error("读取数据流失败"));
+    onError(error instanceof Error ? error : new Error(t("errors.readFailed")));
   }
 }
 
@@ -134,7 +135,7 @@ export async function streamChat(
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") return;
-    onError(error instanceof Error ? error : new Error("请求失败"));
+    onError(error instanceof Error ? error : new Error(t("errors.requestFailed")));
     return;
   }
 
@@ -164,7 +165,7 @@ export async function streamRAG(
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") return;
-    onError(error instanceof Error ? error : new Error("请求失败"));
+    onError(error instanceof Error ? error : new Error(t("errors.requestFailed")));
     return;
   }
 
@@ -172,7 +173,7 @@ export async function streamRAG(
   if (response.status === 403) {
     const detail = await response.json().catch(() => ({ message: "" }));
     onError(
-      new Error(detail.message || detail.detail || "没有访问该知识库的权限"),
+      new Error(detail.message || detail.detail || t("errors.forbidden")),
     );
     return;
   }

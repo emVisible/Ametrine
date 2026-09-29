@@ -13,21 +13,31 @@ vi.stubGlobal("localStorage", {
 });
 
 const { describeStatus } = await import("./chat");
+const { setLang, translate } = await import("../i18n");
 
-// 这些文案是失败时用户唯一能看到的指引，回退成「HTTP 500」等于把人推进黑箱
-describe("describeStatus", () => {
-  it.each([
-    [401, "登录"],
-    [403, "权限"],
-    [404, "不存在"],
-    [500, "重试"],
-    [502, "不可用"],
-    [504, "不可用"],
-  ] as const)("%i 给出可行动的中文指引", (status, keyword) => {
-    expect(describeStatus(status)).toContain(keyword);
-  });
+// 这些文案是失败时用户唯一能看到的指引，回退成「HTTP 500」等于把人推进黑箱。
+// 断言写成「等于当前语言里的那条字典项」，所以两种语言都必须各自有一条可行动的指引。
+const MAP: Record<number, string> = {
+  400: "errors.badRequest",
+  401: "errors.unauthorized",
+  403: "errors.forbidden",
+  404: "errors.notFound",
+  500: "errors.serverError",
+  502: "errors.unavailable",
+  504: "errors.unavailable",
+};
 
-  it("未知状态码至少带上状态码本身", () => {
-    expect(describeStatus(418)).toContain("418");
+for (const lang of ["zh-CN", "en"] as const) {
+  describe.each(Object.entries(MAP))(`describeStatus / ${lang} %s`, (status, key) => {
+    it(`给出「${key}」而不是裸状态码`, () => {
+      setLang(lang);
+      expect(describeStatus(Number(status))).toBe(translate(lang, key));
+      expect(describeStatus(Number(status))).not.toContain(String(status));
+    });
   });
+}
+
+it("未知状态码至少带上状态码本身", () => {
+  setLang("zh-CN");
+  expect(describeStatus(418)).toContain("418");
 });

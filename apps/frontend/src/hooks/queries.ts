@@ -9,6 +9,7 @@ import {
 import { collectionAPI, databaseAPI, documentAPI } from "../api/rag";
 import { apiClient } from "../api/client";
 import { tenantAPI } from "../api/tenant";
+import { useI18n } from "../i18n/context";
 import { useToast } from "./useToast";
 import type { UserListResponse } from "../types/user";
 import type { KbCollection, KbDocument } from "../types/knowledge";
@@ -137,19 +138,21 @@ export function useKnowledgeIndex() {
 function useResourceMutation<TVars, TRes>(options: {
   mutationFn: (vars: TVars) => Promise<TRes>;
   invalidate: () => void;
-  successMessage?: string;
-  errorMessage: string;
+  /** 存文案键而不是文案：切语言不需要重建这些 hook */
+  successKey?: string;
+  errorKey: string;
 }) {
+  const { t } = useI18n();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: options.mutationFn,
     onSuccess: () => {
       options.invalidate();
-      if (options.successMessage) toast(options.successMessage, "success");
+      if (options.successKey) toast(t(options.successKey), "success");
     },
     onError: (error: Error) =>
-      toast(`${options.errorMessage}：${error.message}`, "error"),
+      toast(t(options.errorKey, { msg: error.message }), "error"),
   });
 }
 
@@ -162,8 +165,8 @@ export function useCreateDatabase() {
       tenant_id?: number | null;
     }) => databaseAPI.create({ ...body, description: body.description ?? "" }),
     invalidate: () => queryClient.invalidateQueries({ queryKey: qk.databases }),
-    successMessage: "知识库已创建",
-    errorMessage: "创建知识库失败",
+    successKey: "admin.vector.dbCreated",
+    errorKey: "admin.vector.dbCreateFailed",
   });
 }
 
@@ -180,8 +183,8 @@ export function useCreateCollection(databaseId: number) {
       queryClient.invalidateQueries({ queryKey: qk.collections(databaseId) });
       queryClient.invalidateQueries({ queryKey: qk.databases });
     },
-    successMessage: "集合已创建",
-    errorMessage: "创建集合失败",
+    successKey: "admin.vector.colCreated",
+    errorKey: "admin.vector.colCreateFailed",
   });
 }
 
@@ -201,8 +204,8 @@ export function useUploadDocument(
       queryClient.invalidateQueries({ queryKey: ["knowledge"] });
       handlers.onUploaded?.();
     },
-    successMessage: "文档已提交，正在建立索引",
-    errorMessage: "上传失败",
+    successKey: "admin.vector.docUploaded",
+    errorKey: "admin.vector.docUploadFailed",
   });
 }
 
@@ -211,8 +214,8 @@ export function useCreateTenant() {
   return useResourceMutation({
     mutationFn: (body: { name: string }) => tenantAPI.create(body),
     invalidate: () => queryClient.invalidateQueries({ queryKey: qk.tenants }),
-    successMessage: "租户已创建",
-    errorMessage: "创建租户失败",
+    successKey: "admin.access.tenantCreated",
+    errorKey: "admin.access.tenantCreateFailed",
   });
 }
 
@@ -224,7 +227,7 @@ export function useDeleteTenant() {
       queryClient.invalidateQueries({ queryKey: qk.tenants });
       queryClient.invalidateQueries({ queryKey: qk.databases });
     },
-    successMessage: "租户已删除",
-    errorMessage: "删除租户失败",
+    successKey: "admin.access.tenantDeleted",
+    errorKey: "admin.access.tenantDeleteFailed",
   });
 }

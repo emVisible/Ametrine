@@ -1,5 +1,6 @@
 // src/api/client.ts
 import useAuthStore from "../stores/useAuthStore"
+import { t } from "../i18n"
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
 
@@ -18,7 +19,7 @@ interface ApiResponse<T> {
 /** 401 用类型而不是字符串来识别，避免调用方靠 message.includes('401') 猜。 */
 export class UnauthorizedError extends Error {
   constructor() {
-    super('登录已过期，请重新登录')
+    super(t('errors.unauthorized'))
     this.name = 'UnauthorizedError'
   }
 }
@@ -64,7 +65,7 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
         /* 不是 JSON，原样透出 */
       }
     }
-    throw new Error(message || `请求失败（HTTP ${response.status}）`)
+    throw new Error(message || t('errors.fallback', { status: response.status }))
   }
 
   const result: ApiResponse<T> = await response.json()

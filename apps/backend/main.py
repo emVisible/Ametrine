@@ -19,7 +19,6 @@ from redis import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.audio.controller import route_audio
 from src.chat.controller import route_chat
 from src.client import engine, get_milvus_service, get_redis, get_relation_db
 from src.conversation.controller import route_conversation
@@ -78,7 +77,6 @@ app.include_router(route_auth, prefix=route_prefix)
 app.include_router(route_relation, prefix=route_prefix)
 app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_chat, prefix=route_prefix)
-app.include_router(route_audio, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_conversation, prefix=route_prefix)
 app.include_router(route_user_permission, prefix="/api")

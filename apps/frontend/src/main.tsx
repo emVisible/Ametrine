@@ -8,6 +8,8 @@ import { ToastProvider } from "./components/Toast";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { ConfirmProvider } from "./components/ui";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { I18nProvider } from "./i18n/I18nProvider";
+import BootFallback from "./components/BootFallback";
 import { installChunkRecovery, markBooted } from "./utils/chunkRecovery";
 
 const queryClient = new QueryClient({
@@ -27,37 +29,19 @@ installChunkRecovery();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <ToastProvider>
-          <ConfirmProvider>
-            {/* 根级兜底：路由匹配/守卫/懒加载工厂之外的任何抛错，
-                没有这一层就会直接把 #root 留空 —— 用户看到的就是全白屏 */}
-            <ErrorBoundary
-              fallback={
-                <div className="flex min-h-screen items-center justify-center bg-canvas p-6">
-                  <div className="a-card max-w-md p-5 text-center">
-                    <h1 className="text-[--text-lg] font-semibold text-ink">
-                      界面没能启动
-                    </h1>
-                    <p className="mt-1.5 text-[--text-sm] leading-relaxed text-ink-muted">
-                      可能是版本刚更新过，浏览器还在用旧的页面缓存。
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => window.location.reload()}
-                      className="a-btn a-btn-primary mt-4"
-                    >
-                      重新加载
-                    </button>
-                  </div>
-                </div>
-              }
-            >
-              <RouterProvider router={router} />
-            </ErrorBoundary>
-          </ConfirmProvider>
-        </ToastProvider>
-      </ThemeProvider>
+      <I18nProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <ConfirmProvider>
+              {/* 根级兜底：路由匹配/守卫/懒加载工厂之外的任何抛错，
+                  没有这一层就会直接把 #root 留空 —— 用户看到的就是全白屏 */}
+              <ErrorBoundary fallback={<BootFallback />}>
+                <RouterProvider router={router} />
+              </ErrorBoundary>
+            </ConfirmProvider>
+          </ToastProvider>
+        </ThemeProvider>
+      </I18nProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

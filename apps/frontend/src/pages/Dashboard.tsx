@@ -6,6 +6,8 @@ import { apiClient } from "../api/client";
 import { databaseAPI } from "../api/rag";
 import { useCurrentUser } from "../hooks/useAuth";
 import useSessionStore from "../stores/sessionStore";
+import { useI18n } from "../i18n/context";
+import { intlLocale } from "../i18n";
 import OnboardingTour from "../components/OnboardingTour";
 import type { UserListResponse } from "../types/user";
 import {
@@ -32,6 +34,7 @@ function Metric({
   unit?: string;
   loading?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="a-card px-4 py-3">
       <p className="text-[11px] text-ink-subtle">{label}</p>
@@ -39,10 +42,10 @@ function Metric({
         {loading ? (
           <span className="text-ink-subtle">—</span>
         ) : value == null ? (
-          <span className="text-ink-subtle">未启用</span>
+          <span className="text-ink-subtle">{t("dash.notEnabled")}</span>
         ) : (
           <>
-            {value.toLocaleString("zh-CN")}
+            {value.toLocaleString(intlLocale())}
             {unit && (
               <span className="text-[--text-sm] font-normal text-ink-subtle">
                 {unit}
@@ -57,6 +60,7 @@ function Metric({
 
 export default function Dashboard() {
   const { data: user } = useCurrentUser();
+  const { t } = useI18n();
   const navigate = useNavigate();
   // 惰性初始化即可，不需要在 effect 里回读 localStorage 再 setState
   const [showOnboarding, setShowOnboarding] = useState(
@@ -99,14 +103,14 @@ export default function Dashboard() {
   const entries = [
     {
       to: "/chat",
-      label: "模型对话",
-      desc: "不检索知识库的自由对话",
+      label: t("dash.entryChat"),
+      desc: t("dash.entryChatDesc"),
       Icon: ChatIcon,
     },
     {
       to: "/rag",
-      label: "知识检索",
-      desc: "基于文档分块作答并给出引用",
+      label: t("dash.entryRag"),
+      desc: t("dash.entryRagDesc"),
       Icon: SearchIcon,
     },
   ];
@@ -121,7 +125,7 @@ export default function Dashboard() {
     [sessions],
   );
 
-  const today = new Date().toLocaleDateString("zh-CN", {
+  const today = new Date().toLocaleDateString(intlLocale(), {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -137,7 +141,7 @@ export default function Dashboard() {
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[--text-2xl] font-semibold text-ink">
-            {user?.name ? `欢迎回来，${user.name}` : "概览"}
+            {user?.name ? t("dash.welcome", { name: user.name }) : t("page.dashboard")}
           </h1>
           <p className="mt-1 flex items-center gap-1.5 text-[--text-sm] text-ink-muted">
             <ClockIcon className="h-3.5 w-3.5" />
@@ -149,25 +153,25 @@ export default function Dashboard() {
           className="a-btn a-btn-outline"
         >
           <SearchIcon className="h-4 w-4" />
-          开始一次检索
+          {t("dash.startRetrieval")}
         </Link>
       </header>
 
       <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric
-          label="知识库"
+          label={t("common.database")}
           value={databases?.length ?? 0}
           loading={dbLoading}
         />
-        <Metric label="本地会话" value={sessions.length} />
+        <Metric label={t("dash.localSessions")} value={sessions.length} />
         <Metric
-          label="今日 Token"
+          label={t("dash.todayTokens")}
           value={user?.daily_token_used ?? 0}
           unit="tokens"
         />
         {isAdmin && (
           <Metric
-            label="系统用户"
+            label={t("dash.systemUsers")}
             value={usersData?.total ?? 0}
             loading={usersLoading}
           />
@@ -177,7 +181,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         <section className="space-y-5">
           <div>
-            <h2 className="a-section-title mb-2.5">开始</h2>
+            <h2 className="a-section-title mb-2.5">{t("dash.startSection")}</h2>
             <div className="anim-stagger grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {entries.map(({ to, label, desc, Icon }) => (
                 <Link
@@ -200,11 +204,11 @@ export default function Dashboard() {
           </div>
 
           <div>
-            <h2 className="a-section-title mb-2.5">最近会话</h2>
+            <h2 className="a-section-title mb-2.5">{t("dash.recentSessions")}</h2>
             <div className="a-card overflow-hidden">
               {recentSessions.length === 0 ? (
                 <p className="px-3.5 py-8 text-center text-[--text-sm] text-ink-subtle">
-                  还没有会话，从上方任一种对话开始。
+                  {t("dash.noSessions")}
                 </p>
               ) : (
                 <ul className="divide-y divide-line-subtle">
@@ -220,10 +224,10 @@ export default function Dashboard() {
                           <ChatIcon className="h-3.5 w-3.5 shrink-0 text-ink-subtle" />
                         )}
                         <span className="min-w-0 flex-1 truncate text-[--text-sm] text-ink">
-                          {s.title || "新对话"}
+                          {s.title || t("session.newTitle")}
                         </span>
                         <span className="shrink-0 text-[11px] text-ink-subtle tnum">
-                          {s.messages.length} 条
+                          {t("dash.msgCount", { n: s.messages.length })}
                         </span>
                       </Link>
                     </li>
@@ -235,22 +239,22 @@ export default function Dashboard() {
         </section>
 
         <section>
-          <h2 className="a-section-title mb-2.5">知识库状态</h2>
+          <h2 className="a-section-title mb-2.5">{t("dash.kbStatus")}</h2>
           <div className="a-card overflow-hidden">
             {dbLoading ? (
               <p className="px-3.5 py-8 text-center text-[--text-sm] text-ink-subtle">
-                正在加载知识库…
+                {t("dash.loadingKb")}
               </p>
             ) : !databases?.length ? (
               <p className="px-3.5 py-8 text-center text-[--text-sm] text-ink-subtle">
-                还没有知识库，先在知识库管理中创建并上传文档。
+                {t("dash.noKb")}
               </p>
             ) : (
               <table className="a-table">
                 <thead>
                   <tr>
-                    <th>名称</th>
-                    <th>描述</th>
+                    <th>{t("common.name")}</th>
+                    <th>{t("common.description")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -262,7 +266,7 @@ export default function Dashboard() {
                           {/* 可用不需要徽章，只有停用才值得占用注意力 */}
                           {db.is_active === false && (
                             <span className="a-badge border-danger-border bg-danger-soft text-danger">
-                              停用
+                              {t("common.inactive")}
                             </span>
                           )}
                         </span>
@@ -281,10 +285,10 @@ export default function Dashboard() {
                 onClick={() => navigate("/admin/vector")}
                 className="text-[11px] text-accent-ink hover:underline"
               >
-                管理文档与索引
+                {t("dash.manageDocs")}
               </button>
               <span className="text-[11px] text-ink-subtle tnum">
-                共 {databases?.length ?? 0} 个
+                {t("dash.totalN", { n: databases?.length ?? 0 })}
               </span>
             </div>
           </div>

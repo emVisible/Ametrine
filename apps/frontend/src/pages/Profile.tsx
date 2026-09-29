@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "../hooks/useAuth";
 import { apiClient } from "../api/client";
 import useAuthStore from "../stores/useAuthStore";
+import { intlLocale } from "../i18n";
 import {
   InfoRow,
   Loading,
@@ -14,9 +15,15 @@ import {
   TextInput,
 } from "../components/ui";
 import { useToast } from "../hooks/useToast";
+import { useI18n } from "../i18n/context";
 import type { User } from "../types/user";
 
-const ROLE_LABEL: Record<number, string> = { 1: "用户", 2: "经理", 3: "管理员" };
+/** 存文案键而不是文案：模块级常量在切语言后仍然是旧的译文 */
+const ROLE_KEYS: Record<number, string> = {
+  1: "common.roleUser",
+  2: "common.roleManager",
+  3: "common.roleAdmin",
+};
 
 function UsageMeter({
   label,
@@ -27,12 +34,13 @@ function UsageMeter({
   value: number;
   limit?: number;
 }) {
+  const { t } = useI18n();
   const percent = limit ? Math.min(100, Math.round((value / limit) * 100)) : null;
   return (
     <div className="px-4 py-3">
       <p className="text-[11px] text-ink-subtle">{label}</p>
       <p className="mt-0.5 text-[--text-lg] font-semibold text-ink tnum">
-        {value.toLocaleString("zh-CN")}
+        {value.toLocaleString(intlLocale())}
       </p>
       {limit ? (
         <>
@@ -45,11 +53,14 @@ function UsageMeter({
             />
           </div>
           <p className="mt-1 text-[10px] text-ink-subtle tnum">
-            上限 {limit.toLocaleString("zh-CN")} · {percent ?? 0}%
+            {t("profile.limitPercent", {
+              limit: limit.toLocaleString(intlLocale()),
+              percent: percent ?? 0,
+            })}
           </p>
         </>
       ) : (
-        <p className="mt-1 text-[10px] text-ink-subtle">累计</p>
+        <p className="mt-1 text-[10px] text-ink-subtle">{t("profile.cumulative")}</p>
       )}
     </div>
   );
@@ -57,6 +68,12 @@ function UsageMeter({
 
 export default function ProfilePage() {
   const { data: currentUser } = useCurrentUser();
+  const { t } = useI18n();
+  // 索引访问拿到的是 string | undefined，所以查键后兜一层文案键
+  const roleLabel = (roleId?: number) => {
+    const key = ROLE_KEYS[roleId ?? 1];
+    return key ? t(key) : t("common.unknown");
+  };
   const storedUser = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   const queryClient = useQueryClient();
@@ -89,23 +106,23 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ["user", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       setEditing(false);
-      toast("资料已保存", "success");
+      toast(t("profile.saved"), "success");
     },
-    onError: (e: Error) => toast(`保存失败：${e.message}`, "error"),
+    onError: (e: Error) => toast(t("common.saveFailed", { msg: e.message }), "error"),
   });
 
   if (isLoading)
     return (
       <div className="mx-auto w-full max-w-[48rem] px-4 py-6 md:px-8">
-        <Loading label="正在读取个人资料…" />
+        <Loading label={t("profile.loading")} />
       </div>
     );
 
   return (
     <div className="mx-auto w-full max-w-[48rem] px-4 py-6 md:px-8">
       <PageHeader
-        title="个人资料"
-        description="账号信息、权限范围与系统提示词"
+        title={t("page.profile")}
+        description={t("profile.pageDesc")}
         actions={
           editing ? (
             <>
@@ -114,7 +131,7 @@ export default function ProfilePage() {
                 className="a-btn a-btn-ghost"
                 onClick={() => setEditing(false)}
               >
-                取消
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -122,7 +139,7 @@ export default function ProfilePage() {
                 disabled={save.isPending || !form.name.trim()}
                 onClick={() => save.mutate()}
               >
-                {save.isPending ? "保存中…" : "保存"}
+                {save.isPending ? t("common.saving") : t("common.save")}
               </button>
             </>
           ) : (
@@ -131,68 +148,71 @@ export default function ProfilePage() {
               className="a-btn a-btn-outline"
               onClick={startEditing}
             >
-              编辑资料
+              {t("profile.edit")}
             </button>
           )
         }
       />
 
       <div className="space-y-5">
-        <Panel title="基本信息" bodyClass="divide-y divide-line-subtle px-4">
+        <Panel title={t("common.basicInfo")} bodyClass="divide-y divide-line-subtle px-4">
           {editing ? (
             <div className="space-y-3.5 py-3.5">
               <TextInput
-                label="用户名"
+                label={t("auth.username")}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
               <TextInput
-                label="邮箱"
+                label={t("auth.email")}
                 type="email"
-                optional="选填"
+                optional={t("auth.optionalField")}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
             </div>
           ) : (
             <>
-              <InfoRow label="用户名" value={user?.name ?? "—"} />
-              <InfoRow label="邮箱" value={user?.email || "未设置"} />
+              <InfoRow label={t("auth.username")} value={user?.name ?? "—"} />
               <InfoRow
-                label="角色"
+                label={t("auth.email")}
+                value={user?.email || t("profile.notSet")}
+              />
+              <InfoRow
+                label={t("common.role")}
                 value={
                   <StatusBadge
                     tone={user?.role_id === 3 ? "accent" : user?.role_id === 2 ? "success" : "neutral"}
                   >
-                    {ROLE_LABEL[user?.role_id ?? 1] ?? "未知"}
+                    {roleLabel(user?.role_id)}
                   </StatusBadge>
                 }
               />
               <InfoRow
-                label="账号状态"
+                label={t("common.accountStatus")}
                 value={
                   user?.is_active ? (
                     <StatusBadge tone="success" dot>
-                      正常
+                      {t("common.active")}
                     </StatusBadge>
                   ) : (
-                    <StatusBadge tone="danger">已禁用</StatusBadge>
+                    <StatusBadge tone="danger">{t("common.disabled")}</StatusBadge>
                   )
                 }
               />
               <InfoRow
-                label="注册时间"
+                label={t("common.registeredAt")}
                 value={<span className="tnum">{user?.created_at?.slice(0, 10) || "—"}</span>}
               />
               <InfoRow
-                label="最近登录"
-                value={<span className="tnum">{user?.last_login_at?.slice(0, 10) || "从未登录"}</span>}
+                label={t("common.lastLogin")}
+                value={<span className="tnum">{user?.last_login_at?.slice(0, 10) || t("common.neverLoggedIn")}</span>}
               />
             </>
           )}
         </Panel>
 
-        <Panel title="权限范围" bodyClass="px-4 py-3.5">
+        <Panel title={t("profile.permissions")} bodyClass="px-4 py-3.5">
           {currentUser?.permissions?.length ? (
             <div className="flex flex-wrap gap-1.5">
               {currentUser.permissions.map((perm) => (
@@ -203,36 +223,36 @@ export default function ProfilePage() {
             </div>
           ) : (
             <p className="text-[--text-sm] text-ink-subtle">
-              暂无显式权限，可访问范围由所属租户决定。
+              {t("profile.permissionsEmpty")}
             </p>
           )}
         </Panel>
 
         <Panel
-          title="用量"
-          description="限额用于约束本地模型的上下文消耗，可在系统设置中调整"
+          title={t("profile.usage")}
+          description={t("profile.usageDesc")}
           bodyClass="grid grid-cols-2 divide-x divide-line-subtle md:grid-cols-4"
         >
           <UsageMeter
-            label="今日"
+            label={t("profile.today")}
             value={user?.daily_token_used ?? 0}
             limit={user?.daily_token_limit}
           />
           <UsageMeter
-            label="本月"
+            label={t("profile.thisMonth")}
             value={user?.monthly_token_used ?? 0}
             limit={user?.monthly_token_limit}
           />
-          <UsageMeter label="累计" value={user?.total_token_used ?? 0} />
+          <UsageMeter label={t("profile.cumulative")} value={user?.total_token_used ?? 0} />
           <UsageMeter
-            label="日限额"
+            label={t("profile.dailyLimit")}
             value={user?.daily_token_limit ?? 0}
           />
         </Panel>
 
         <Panel
-          title="系统提示词"
-          description="附加到每次对话，用于固定回答风格与边界"
+          title={t("profile.prompt")}
+          description={t("profile.promptDesc")}
           bodyClass="px-4 py-3.5"
         >
           {editing ? (
@@ -242,7 +262,7 @@ export default function ProfilePage() {
               onChange={(e) =>
                 setForm({ ...form, system_prompt: e.target.value })
               }
-              placeholder="留空则使用后端默认提示词"
+              placeholder={t("profile.promptPlaceholder")}
             />
           ) : user?.system_prompt ? (
             <p className="whitespace-pre-wrap rounded-[--radius-md] border border-line-subtle bg-surface-sunken px-3 py-2.5 text-[--text-sm] leading-relaxed text-ink">
@@ -250,7 +270,7 @@ export default function ProfilePage() {
             </p>
           ) : (
             <p className="text-[--text-sm] text-ink-subtle">
-              未设置，使用默认系统提示词。
+              {t("profile.promptEmpty")}
             </p>
           )}
         </Panel>

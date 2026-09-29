@@ -9,6 +9,8 @@ import { apiClient } from "../api/client";
 import { tenantAPI } from "../api/tenant";
 import { useToast } from "../hooks/useToast";
 import { useCurrentUser } from "../hooks/useAuth";
+import { useI18n } from "../i18n/context";
+import { intlLocale } from "../i18n";
 import {
   qk,
   useCreateTenant,
@@ -46,7 +48,17 @@ import type { Tenant } from "../types/knowledge";
 import type { User } from "../types/user";
 import { paginate } from "../utils/pagination";
 
-const ROLE_LABEL: Record<number, string> = { 1: "用户", 2: "经理", 3: "管理员" };
+/** 存文案键而不是文案：模块级常量存译文的话，切语言后这张表仍然是旧语言 */
+const ROLE_KEYS: Record<number, string> = {
+  1: "common.roleUser",
+  2: "common.roleManager",
+  3: "common.roleAdmin",
+};
+
+/** 索引访问的类型是 string | undefined，统一在这里兜到「未知」的文案键 */
+function roleKeyOf(roleId: number) {
+  return ROLE_KEYS[roleId] ?? "common.unknown";
+}
 
 // 只有管理员值得用强调色，其余角色保持中性：
 // 一屏里出现多个彩色徽章时，颜色就不再传递信息了。
@@ -59,6 +71,7 @@ function roleTone(roleId: number) {
 function TenantMembershipList({ user }: { user: User }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useI18n();
   const { data: tenants } = useTenants();
 
   const toggle = useMutation({
@@ -68,29 +81,30 @@ function TenantMembershipList({ user }: { user: User }) {
         : tenantAPI.removeMember(vars.tenantId, user.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["access"] });
-      toast("租户归属已更新", "success");
+      toast(t("admin.access.tenantsUpdated"), "success");
     },
-    onError: (e: Error) => toast(`变更失败：${e.message}`, "error"),
+    onError: (e: Error) =>
+      toast(t("admin.access.changeFailed", { msg: e.message }), "error"),
   });
 
   if (!tenants?.length)
     return (
       <EmptyState
         icon={BuildingIcon}
-        title="还没有租户"
-        description="切到「租户」页签先创建一个。"
+        title={t("admin.access.noTenant")}
+        description={t("admin.access.noTenantInMember")}
       />
     );
 
   return (
     <ul className="divide-y divide-line-subtle">
-      {tenants.map((t) => (
+      {tenants.map((tenant) => (
         <TenantMemberRow
-          key={t.id}
-          tenant={t}
+          key={tenant.id}
+          tenant={tenant}
           userId={user.id}
           busy={toggle.isPending}
-          onToggle={(join) => toggle.mutate({ tenantId: t.id, join })}
+          onToggle={(join) => toggle.mutate({ tenantId: tenant.id, join })}
         />
       ))}
     </ul>
@@ -108,6 +122,7 @@ function TenantMemberRow({
   busy: boolean;
   onToggle: (join: boolean) => void;
 }) {
+  const { t } = useI18n();
   const { data: members, isLoading } = useTenantMembers(tenant.id);
   const joined = !!members?.some((m) => m.user_id === userId);
 
@@ -116,13 +131,15 @@ function TenantMemberRow({
       <div className="min-w-0 flex-1">
         <p className="truncate text-[--text-sm] text-ink">{tenant.name}</p>
         {tenant.database && (
-          <p className="truncate text-[11px] text-ink-subtle">绑定 {tenant.database}</p>
+          <p className="truncate text-[11px] text-ink-subtle">
+            {t("admin.access.boundDb", { db: tenant.database })}
+          </p>
         )}
       </div>
       {isLoading ? (
-        <span className="text-[11px] text-ink-subtle">读取中…</span>
+        <span className="text-[11px] text-ink-subtle">{t("common.loading")}</span>
       ) : (
-        joined && <StatusBadge tone="accent">成员</StatusBadge>
+        joined && <StatusBadge tone="accent">{t("admin.access.memberBadge")}</StatusBadge>
       )}
       <button
         type="button"
@@ -130,7 +147,7 @@ function TenantMemberRow({
         onClick={() => onToggle(!joined)}
         className={`a-btn !py-1 text-[11px] ${joined ? "a-btn-danger" : "a-btn-outline"}`}
       >
-        {joined ? "移出" : "加入"}
+        {joined ? t("admin.access.remove") : t("admin.access.join")}
       </button>
     </li>
   );
@@ -138,6 +155,7 @@ function TenantMemberRow({
 
 function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
   const [tab, setTab] = useState<"info" | "grants" | "tenants">("info");
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -150,9 +168,10 @@ function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.users });
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-      toast("已更新", "success");
+      toast(t("admin.access.updated"), "success");
     },
-    onError: (e: Error) => toast(`更新失败：${e.message}`, "error"),
+    onError: (e: Error) =>
+      toast(t("common.updateFailed", { msg: e.message }), "error"),
   });
 
   const grant = useMutation({
@@ -167,7 +186,8 @@ function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
           }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: qk.userPermissions(user.id) }),
-    onError: (e: Error) => toast(`授权变更失败：${e.message}`, "error"),
+    onError: (e: Error) =>
+      toast(t("admin.access.grantFailed", { msg: e.message }), "error"),
   });
 
   return (
@@ -175,81 +195,83 @@ function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
       open
       onClose={onClose}
       title={user.name}
-      description={user.email || "未填写邮箱"}
+      description={user.email || t("nav.noEmail")}
       width="max-w-lg"
     >
       <Tabs
-        ariaLabel="用户详情"
+        ariaLabel={t("admin.access.detailTabs")}
         value={tab}
         onChange={setTab}
         items={[
-          { key: "info", label: "基本信息" },
-          { key: "grants", label: "知识库授权", badge: perms?.length ?? 0 },
-          { key: "tenants", label: "租户归属" },
+          { key: "info", label: t("common.basicInfo") },
+          { key: "grants", label: t("admin.access.tabGrants"), badge: perms?.length ?? 0 },
+          { key: "tenants", label: t("admin.access.tabTenants") },
         ]}
       />
 
       {tab === "info" && (
         <div className="divide-y divide-line-subtle">
-          <InfoRow label="用户 ID" value={user.id} />
+          <InfoRow label={t("admin.access.userId")} value={user.id} />
           <InfoRow
-            label="账号状态"
+            label={t("common.accountStatus")}
             value={
               user.is_active ? (
                 <StatusBadge tone="success" dot>
-                  正常
+                  {t("common.active")}
                 </StatusBadge>
               ) : (
-                <StatusBadge tone="danger">已禁用</StatusBadge>
+                <StatusBadge tone="danger">{t("common.disabled")}</StatusBadge>
               )
             }
           />
           <InfoRow
-            label="注册时间"
+            label={t("common.registeredAt")}
             value={<span className="tnum">{user.created_at?.slice(0, 10) || "—"}</span>}
           />
           <InfoRow
-            label="最近登录"
+            label={t("common.lastLogin")}
             value={
               <span className="tnum">
-                {user.last_login_at?.slice(0, 10) || "从未登录"}
+                {user.last_login_at?.slice(0, 10) || t("common.neverLoggedIn")}
               </span>
             }
           />
           <InfoRow
-            label="累计 Token"
+            label={t("common.totalTokens")}
             value={
               <span className="tnum">
-                {(user.total_token_used ?? 0).toLocaleString("zh-CN")}
+                {(user.total_token_used ?? 0).toLocaleString(intlLocale())}
               </span>
             }
           />
           <div className="flex items-center justify-between gap-3 pt-3">
-            <span className="text-[--text-sm] text-ink-muted">角色</span>
+            <span className="text-[--text-sm] text-ink-muted">{t("common.role")}</span>
             <div className="flex items-center gap-2">
               <StatusBadge tone={roleTone(user.role_id)}>
-                {ROLE_LABEL[user.role_id] ?? "未知"}
+                {t(roleKeyOf(user.role_id))}
               </StatusBadge>
               <Select
-                aria-label="变更角色"
+                aria-label={t("admin.access.changeRole")}
                 value={user.role_id}
                 className="!w-auto !py-1 text-[11px]"
                 disabled={patch.isPending}
-                options={[
-                  { value: 1, label: "用户" },
-                  { value: 2, label: "经理" },
-                  { value: 3, label: "管理员" },
-                ]}
+                options={[1, 2, 3].map((roleId) => ({
+                  value: roleId,
+                  label: t(roleKeyOf(roleId)),
+                }))}
                 onChange={(e) => {
                   const roleId = Number(e.target.value);
                   if (roleId === user.role_id) return;
                   confirm({
-                    title: `把 ${user.name} 改为「${ROLE_LABEL[roleId]}」？`,
+                    title: t("admin.access.changeRoleTitle", {
+                      name: user.name,
+                      role: t(roleKeyOf(roleId)),
+                    }),
                     message:
                       roleId === 3
-                        ? "管理员可读写全部知识库并绕过按库授权，请确认是有意为之。"
-                        : "角色变更后该用户的可访问范围立即改变。",
-                    confirmLabel: "确认变更",
+                        ? t("admin.access.changeRoleAdminMsg")
+                        : t("admin.access.changeRoleMsg"),
+                    confirmLabel: t("admin.access.confirmChange"),
                     tone: "accent",
                   }).then((ok) => ok && patch.mutate({ role_id: roleId }));
                 }}
@@ -262,15 +284,15 @@ function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
       {tab === "grants" && (
         <div>
           <p className="mb-2.5 text-[11px] leading-relaxed text-ink-muted">
-            按知识库单独授权。租户成员会自动获得该租户知识库的读权限，不必在这里重复授予。
+            {t("admin.access.grantsHint")}
           </p>
           {!databases?.length ? (
             <EmptyState
               icon={LibraryIcon}
-              title="还没有知识库"
+              title={t("admin.vector.noDb")}
               action={
                 <Link to="/admin/vector" className="a-btn a-btn-outline">
-                  去创建知识库
+                  {t("admin.access.goCreateDb")}
                 </Link>
               }
             />
@@ -285,13 +307,15 @@ function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
                       <p className="truncate text-[--text-sm] text-ink">{db.name}</p>
                       {db.tenant_name && (
                         <p className="truncate text-[11px] text-ink-subtle">
-                          租户 {db.tenant_name}
+                          {t("admin.access.tenantOf", { name: db.tenant_name })}
                         </p>
                       )}
                     </div>
                     {granted && (
                       <StatusBadge tone={perm!.can_write ? "success" : "neutral"}>
-                        {perm!.can_write ? "读写" : "只读"}
+                        {perm!.can_write
+                          ? t("admin.access.grantReadWrite")
+                          : t("admin.access.grantReadOnly")}
                       </StatusBadge>
                     )}
                     <button
@@ -300,7 +324,7 @@ function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
                       onClick={() => grant.mutate({ dbId: db.id, on: !granted })}
                       className={`a-btn !py-1 text-[11px] ${granted ? "a-btn-danger" : "a-btn-outline"}`}
                     >
-                      {granted ? "撤权" : "授权"}
+                      {granted ? t("admin.access.revoke") : t("admin.access.grant")}
                     </button>
                   </li>
                 );
@@ -318,6 +342,7 @@ function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
 /* ───────────── 成员列表 ───────────── */
 
 function MembersPanel() {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [page, setPage] = useState(1);
@@ -335,7 +360,7 @@ function MembersPanel() {
           u.name.toLowerCase().includes(needle) ||
           (u.email ?? "").toLowerCase().includes(needle),
       )
-      .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+      .sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
   }, [users, query, roleFilter]);
 
   const paged = paginate(rows, page);
@@ -343,7 +368,7 @@ function MembersPanel() {
   const columns: Column<User>[] = [
     {
       key: "name",
-      header: "成员",
+      header: t("common.members"),
       cell: (u) => (
         <div className="flex items-center gap-2.5">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-[10px] font-semibold text-ink-muted">
@@ -354,11 +379,11 @@ function MembersPanel() {
               {u.name}
               {/* 正常态不需要徽章，只有异常值得占用注意力 */
               !u.is_active && (
-                <StatusBadge tone="danger">已禁用</StatusBadge>
+                <StatusBadge tone="danger">{t("common.disabled")}</StatusBadge>
               )}
             </p>
             <p className="truncate text-[11px] text-ink-subtle">
-              {u.email || "未填写邮箱"}
+              {u.email || t("nav.noEmail")}
             </p>
           </div>
         </div>
@@ -366,34 +391,34 @@ function MembersPanel() {
     },
     {
       key: "role",
-      header: "角色",
+      header: t("common.role"),
       width: "7rem",
       cell: (u) => (
         <StatusBadge tone={roleTone(u.role_id)}>
-          {ROLE_LABEL[u.role_id] ?? "未知"}
+          {t(roleKeyOf(u.role_id))}
         </StatusBadge>
       ),
     },
     {
       key: "lastLogin",
-      header: "最近登录",
+      header: t("common.lastLogin"),
       width: "9rem",
       hideBelow: "md",
       cell: (u) => (
         <span className="tnum text-ink-subtle">
-          {u.last_login_at?.slice(0, 10) || "从未登录"}
+          {u.last_login_at?.slice(0, 10) || t("common.neverLoggedIn")}
         </span>
       ),
     },
     {
       key: "tokens",
-      header: "累计 Token",
+      header: t("common.totalTokens"),
       align: "right",
       width: "8rem",
       hideBelow: "sm",
       cell: (u) => (
         <span className="tnum text-ink-muted">
-          {(u.total_token_used ?? 0).toLocaleString("zh-CN")}
+          {(u.total_token_used ?? 0).toLocaleString(intlLocale())}
         </span>
       ),
     },
@@ -403,23 +428,25 @@ function MembersPanel() {
     <>
       <Panel
         bodyClass="px-4 py-3"
-        title={`${rows.length} / ${users.length} 个成员`}
+        title={t("admin.access.memberCount", {
+          shown: rows.length,
+          total: users.length,
+        })}
         actions={
           <>
             <Select
-              aria-label="按角色筛选"
+              aria-label={t("admin.access.filterByRole")}
               value={roleFilter}
               onChange={(e) => {
                 setRoleFilter(e.target.value);
                 setPage(1);
               }}
               className="!w-auto !py-1 text-[11px]"
-              placeholder="全部角色"
-              options={[
-                { value: "1", label: "用户" },
-                { value: "2", label: "经理" },
-                { value: "3", label: "管理员" },
-              ]}
+              placeholder={t("admin.access.allRoles")}
+              options={[1, 2, 3].map((roleId) => ({
+                value: String(roleId),
+                label: t(roleKeyOf(roleId)),
+              }))}
             />
             <SearchInput
               value={query}
@@ -427,7 +454,7 @@ function MembersPanel() {
                 setQuery(v);
                 setPage(1);
               }}
-              placeholder="搜索成员"
+              placeholder={t("admin.access.searchMembers")}
               className="w-52"
             />
           </>
@@ -445,11 +472,15 @@ function MembersPanel() {
           empty={
             <EmptyState
               icon={UsersIcon}
-              title={query || roleFilter ? "没有匹配的成员" : "还没有成员"}
+              title={
+                query || roleFilter
+                  ? t("admin.access.noMemberMatch")
+                  : t("admin.access.noMembers")
+              }
               description={
                 query || roleFilter
-                  ? "换个关键词或清除筛选。"
-                  : "注册入口开放后即可创建账号。"
+                  ? t("admin.access.memberSearchHint")
+                  : t("admin.access.noMembersDesc")
               }
             />
           }
@@ -474,6 +505,7 @@ function TenantMembersModal({
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useI18n();
   const [pick, setPick] = useState("");
   const { data: members, isLoading } = useTenantMembers(tenant.id);
   const { data: userResult } = useUsers();
@@ -483,16 +515,18 @@ function TenantMembersModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.tenantMembers(tenant.id) });
       setPick("");
-      toast("已加入租户", "success");
+      toast(t("admin.access.joinedTenant"), "success");
     },
-    onError: (e: Error) => toast(`加入失败：${e.message}`, "error"),
+    onError: (e: Error) =>
+      toast(t("admin.access.joinFailed", { msg: e.message }), "error"),
   });
 
   const remove = useMutation({
     mutationFn: (userId: number) => tenantAPI.removeMember(tenant.id, userId),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: qk.tenantMembers(tenant.id) }),
-    onError: (e: Error) => toast(`移出失败：${e.message}`, "error"),
+    onError: (e: Error) =>
+      toast(t("admin.access.removeFailed", { msg: e.message }), "error"),
   });
 
   const memberIds = new Set((members ?? []).map((m) => m.user_id));
@@ -502,18 +536,24 @@ function TenantMembersModal({
     <Modal
       open
       onClose={onClose}
-      title={`${tenant.name} 的成员`}
+      title={t("admin.access.tenantMembersTitle", { name: tenant.name })}
       description={
-        tenant.database ? `绑定知识库 ${tenant.database}` : "尚未绑定知识库"
+        tenant.database
+          ? t("admin.access.tenantDbBound", { db: tenant.database })
+          : t("admin.access.tenantNoDb")
       }
     >
       <div className="flex items-end gap-2">
         <div className="flex-1">
           <Select
-            label="添加成员"
+            label={t("admin.access.addMember")}
             value={pick}
             onChange={(e) => setPick(e.target.value)}
-            placeholder={candidates.length ? "选择成员" : "没有可添加的成员"}
+            placeholder={
+              candidates.length
+                ? t("admin.access.pickMember")
+                : t("admin.access.noMembersToAdd")
+            }
             options={candidates.map((u) => ({
               value: u.id,
               label: u.email ? `${u.name} · ${u.email}` : u.name,
@@ -527,18 +567,18 @@ function TenantMembersModal({
           onClick={() => add.mutate(Number(pick))}
         >
           <PlusIcon className="h-4 w-4" />
-          添加
+          {t("common.add")}
         </button>
       </div>
 
       <div className="mt-4 border-t border-line-subtle pt-2">
         {isLoading ? (
           <p className="py-6 text-center text-[--text-sm] text-ink-subtle">
-            读取成员…
+            {t("admin.access.loadingMembers")}
           </p>
         ) : !members?.length ? (
           <p className="py-6 text-center text-[--text-sm] text-ink-subtle">
-            这个租户还没有成员。
+            {t("admin.access.tenantNoMembers")}
           </p>
         ) : (
           <ul className="divide-y divide-line-subtle">
@@ -551,7 +591,7 @@ function TenantMembersModal({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[--text-sm] text-ink">
-                      {u?.name ?? `用户 #${m.user_id}`}
+                      {u?.name ?? t("admin.access.userNumbered", { id: m.user_id })}
                     </p>
                     {m.role && m.role !== "member" && (
                       <p className="text-[11px] text-ink-subtle">{m.role}</p>
@@ -563,7 +603,7 @@ function TenantMembersModal({
                     disabled={remove.isPending}
                     onClick={() => remove.mutate(m.user_id)}
                   >
-                    移出
+                    {t("admin.access.remove")}
                   </button>
                 </li>
               );
@@ -578,6 +618,7 @@ function TenantMembersModal({
 function TenantsPanel({ onCreate }: { onCreate: () => void }) {
   const confirm = useConfirm();
   const { toast } = useToast();
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [managing, setManaging] = useState<Tenant | null>(null);
@@ -587,8 +628,8 @@ function TenantsPanel({ onCreate }: { onCreate: () => void }) {
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return (tenants ?? [])
-      .filter((t) => !needle || t.name.toLowerCase().includes(needle))
-      .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+      .filter((tenant) => !needle || tenant.name.toLowerCase().includes(needle))
+      .sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
   }, [tenants, query]);
 
   const paged = paginate(rows, page);
@@ -596,24 +637,24 @@ function TenantsPanel({ onCreate }: { onCreate: () => void }) {
   const columns: Column<Tenant>[] = [
     {
       key: "name",
-      header: "租户",
-      cell: (t) => (
+      header: t("common.tenant"),
+      cell: (tenant) => (
         <div className="flex items-center gap-2.5">
           <BuildingIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
-          <span className="font-medium text-ink">{t.name}</span>
+          <span className="font-medium text-ink">{tenant.name}</span>
         </div>
       ),
     },
     {
       key: "database",
-      header: "绑定知识库",
-      cell: (t) =>
-        t.database ? (
+      header: t("admin.access.boundDbHeader"),
+      cell: (tenant) =>
+        tenant.database ? (
           <Link to="/admin/vector" className="text-accent-ink hover:underline">
-            {t.database}
+            {tenant.database}
           </Link>
         ) : (
-          <StatusBadge tone="warning">未绑定知识库</StatusBadge>
+          <StatusBadge tone="warning">{t("admin.access.unboundDb")}</StatusBadge>
         ),
     },
     {
@@ -621,14 +662,14 @@ function TenantsPanel({ onCreate }: { onCreate: () => void }) {
       header: "",
       align: "right",
       width: "11rem",
-      cell: (t) => (
+      cell: (tenant) => (
         <div className="flex justify-end gap-1.5">
           <button
             type="button"
             className="a-btn a-btn-outline !py-1 text-[11px]"
-            onClick={() => setManaging(t)}
+            onClick={() => setManaging(tenant)}
           >
-            成员
+            {t("common.members")}
           </button>
           <button
             type="button"
@@ -636,19 +677,18 @@ function TenantsPanel({ onCreate }: { onCreate: () => void }) {
             disabled={remove.isPending}
             onClick={() =>
               confirm({
-                title: `删除租户「${t.name}」？`,
-                message:
-                  "不可撤销。若已绑定知识库，解绑后该知识库需重新绑定才能按租户授权访问。",
-                confirmLabel: "删除租户",
+                title: t("admin.access.deleteTenantTitle", { name: tenant.name }),
+                message: t("admin.access.deleteTenantMsg"),
+                confirmLabel: t("admin.access.deleteTenantConfirm"),
               }).then((ok) => {
                 if (ok) {
-                  remove.mutate(t.id);
-                  toast("租户已删除", "success");
+                  remove.mutate(tenant.id);
+                  toast(t("admin.access.tenantDeleted"), "success");
                 }
               })
             }
           >
-            删除
+            {t("common.del")}
           </button>
         </div>
       ),
@@ -659,7 +699,7 @@ function TenantsPanel({ onCreate }: { onCreate: () => void }) {
     <>
       <Panel
         bodyClass="px-4 py-3"
-        title={`共 ${rows.length} 个租户`}
+        title={t("admin.access.tenantCount", { n: rows.length })}
         actions={
           <>
             <button
@@ -668,7 +708,7 @@ function TenantsPanel({ onCreate }: { onCreate: () => void }) {
               onClick={onCreate}
             >
               <PlusIcon className="h-3.5 w-3.5" />
-              新建租户
+              {t("admin.access.newTenant")}
             </button>
             <SearchInput
               value={query}
@@ -676,7 +716,7 @@ function TenantsPanel({ onCreate }: { onCreate: () => void }) {
                 setQuery(v);
                 setPage(1);
               }}
-              placeholder="搜索租户"
+              placeholder={t("admin.access.searchTenants")}
               className="w-52"
             />
           </>
@@ -688,21 +728,25 @@ function TenantsPanel({ onCreate }: { onCreate: () => void }) {
         <DataTable
           columns={columns}
           rows={paged.items}
-          rowKey={(t) => t.id}
+          rowKey={(tenant) => tenant.id}
           loading={isLoading}
           empty={
             <EmptyState
               icon={BuildingIcon}
-              title={query ? "没有匹配的租户" : "还没有租户"}
+              title={
+                query
+                  ? t("admin.access.noTenantMatch")
+                  : t("admin.access.noTenant")
+              }
               description={
                 query
-                  ? "换个关键词试试。"
-                  : "租户是检索授权的最小边界，创建后在知识库中绑定即可生效。"
+                  ? t("common.tryKeyword")
+                  : t("admin.access.noTenantDesc")
               }
               action={
                 <button type="button" className="a-btn a-btn-primary" onClick={onCreate}>
                   <PlusIcon className="h-4 w-4" />
-                  新建租户
+                  {t("admin.access.newTenant")}
                 </button>
               }
             />
@@ -723,6 +767,7 @@ export default function AdminAccessPage() {
   const [tab, setTab] = useState<"members" | "tenants">("members");
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  const { t } = useI18n();
   const { data: user } = useCurrentUser();
   const { data: userResult } = useUsers();
   const { data: tenants } = useTenants();
@@ -731,12 +776,12 @@ export default function AdminAccessPage() {
   if (!user?.permissions?.includes("admin"))
     return (
       <div className="mx-auto w-full max-w-[68rem] px-4 py-6 md:px-8">
-        <PageHeader title="组织与权限" />
+        <PageHeader title={t("page.access")} />
         <Panel>
           <EmptyState
             icon={ShieldIcon}
-            title="需要管理员权限"
-            description="只有管理员可以查看成员与租户配置。"
+            title={t("admin.access.adminRequired")}
+            description={t("admin.access.adminRequiredDesc")}
           />
         </Panel>
       </div>
@@ -745,21 +790,25 @@ export default function AdminAccessPage() {
   return (
     <div className="mx-auto w-full max-w-[68rem] px-4 py-6 md:px-8">
       <PageHeader
-        title="组织与权限"
-        description="成员、租户与知识库授权共同决定「谁能检索到什么」"
+        title={t("page.access")}
+        description={t("admin.access.pageDesc")}
       />
 
       <Tabs
-        ariaLabel="组织与权限"
+        ariaLabel={t("page.access")}
         value={tab}
         onChange={setTab}
         items={[
           {
             key: "members",
-            label: "成员",
+            label: t("common.members"),
             badge: userResult?.total ?? userResult?.users.length ?? 0,
           },
-          { key: "tenants", label: "租户", badge: tenants?.length ?? 0 },
+          {
+            key: "tenants",
+            label: t("common.tenants"),
+            badge: tenants?.length ?? 0,
+          },
         ]}
       />
 
@@ -769,8 +818,8 @@ export default function AdminAccessPage() {
       <Modal
         open={creating}
         onClose={() => setCreating(false)}
-        title="新建租户"
-        description="创建后需在知识库中把它绑定到对应数据库"
+        title={t("admin.access.newTenant")}
+        description={t("admin.access.newTenantDesc")}
         footer={
           <>
             <button
@@ -778,7 +827,7 @@ export default function AdminAccessPage() {
               className="a-btn a-btn-ghost"
               onClick={() => setCreating(false)}
             >
-              取消
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -796,16 +845,16 @@ export default function AdminAccessPage() {
                 )
               }
             >
-              {create.isPending ? "创建中…" : "创建"}
+              {create.isPending ? t("common.creating") : t("common.create")}
             </button>
           </>
         }
       >
         <TextInput
-          label="租户名称"
+          label={t("admin.access.tenantName")}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="例如：研发部"
+          placeholder={t("admin.access.tenantNameExample")}
           autoFocus
         />
       </Modal>

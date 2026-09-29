@@ -4,6 +4,7 @@ import type { ComponentType, CSSProperties } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { SyntaxHighlighterProps } from "react-syntax-highlighter";
+import { useI18n } from "../i18n/context";
 import { CheckIcon, CopyIcon } from "./icons";
 
 /**
@@ -40,6 +41,7 @@ function PlainPre({ code }: { code: string }) {
 }
 
 function CodeBlock({ language, code }: { language: string; code: string }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -73,7 +75,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
         <button
           type="button"
           onClick={copy}
-          aria-label="复制代码"
+          aria-label={t("ui.copyCode")}
           className="rounded-[--radius-xs] bg-black/40 p-1 text-white/70 transition-ui hover:bg-black/60 hover:text-white"
         >
           {copied ? (

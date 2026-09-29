@@ -12,8 +12,15 @@ import {
 } from "../components/chat";
 import VoiceInput from "../components/VoiceInput";
 import { ChatIcon } from "../components/icons";
+import { useI18n } from "../i18n/context";
 import { useSessionMessages } from "../hooks/useSessionMessages";
-import type { HistoryMessage } from "../stores/sessionStore";
+import useSessionStore, { type HistoryMessage } from "../stores/sessionStore";
+import {
+  beginStream,
+  endStream,
+  failStream,
+  stopStream,
+} from "../stores/streamStore";
 
 interface RemoteMessage {
   role: "user" | "assistant";
@@ -22,33 +29,37 @@ interface RemoteMessage {
 }
 
 export default function ChatPage() {
+  const { t } = useI18n();
   const [input, setInput] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   const {
     messages,
-    setMessages,
-    currentSessionId,
+    sessionId,
+    streaming,
+    error,
     ensureSession,
-    beginTurn,
-    appendToken,
-    discardEmptyTurn,
+    setMessages,
+    clearError,
   } = useSessionMessages<HistoryMessage>("llm");
 
   const { data: remoteMessages } = useQuery({
-    queryKey: ["messages", currentSessionId],
-    queryFn: () => conversationAPI.getMessages(currentSessionId!),
-    enabled: !!currentSessionId,
+    queryKey: ["messages", sessionId],
+    queryFn: () => conversationAPI.getMessages(sessionId!),
+    enabled: !!sessionId,
   });
 
-  // 本地 store 丢了（换设备或清缓存）时从后端回灌
-  const restoredRef = useRef(false);
+  // 本地 store 丢了（换设备或清缓存）时从后端回灌。按会话 id 记录「回灌过哪一条」，
+  // 否则切到第二条会话时这个 ref 仍然为 true，新会话永远拿不到远端历史。
+  const restoredFor = useRef<string | null>(null);
   useEffect(() => {
-    if (restoredRef.current || messages.length > 0 || !remoteMessages?.length)
+    if (
+      !sessionId ||
+      restoredFor.current === sessionId ||
+      messages.length > 0 ||
+      !remoteMessages?.length
+    )
       return;
-    restoredRef.current = true;
+    restoredFor.current = sessionId;
     setMessages(
       remoteMessages.map((m: RemoteMessage) => ({
         role: m.role,
@@ -56,75 +67,62 @@ export default function ChatPage() {
         date: m.created_at,
       })),
     );
-  }, [remoteMessages, messages.length, setMessages]);
-
-  useEffect(() => () => abortRef.current?.abort(), []);
+  }, [remoteMessages, messages.length, sessionId, setMessages]);
 
   const stop = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setIsStreaming(false);
-    discardEmptyTurn();
-  }, [discardEmptyTurn]);
+    if (!sessionId) return;
+    useSessionStore.getState().discardEmptyTurn(sessionId);
+    stopStream(sessionId);
+  }, [sessionId]);
 
   const handleSubmit = useCallback(async () => {
     const prompt = input.trim();
-    if (!prompt || isStreaming) return;
+    if (!prompt) return;
 
     // 会话在按下发送这一刻才创建：以前裸 /chat 一进来就写库，
     // 于是「看一眼对话页」会留下一条永远删不掉的空 Conversation。
-    const sessionId = await ensureSession();
-    if (!sessionId) return;
+    const id = await ensureSession();
+    if (!id) return;
 
-    const history = beginTurn(prompt);
+    // 这一轮流式属于会话 id，而不是这个组件实例：控制器放进会话级注册表，
+    // 切会话导致本组件卸载时不会 abort，回来还能看见它在继续生成。
+    const controller = beginStream(id);
+    if (!controller) return;
+
+    const history = useSessionStore.getState().beginTurn(id, prompt);
     setInput("");
-    setIsStreaming(true);
-    setError(null);
+    clearError();
 
-    const controller = new AbortController();
-    abortRef.current = controller;
+    conversationAPI.addMessage(id, "user", prompt).catch(() => {});
 
-    conversationAPI.addMessage(sessionId, "user", prompt).catch(() => {});
-
-    await streamChat(
+    // 故意不 await：await 会把这轮流的生命周期绑回组件的渲染时机上，
+    // 卸载时的清理就会打断它。
+    void streamChat(
       { prompt, chat_history: history },
-      appendToken,
+      (token) => useSessionStore.getState().appendToken(id, token),
       () => {
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last?.role === "assistant" && last.content) {
-            conversationAPI
-              .addMessage(sessionId, "assistant", last.content)
-              .catch(() => {});
-          }
-          return prev;
-        });
-        setIsStreaming(false);
-        abortRef.current = null;
+        const last = useSessionStore
+          .getState()
+          .sessions.find((s) => s.id === id)
+          ?.messages.at(-1);
+        if (last?.role === "assistant" && last.content) {
+          conversationAPI.addMessage(id, "assistant", last.content).catch(() => {});
+        }
+        endStream(id);
       },
       (err) => {
-        discardEmptyTurn();
-        setError(err.message);
-        setIsStreaming(false);
-        abortRef.current = null;
+        useSessionStore.getState().discardEmptyTurn(id);
+        failStream(id, err.message);
       },
       controller.signal,
     );
-  }, [
-    input,
-    isStreaming,
-    ensureSession,
-    beginTurn,
-    appendToken,
-    discardEmptyTurn,
-    setMessages,
-  ]);
+  }, [input, ensureSession, clearError]);
 
   const view: ChatMessage[] = messages.map((m, i) => ({
     role: m.role,
     content: m.content,
     streaming:
-      m.role === "assistant" && isStreaming && i === messages.length - 1,
+      m.role === "assistant" && streaming && i === messages.length - 1,
   }));
 
   return (
@@ -139,8 +137,8 @@ export default function ChatPage() {
         empty={
           <EmptyState
             icon={ChatIcon}
-            title="开始新的对话"
-            description="回答仅来自模型本身，不检索知识库。需要基于文档作答请切换到检索模式。"
+            title={t("chat.emptyChatTitle")}
+            description={t("chat.emptyChatDesc")}
           />
         }
       />
@@ -150,15 +148,14 @@ export default function ChatPage() {
         onChange={setInput}
         onSubmit={handleSubmit}
         onStop={stop}
-        busy={isStreaming}
-        placeholder="输入消息…"
-        hint="Enter 发送 · Shift + Enter 换行"
-        leading={
+        busy={streaming}
+        placeholder={t("chat.placeholder")}
+        right={
           <VoiceInput
             onResult={(text) =>
               setInput((prev) => (prev ? `${prev} ${text}` : text))
             }
-            disabled={isStreaming}
+            disabled={streaming}
           />
         }
       />

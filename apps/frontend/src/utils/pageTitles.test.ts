@@ -2,19 +2,21 @@
 import { describe, expect, it } from "vitest";
 import { pageTitleForPath } from "./pageTitles";
 
+// 这里断言的是「文案键」而不是成品文案：键跨语言稳定，
+// 具体措辞归 i18n 字典管。
 describe("pageTitleForPath", () => {
   it.each([
-    ["/dashboard", "概览"],
-    ["/chat/abc", "对话"],
-    ["/rag/abc", "检索问答"],
-    ["/admin/vector", "知识库"],
-    ["/admin/vector/6/12", "知识库"],
-    ["/admin/access", "组织与权限"],
-    ["/settings", "系统设置"],
-    ["/profile", "个人资料"],
-    ["/403", "无权访问"],
-  ] as const)("%s → %s", (path, label) => {
-    expect(pageTitleForPath(path)).toBe(label);
+    ["/dashboard", "page.dashboard"],
+    ["/chat/abc", "page.chat"],
+    ["/rag/abc", "page.rag"],
+    ["/admin/vector", "page.vector"],
+    ["/admin/vector/6/12", "page.vector"],
+    ["/admin/access", "page.access"],
+    ["/settings", "page.settings"],
+    ["/profile", "page.profile"],
+    ["/403", "page.forbidden"],
+  ] as const)("%s → %s", (path, key) => {
+    expect(pageTitleForPath(path)).toBe(key);
   });
 
   it("未知路径不猜标题", () => {

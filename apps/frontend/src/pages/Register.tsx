@@ -3,10 +3,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useMutation } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
+import { useI18n } from "../i18n/context";
 import { AuthField, AuthScreen, AuthSubmit } from "../components/AuthScreen";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [errorMessage, setErrorMessage] = useState("");
 
   const register = useMutation({
@@ -14,10 +16,10 @@ export default function RegisterPage() {
       apiClient("/user/create", { method: "POST", body: data }),
     onSuccess: () => navigate("/login"),
     onError: (error: Error) =>
-      // 后端回的是英文短语，直接透出会在中文界面里显得像 bug
+      // 后端回的是英文短语，直接透出在两种语言里都像 bug，先归一成自己的文案
       setErrorMessage(
         /exist|已存在|duplicate|taken|已注册/i.test(error.message)
-          ? "该用户名已经被注册，换一个试试"
+          ? t("auth.nameTaken")
           : error.message,
       ),
   });
@@ -30,7 +32,7 @@ export default function RegisterPage() {
     const password = (formData.get("password") as string) ?? "";
     const email = (formData.get("email") as string)?.trim() ?? "";
     if (!name || !password) {
-      setErrorMessage("请填写用户名和密码");
+      setErrorMessage(t("auth.needUserPass"));
       return;
     }
     register.mutate({ name, password, email: email || undefined });
@@ -38,14 +40,14 @@ export default function RegisterPage() {
 
   return (
     <AuthScreen
-      title="创建账号"
-      subtitle="注册后由管理员分配知识库与租户权限"
-      error={errorMessage || (register.isSuccess ? "注册成功，请登录" : "")}
+      titleKey="auth.registerTitle"
+      taglineKey="auth.registerTagline"
+      error={errorMessage || (register.isSuccess ? t("auth.registered") : "")}
       footer={
         <>
-          已有账号？
+          {t("auth.haveAccount")}
           <Link to="/login" className="ml-1 text-accent-ink hover:underline">
-            返回登录
+            {t("auth.backToLogin")}
           </Link>
         </>
       }
@@ -54,28 +56,33 @@ export default function RegisterPage() {
         <AuthField
           id="name"
           name="name"
-          label="用户名"
+          label={t("auth.username")}
           autoComplete="username"
+          placeholder={t("auth.usernamePlaceholder")}
           required
         />
         <AuthField
           id="password"
           name="password"
-          label="密码"
+          label={t("auth.password")}
           type="password"
           autoComplete="new-password"
+          placeholder={t("auth.passwordPlaceholder")}
           required
         />
         <AuthField
           id="email"
           name="email"
-          label="邮箱"
+          label={t("auth.email")}
           type="email"
           autoComplete="email"
-          optional="选填"
+          optional={t("auth.optionalField")}
         />
-        <AuthSubmit pending={register.isPending} pendingLabel="提交中…">
-          注册
+        <AuthSubmit
+          pending={register.isPending}
+          pendingLabel={t("auth.submittingShort")}
+        >
+          {t("auth.submitRegister")}
         </AuthSubmit>
       </form>
     </AuthScreen>

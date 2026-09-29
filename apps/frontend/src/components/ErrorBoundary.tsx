@@ -1,5 +1,8 @@
 // src/components/ErrorBoundary.tsx
+// 类组件里不能用 useI18n，这里取模块级 t()：语言由 Provider 同步到模块，
+// 兜底界面本身已经在异常路径上，不值得为它再建一个订阅。
 import { Component, type ReactNode } from "react";
+import { t } from "../i18n";
 import { RefreshIcon, WarningIcon } from "./icons";
 
 interface Props {
@@ -32,10 +35,10 @@ export default class ErrorBoundary extends Component<Props, State> {
               </span>
               <div className="min-w-0">
                 <h2 className="text-[--text-base] font-semibold text-ink">
-                  该页面渲染失败
+                  {t("app.pageRenderFailed")}
                 </h2>
                 <p className="mt-1 text-[--text-sm] leading-relaxed text-ink-muted">
-                  {this.state.error?.message || "发生了意外错误"}
+                  {this.state.error?.message || t("app.unexpectedError")}
                 </p>
               </div>
             </div>
@@ -46,7 +49,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                 className="a-btn a-btn-outline !py-1"
               >
                 <RefreshIcon className="h-3.5 w-3.5" />
-                重试
+                {t("common.retry")}
               </button>
             </div>
           </div>

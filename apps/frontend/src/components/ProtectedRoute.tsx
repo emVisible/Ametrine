@@ -7,6 +7,7 @@
 import { Navigate, Outlet, useLocation } from "react-router";
 import useAuthStore from "../stores/useAuthStore";
 import { useCurrentUser } from "../hooks/useAuth";
+import { useI18n } from "../i18n/context";
 import { ErrorState, Loading } from "./ui";
 
 export function ProtectedRoute({
@@ -15,6 +16,7 @@ export function ProtectedRoute({
   requiredRoles?: string[];
 }) {
   const location = useLocation();
+  const { t } = useI18n();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   const { isPending, isError, error, refetch } = useCurrentUser();
@@ -31,13 +33,13 @@ export function ProtectedRoute({
 
   // 首次进入时 /user/me 还在飞：直接放行会先渲染出「非管理员」的导航再补上，
   // 角色徽章和菜单会闪一下
-  if (isPending) return <Loading label="正在确认身份…" />;
+  if (isPending) return <Loading label={t("ui.checkingIdentity")} />;
 
   if (isError) {
     return (
       <div className="anim-page">
         <ErrorState
-          title="暂时读不到你的账号信息"
+          title={t("ui.accountLoadFailed")}
           error={error}
           onRetry={() => refetch()}
         />

@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { Modal } from "./ui";
+import { useI18n } from "../i18n/context";
 import {
   ArrowLeftIcon,
   BookIcon,
@@ -13,33 +14,33 @@ import {
   SearchIcon,
 } from "./icons";
 
+/**
+ * 步骤表只存文案键：模块级常量存译文的话，切语言后仍然是旧语言。
+ */
 interface Step {
-  title: string;
-  description: string;
+  titleKey: string;
+  descKey: string;
   Icon: typeof BookIcon;
-  action?: { to: string; label: string };
+  action?: { to: string; labelKey: string };
 }
 
 const steps: Step[] = [
   {
-    title: "创建知识库",
-    description:
-      "知识库是检索的边界。先创建一个数据库，并把它绑定到租户，后续文档只会在这个范围内被检索。",
+    titleKey: "tour.createDb.title",
+    descKey: "tour.createDb.desc",
     Icon: LibraryIcon,
-    action: { to: "/admin/vector", label: "前往知识库管理" },
+    action: { to: "/admin/vector", labelKey: "tour.createDb.action" },
   },
   {
-    title: "上传并索引文档",
-    description:
-      "上传 PDF、Word、Markdown 等文件，系统会解析、分块并写入向量索引，每个文档保留索引状态以便排查失败。",
+    titleKey: "tour.uploadDocs.title",
+    descKey: "tour.uploadDocs.desc",
     Icon: BookIcon,
   },
   {
-    title: "开始检索问答",
-    description:
-      "在检索对话中选择知识库与集合，回答会附带引用来源与相关性，可回溯到具体分块。",
+    titleKey: "tour.startRag.title",
+    descKey: "tour.startRag.desc",
     Icon: SearchIcon,
-    action: { to: "/rag", label: "前往检索对话" },
+    action: { to: "/rag", labelKey: "tour.startRag.action" },
   },
 ];
 
@@ -50,6 +51,7 @@ export default function OnboardingTour({
   onHide: () => void;
   onFinish: () => void;
 }) {
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
   const current = steps[step];
   if (!current) return null;
@@ -60,8 +62,8 @@ export default function OnboardingTour({
     <Modal
       open
       onClose={onHide}
-      title={`快速上手 · ${current.title}`}
-      description={`第 ${step + 1} / ${steps.length} 步`}
+      title={t("tour.modalTitle", { title: t(current.titleKey) })}
+      description={t("tour.stepOf", { current: step + 1, total: steps.length })}
       footer={
         <>
           <button
@@ -69,7 +71,7 @@ export default function OnboardingTour({
             onClick={onFinish}
             className="a-btn a-btn-ghost !py-1 text-[11px]"
           >
-            跳过引导
+            {t("tour.skip")}
           </button>
           {step > 0 && (
             <button
@@ -78,7 +80,7 @@ export default function OnboardingTour({
               className="a-btn a-btn-outline !py-1"
             >
               <ArrowLeftIcon className="h-3.5 w-3.5" />
-              上一步
+              {t("tour.prev")}
             </button>
           )}
           {/* 这两行必须留在 JSX 注释里：写成 // 会被当作子节点渲染到卡片上 */}
@@ -87,7 +89,7 @@ export default function OnboardingTour({
             onClick={() => (last ? onFinish() : setStep(step + 1))}
             className="a-btn a-btn-primary !py-1"
           >
-            {last ? "开始使用" : "下一步"}
+            {last ? t("tour.finish") : t("tour.next")}
             {!last && <ChevronRightIcon className="h-3.5 w-3.5" />}
           </button>
         </>
@@ -99,7 +101,7 @@ export default function OnboardingTour({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[--text-sm] leading-relaxed text-ink-muted">
-            {current.description}
+            {t(current.descKey)}
           </p>
           {current.action && (
             // 「去哪儿」属于这一步的内容，不是按钮行的第二个主操作
@@ -108,7 +110,7 @@ export default function OnboardingTour({
               onClick={onFinish}
               className="mt-2 inline-flex items-center gap-1 text-[--text-sm] text-accent-ink hover:underline"
             >
-              {current.action.label}
+              {t(current.action.labelKey)}
               <ChevronRightIcon className="h-3.5 w-3.5" />
             </Link>
           )}
@@ -117,7 +119,7 @@ export default function OnboardingTour({
       <div className="mt-4 flex gap-1" aria-hidden>
         {steps.map((s, i) => (
           <span
-            key={s.title}
+            key={s.titleKey}
             className={`h-1 flex-1 rounded-full ${
               i <= step ? "bg-accent" : "bg-line-strong"
             }`}

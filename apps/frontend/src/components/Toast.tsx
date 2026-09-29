@@ -1,6 +1,7 @@
 // src/components/Toast.tsx
 import { useCallback, useEffect, useState } from "react";
 import { ToastContext, type ToastType } from "../hooks/useToast";
+import { useI18n } from "../i18n/context";
 import { CheckIcon, CloseIcon, InfoIcon, WarningIcon } from "./icons";
 
 interface Toast {
@@ -67,18 +68,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 function ToastItem({
-  toast: t,
+  toast: item,
   onRemove,
 }: {
   toast: Toast;
   onRemove: () => void;
 }) {
+  const { t } = useI18n();
   useEffect(() => {
     const timer = setTimeout(onRemove, 4000);
     return () => clearTimeout(timer);
   }, [onRemove]);
 
-  const visual = VISUAL[t.type];
+  const visual = VISUAL[item.type];
 
   return (
     <div
@@ -90,12 +92,12 @@ function ToastItem({
         <visual.Icon className="h-3 w-3" />
       </span>
       <p className="min-w-0 flex-1 text-[--text-sm] leading-relaxed text-ink">
-        {t.message}
+        {item.message}
       </p>
       <button
         type="button"
         onClick={onRemove}
-        aria-label="关闭提示"
+        aria-label={t("ui.closeToast")}
         className="shrink-0 rounded-[--radius-sm] p-0.5 text-ink-subtle transition-ui hover:bg-surface-sunken hover:text-ink"
       >
         <CloseIcon className="h-3.5 w-3.5" />

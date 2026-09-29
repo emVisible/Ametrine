@@ -45,6 +45,24 @@
         document.documentElement.classList.toggle("dark", dark);
       })();
 
+      // 首帧前敲定 <html lang>。i18n 的 detectLang() 用的是同一套优先级
+      // （localStorage 的 ametrine-lang → navigator.languages → zh-CN），
+      // 两边必须一致，否则读屏发音与浏览器翻译提示会先按错误的语言走一拍。
+      (function () {
+        var lang = null;
+        try {
+          lang = localStorage.getItem("ametrine-lang");
+        } catch (e) {
+          /* 隐私模式下 localStorage 会抛 */
+        }
+        if (lang !== "zh-CN" && lang !== "en") {
+          var list = (navigator.languages && navigator.languages[0]) ||
+            navigator.language || "";
+          lang = /^zh/i.test(list) ? "zh-CN" : /^en/i.test(list) ? "en" : "zh-CN";
+        }
+        document.documentElement.lang = lang;
+      })();
+
       // 启动看门狗：入口分片 404 时 JS 根本没机会运行，React 的错误边界和
       // chunkRecovery 都是死代码 —— 这正是「部署后首屏全白、手动刷新才好」的形态：
       // 手上的 index.html 还引用着上一个构建的哈希文件名。

@@ -1,5 +1,6 @@
 // src/api/auth.ts
 import type { CurrentUser } from '../types/user'
+import { t } from '../i18n'
 import { apiClient } from './client'
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
 
@@ -37,9 +38,9 @@ export const authAPI = {
       // 后端会区分「用户不存在」与「密码错误」，那是用户枚举的口子；
       // 前端不给它露出来的机会，统一措辞，其他故障仍然如实报
       if (/not found|incorrect|invalid|unauthorized/i.test(detail)) {
-        throw new Error('用户名或密码不正确')
+        throw new Error(t('auth.badCredentials'))
       }
-      throw new Error(detail || `登录失败（HTTP ${res.status}）`)
+      throw new Error(detail || t('errors.loginFailed', { status: res.status }))
     }
 
     return await res.json()

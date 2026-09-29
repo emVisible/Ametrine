@@ -4,9 +4,12 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import brandIcon from "../assets/icon.png";
 import useAuthStore from "../stores/useAuthStore";
 import useSessionStore, { type Session } from "../stores/sessionStore";
+import useStreamStore from "../stores/streamStore";
 import { useCurrentUser } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
 import { useRovingTabs } from "../hooks/useRovingTabs";
+import { useI18n } from "../i18n/context";
+import { LangSwitcher } from "../i18n/I18nProvider";
 import { applyDocumentTitle, pageTitleForPath } from "../utils/pageTitles";
 import { pageLoaders, preloadRoute } from "../pageLoaders";
 import CommandPalette from "./CommandPalette";
@@ -33,7 +36,8 @@ const MODE_ROUTE: Record<Mode, string> = { llm: "chat", rag: "rag" };
 
 interface NavEntry {
   to: string;
-  label: string;
+  /** 存文案键而不是文案：切语言时不必重建这张表 */
+  labelKey: string;
   Icon: typeof ChatIcon;
   adminOnly?: boolean;
   /** NavLink 默认对后代路径也判 active，叶子路由必须 end，否则 /admin 会在 /admin/xxx 上同时高亮 */
@@ -41,15 +45,18 @@ interface NavEntry {
 }
 
 const NAV: NavEntry[] = [
-  { to: "/dashboard", label: "概览", Icon: GaugeIcon, exact: true },
-  { to: "/admin/vector", label: "知识库", Icon: LibraryIcon },
-  { to: "/admin/access", label: "组织与权限", Icon: ShieldIcon, exact: true, adminOnly: true },
-  { to: "/settings", label: "设置", Icon: SettingsIcon, exact: true },
+  { to: "/dashboard", labelKey: "page.dashboard", Icon: GaugeIcon, exact: true },
+  { to: "/admin/vector", labelKey: "page.vector", Icon: LibraryIcon },
+  { to: "/admin/access", labelKey: "page.access", Icon: ShieldIcon, exact: true, adminOnly: true },
+  { to: "/settings", labelKey: "page.settings", Icon: SettingsIcon, exact: true },
 ];
 
-function bucketOf(iso: string): string {
+const BUCKETS = ["today", "yesterday", "week", "month", "earlier"] as const;
+type Bucket = (typeof BUCKETS)[number];
+
+function bucketOf(iso: string): Bucket {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "更早";
+  if (Number.isNaN(d.getTime())) return "earlier";
   const today = new Date();
   const startOfToday = new Date(
     today.getFullYear(),
@@ -61,11 +68,11 @@ function bucketOf(iso: string): string {
       +new Date(d.getFullYear(), d.getMonth(), d.getDate())) /
       86_400_000,
   );
-  if (days <= 0) return "今天";
-  if (days === 1) return "昨天";
-  if (days < 7) return "近 7 天";
-  if (days < 30) return "近 30 天";
-  return "更早";
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return "week";
+  if (days < 30) return "month";
+  return "earlier";
 }
 
 function ActiveBar({ show }: { show: boolean }) {
@@ -99,6 +106,9 @@ function SessionRow({
   onCancelRename: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
+  const streaming = useStreamStore((s) => s.active[session.id] === true);
+
   // 进入重命名时自动全选：用回调 ref 在挂载那一刻处理，不需要 effect 同步 state
   const selectOnMount = (el: HTMLInputElement | null) => {
     if (el) el.select();
@@ -121,13 +131,14 @@ function SessionRow({
             if (e.key === "Escape") onCancelRename();
           }}
           autoFocus
-          aria-label="重命名会话"
+          aria-label={t("nav.renameSession")}
           className="a-input !py-1 text-[11px]"
         />
       </li>
     );
   }
 
+  const title = session.title || t("session.newTitle");
   return (
     <li
       className={`group relative overflow-hidden transition-[max-height,opacity,transform] duration-[var(--dur-base)] ease-[var(--ease-in-out)] ${
@@ -146,17 +157,28 @@ function SessionRow({
             active ? "font-medium text-accent-ink" : "text-ink"
           }`}
         >
-          {session.title || "新对话"}
+          {title}
         </span>
-        <span className="mt-0.5 block text-[11px] text-ink-subtle tnum">
-          {session.messages.length} 条消息
-        </span>
+        {/* 生成中的会话要能在大老远就被认出来：否则切走了就不知道它还在跑 */}
+        {streaming ? (
+          <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-accent-ink">
+            <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-70" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
+            </span>
+            {t("chat.streaming")}
+          </span>
+        ) : (
+          <span className="mt-0.5 block text-[11px] text-ink-subtle tnum">
+            {t("nav.messageCount", { n: session.messages.length })}
+          </span>
+        )}
       </button>
       <button
         type="button"
         onClick={onDelete}
-        aria-label={`删除会话 ${session.title}`}
-        title="删除会话"
+        aria-label={t("nav.deleteSession", { title })}
+        title={t("common.del")}
         className="absolute right-1.5 top-1.5 rounded-[--radius-sm] p-1 text-ink-subtle opacity-0 transition-ui hover:bg-danger-soft hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
       >
         <CloseIcon className="h-3.5 w-3.5" />
@@ -173,6 +195,7 @@ function ConversationZone({
   onNavigate?: () => void;
 }) {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const sessions = useSessionStore((s) => s.sessions);
   const currentSessionId = useSessionStore((s) => s.currentSessionId);
   const createSession = useSessionStore((s) => s.createSession);
@@ -200,6 +223,7 @@ function ConversationZone({
     return () => clearTimeout(timer);
   }, [leavingIds, commitDelete]);
 
+  // 分组键用 bucket 标识符，文案留到渲染时再取：切语言不需要重算分组
   const groups = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const list = sessions
@@ -208,14 +232,16 @@ function ConversationZone({
       .slice()
       .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt));
 
-    const order = ["今天", "昨天", "近 7 天", "近 30 天", "更早"];
-    const map = new Map<string, Session[]>();
+    const map = new Map<Bucket, Session[]>();
     for (const s of list) {
       const key = bucketOf(s.updatedAt);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(s);
     }
-    return order.filter((k) => map.has(k)).map((k) => ({ label: k, items: map.get(k)! }));
+    return BUCKETS.filter((k) => map.has(k)).map((k) => ({
+      bucket: k,
+      items: map.get(k)!,
+    }));
   }, [sessions, mode, query]);
 
   const total = groups.reduce((n, g) => n + g.items.length, 0);
@@ -252,10 +278,12 @@ function ConversationZone({
     onSelect: (i) => switchMode(i === 1 ? "rag" : "llm"),
   });
 
+  const newLabel = mode === "rag" ? t("nav.newRag") : t("nav.newChat");
+
   return (
     <section className="flex min-h-0 flex-1 flex-col border-t border-line-subtle pt-2">
       <div className="flex items-center gap-1 px-3 pb-1.5">
-        <h2 className="a-section-title flex-1">对话</h2>
+        <h2 className="a-section-title flex-1">{t("nav.sessions")}</h2>
         <button
           type="button"
           onClick={() =>
@@ -264,8 +292,8 @@ function ConversationZone({
               onNavigate?.();
             })
           }
-          aria-label={mode === "rag" ? "新建检索会话" : "新建对话"}
-          title={mode === "rag" ? "新建检索会话" : "新建对话"}
+          aria-label={newLabel}
+          title={newLabel}
           className="a-btn a-btn-ghost !px-1 !py-0.5"
         >
           <PlusIcon className="h-3.5 w-3.5" />
@@ -276,14 +304,14 @@ function ConversationZone({
         <div
           ref={tabsRef}
           role="tablist"
-          aria-label="会话模式"
+          aria-label={t("nav.modeLabel")}
           onKeyDown={onTabsKeyDown}
           className="flex rounded-[--radius-md] bg-surface-sunken p-0.5"
         >
           {(
             [
-              ["llm", "对话", ChatIcon],
-              ["rag", "检索", SearchIcon],
+              ["llm", t("nav.modeChat"), ChatIcon],
+              ["rag", t("nav.modeRag"), SearchIcon],
             ] as const
           ).map(([m, label, Icon]) => {
             const selected = mode === m;
@@ -315,23 +343,23 @@ function ConversationZone({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索会话"
-            aria-label="搜索会话"
+            placeholder={t("nav.searchSessions")}
+            aria-label={t("nav.searchSessions")}
             className="a-input !py-1 pl-8 text-[11px]"
           />
         </div>
       </div>
 
-      <nav aria-label="会话历史" className="min-h-0 flex-1 overflow-y-auto pb-2">
+      <nav aria-label={t("nav.sessionHistory")} className="min-h-0 flex-1 overflow-y-auto pb-2">
         {total === 0 ? (
           <p className="px-3 py-4 text-center text-[11px] leading-relaxed text-ink-subtle">
-            {query ? "没有匹配的会话" : "还没有历史会话"}
+            {query ? t("nav.noMatch") : t("nav.noSessions")}
           </p>
         ) : (
           groups.map((g) => (
-            <div key={g.label} className="mb-0.5">
+            <div key={g.bucket} className="mb-0.5">
               <h3 className="a-section-title px-3 pb-1 pt-2 opacity-70">
-                {g.label}
+                {t(`nav.buckets.${g.bucket}`)}
               </h3>
               <ul className="anim-stagger">
                 {g.items.map((s) => (
@@ -364,6 +392,7 @@ function UserMenu({ name, email }: { name: string; email: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { t } = useI18n();
   const logout = useAuthStore((s) => s.logout);
 
   useEffect(() => {
@@ -412,7 +441,7 @@ function UserMenu({ name, email }: { name: string; email: string }) {
         >
           <div className="border-b border-line-subtle px-3 py-2">
             <p className="truncate text-[--text-sm] font-medium text-ink">{name}</p>
-            <p className="truncate text-[11px] text-ink-subtle">{email || "未填写邮箱"}</p>
+            <p className="truncate text-[11px] text-ink-subtle">{email || t("nav.noEmail")}</p>
           </div>
           <button
             role="menuitem"
@@ -420,7 +449,7 @@ function UserMenu({ name, email }: { name: string; email: string }) {
             className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[--text-sm] text-ink-muted transition-ui hover:bg-surface-hover hover:text-ink"
           >
             <UserIcon className="h-4 w-4" />
-            个人资料
+            {t("nav.profile")}
           </button>
           <button
             role="menuitem"
@@ -428,7 +457,7 @@ function UserMenu({ name, email }: { name: string; email: string }) {
             className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[--text-sm] text-ink-muted transition-ui hover:bg-surface-hover hover:text-ink"
           >
             <SettingsIcon className="h-4 w-4" />
-            系统设置
+            {t("page.settings")}
           </button>
           <div className="my-1 border-t border-line-subtle" />
           <button
@@ -440,7 +469,7 @@ function UserMenu({ name, email }: { name: string; email: string }) {
             className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[--text-sm] text-danger transition-ui hover:bg-danger-soft"
           >
             <LogoutIcon className="h-4 w-4" />
-            退出登录
+            {t("nav.logout")}
           </button>
         </div>
       )}
@@ -463,19 +492,20 @@ function SidebarBody({
   onNavigate?: () => void;
   onOpenPalette?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <>
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line-subtle px-3.5">
         <img src={brandIcon} alt="" className="h-5 w-5" />
         <span className="flex-1 text-[--text-base] font-semibold tracking-[-0.015em] text-ink">
-          Ametrine
+          {t("app.name")}
         </span>
         {onOpenPalette && (
           <button
             type="button"
             onClick={onOpenPalette}
-            aria-label="搜索与跳转"
-            title="搜索与跳转（Ctrl / ⌘ K）"
+            aria-label={t("nav.searchJump")}
+            title={t("nav.searchJumpKeys")}
             className="a-btn a-btn-ghost !px-1.5 !py-1"
           >
             <SearchIcon className="h-3.5 w-3.5" />
@@ -485,8 +515,8 @@ function SidebarBody({
         <span className="text-[10px] text-ink-subtle tnum">v{APP_VERSION}</span>
       </div>
 
-      <nav aria-label="主导航" className="shrink-0 space-y-px px-2 py-2.5">
-        {NAV.filter((e) => !e.adminOnly || isAdmin).map(({ to, label, Icon, exact }) => (
+      <nav aria-label={t("nav.main")} className="shrink-0 space-y-px px-2 py-2.5">
+        {NAV.filter((e) => !e.adminOnly || isAdmin).map(({ to, labelKey, Icon, exact }) => (
           <NavLink
             key={to}
             to={to}
@@ -504,7 +534,7 @@ function SidebarBody({
               <>
                 <ActiveBar show={isActive} />
                 <Icon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{label}</span>
+                <span className="truncate">{t(labelKey)}</span>
               </>
             )}
           </NavLink>
@@ -515,6 +545,8 @@ function SidebarBody({
 
       <div className="flex shrink-0 items-center gap-1 border-t border-line-subtle p-2">
         <UserMenu name={userName} email={userEmail} />
+        {/* 语言切换在登录页之外也必须有：登录后才是日常使用的界面 */}
+        <LangSwitcher compact />
         <ThemeButton />
       </div>
     </>
@@ -523,15 +555,17 @@ function SidebarBody({
 
 function ThemeButton() {
   const { theme, toggle } = useTheme();
+  const { t } = useI18n();
+  const dark = theme === "dark";
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-label={theme === "dark" ? "切换到浅色主题" : "切换到深色主题"}
-      title={theme === "dark" ? "浅色主题" : "深色主题"}
+      aria-label={t(dark ? "theme.switchToLight" : "theme.switchToDark")}
+      title={t(dark ? "theme.toLight" : "theme.toDark")}
       className="a-btn a-btn-ghost shrink-0 !px-1.5"
     >
-      {theme === "dark" ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
+      {dark ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
     </button>
   );
 }
@@ -539,6 +573,7 @@ function ThemeButton() {
 export default function AppLayout() {
   const { data: user } = useCurrentUser();
   const { toggle } = useTheme();
+  const { t } = useI18n();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -547,6 +582,8 @@ export default function AppLayout() {
   const activeMode: Mode = location.pathname.startsWith("/rag") ? "rag" : "llm";
   const routeRoot = `/${location.pathname.split("/")[1] ?? ""}`;
   const isAdmin = !!user?.permissions?.includes("admin");
+  const userName = user?.name ?? t("nav.signedOut");
+  const userEmail = user?.email ?? "";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -559,9 +596,11 @@ export default function AppLayout() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // t 随语言变化，所以切语言时标题立刻跟上（不等下一次跳转）
   useEffect(() => {
-    applyDocumentTitle(pageTitleForPath(location.pathname));
-  }, [location.pathname]);
+    const key = pageTitleForPath(location.pathname);
+    applyDocumentTitle(key ? t(key) : null);
+  }, [location.pathname, t]);
 
   // 首帧之后把所有路由分片预取一遍：动态 import 按 specifier 缓存，
   // 取过一次的页面再跳转就是同步命中，不会再出现「内容区空一帧」。
@@ -591,15 +630,15 @@ export default function AppLayout() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-[--radius-md] focus:bg-surface focus:px-3 focus:py-2 focus:text-[--text-sm] focus:font-medium focus:text-ink focus:shadow-pop"
       >
-        跳到主要内容
+        {t("app.skipToMain")}
       </a>
 
       <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
         <SidebarBody
           isAdmin={isAdmin}
           mode={activeMode}
-          userName={user?.name ?? "未登录"}
-          userEmail={user?.email ?? ""}
+          userName={userName}
+          userEmail={userEmail}
           onOpenPalette={() => setPaletteOpen(true)}
         />
       </aside>
@@ -614,8 +653,8 @@ export default function AppLayout() {
             <SidebarBody
               isAdmin={isAdmin}
               mode={activeMode}
-              userName={user?.name ?? "未登录"}
-              userEmail={user?.email ?? ""}
+              userName={userName}
+              userEmail={userEmail}
               onNavigate={() => setDrawerOpen(false)}
             />
           </aside>
@@ -627,21 +666,22 @@ export default function AppLayout() {
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            aria-label="打开导航"
+            aria-label={t("nav.openNav")}
             className="a-btn a-btn-ghost !px-1.5"
           >
             <MenuIcon className="h-5 w-5" />
           </button>
           <img src={brandIcon} alt="" className="h-4 w-4" />
-          <span className="flex-1 text-[--text-sm] font-semibold text-ink">Ametrine</span>
+          <span className="flex-1 text-[--text-sm] font-semibold text-ink">{t("app.name")}</span>
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
-            aria-label="搜索与跳转"
+            aria-label={t("nav.searchJump")}
             className="a-btn a-btn-ghost !px-1.5"
           >
-            <SearchIcon className="h-4 w-4" />
+            <SearchIcon className="h-3.5 w-3.5" />
           </button>
+          <LangSwitcher compact />
           <ThemeButton />
         </header>
 

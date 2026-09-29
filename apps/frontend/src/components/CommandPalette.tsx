@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { useDialogFocus } from "../hooks/useDialogFocus";
+import { useI18n } from "../i18n/context";
 import useSessionStore, { type Session } from "../stores/sessionStore";
 import {
   ChatIcon,
@@ -37,6 +38,7 @@ export default function CommandPalette({
   onToggleTheme: () => void;
 }) {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const sessions = useSessionStore((s) => s.sessions);
   const createSession = useSessionStore((s) => s.createSession);
   const [query, setQuery] = useState("");
@@ -57,20 +59,20 @@ export default function CommandPalette({
       onClose();
     };
     const nav: Command[] = [
-      { id: "nav-dashboard", label: "概览", group: "导航", Icon: GaugeIcon, run: go("/dashboard") },
-      { id: "nav-vector", label: "知识库", group: "导航", Icon: LibraryIcon, run: go("/admin/vector") },
+      { id: "nav-dashboard", label: t("page.dashboard"), group: t("palette.groupNav"), Icon: GaugeIcon, run: go("/dashboard") },
+      { id: "nav-vector", label: t("page.vector"), group: t("palette.groupNav"), Icon: LibraryIcon, run: go("/admin/vector") },
       ...(isAdmin
-        ? [{ id: "nav-access", label: "组织与权限", group: "导航", Icon: ShieldIcon, run: go("/admin/access") }]
+        ? [{ id: "nav-access", label: t("page.access"), group: t("palette.groupNav"), Icon: ShieldIcon, run: go("/admin/access") }]
         : []),
-      { id: "nav-settings", label: "系统设置", group: "导航", Icon: SettingsIcon, run: go("/settings") },
-      { id: "nav-profile", label: "个人资料", group: "导航", Icon: UserIcon, run: go("/profile") },
+      { id: "nav-settings", label: t("page.settings"), group: t("palette.groupNav"), Icon: SettingsIcon, run: go("/settings") },
+      { id: "nav-profile", label: t("page.profile"), group: t("palette.groupNav"), Icon: UserIcon, run: go("/profile") },
     ];
 
     const actions: Command[] = [
       {
         id: "act-chat",
-        label: "新建对话",
-        group: "操作",
+        label: t("nav.newChat"),
+        group: t("palette.groupActions"),
         Icon: PlusIcon,
         run: () => {
           createSession("llm").then((id) => navigate(`/chat/${id}`, { replace: true }));
@@ -79,8 +81,8 @@ export default function CommandPalette({
       },
       {
         id: "act-rag",
-        label: "新建检索会话",
-        group: "操作",
+        label: t("nav.newRag"),
+        group: t("palette.groupActions"),
         Icon: PlusIcon,
         run: () => {
           createSession("rag").then((id) => navigate(`/rag/${id}`, { replace: true }));
@@ -89,8 +91,8 @@ export default function CommandPalette({
       },
       {
         id: "act-theme",
-        label: "切换深浅主题",
-        group: "操作",
+        label: t("palette.toggleTheme"),
+        group: t("palette.groupActions"),
         Icon: ChatIcon,
         run: () => {
           onToggleTheme();
@@ -104,9 +106,9 @@ export default function CommandPalette({
       .slice(0, 8)
       .map((s: Session) => ({
         id: `session-${s.id}`,
-        label: s.title || "新对话",
-        group: "最近会话",
-        hint: s.mode === "rag" ? "检索" : "对话",
+        label: s.title || t("session.newTitle"),
+        group: t("palette.groupRecent"),
+        hint: s.mode === "rag" ? t("nav.modeRag") : t("nav.modeChat"),
         Icon: s.mode === "rag" ? SearchIcon : ChatIcon,
         run: () => {
           useSessionStore.getState().switchSession(s.id);
@@ -116,7 +118,7 @@ export default function CommandPalette({
       }));
 
     return [...nav, ...actions, ...recent];
-  }, [sessions, isAdmin, navigate, onClose, createSession, onToggleTheme]);
+  }, [sessions, isAdmin, navigate, onClose, createSession, onToggleTheme, t]);
 
   const needle = query.trim().toLowerCase();
   const visible = needle
@@ -147,7 +149,7 @@ export default function CommandPalette({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="命令面板"
+        aria-label={t("palette.aria")}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
@@ -177,15 +179,15 @@ export default function CommandPalette({
           aria-expanded="true"
           aria-controls="palette-list"
           aria-activedescendant={current ? `cmd-${current.id}` : undefined}
-          placeholder="跳转页面、打开会话或执行操作"
-          aria-label="命令搜索"
+          placeholder={t("palette.placeholder")}
+          aria-label={t("palette.searchAria")}
           className="shrink-0 border-b border-line bg-transparent px-4 py-3 text-[--text-base] text-ink outline-none placeholder:text-ink-subtle"
         />
 
         <div ref={listRef} id="palette-list" role="listbox" className="min-h-0 flex-1 overflow-y-auto py-1.5">
           {visible.length === 0 ? (
             <p className="px-4 py-6 text-center text-[--text-sm] text-ink-subtle">
-              没有匹配项
+              {t("palette.empty")}
             </p>
           ) : (
             visible.map((c, i) => {
@@ -223,13 +225,13 @@ export default function CommandPalette({
         <div className="flex shrink-0 items-center gap-3 border-t border-line-subtle px-4 py-2 text-[11px] text-ink-subtle">
           <span>
             <kbd className="font-sans">↑</kbd>
-            <kbd className="ml-0.5 font-sans">↓</kbd> 选择
+            <kbd className="ml-0.5 font-sans">↓</kbd> {t("palette.select")}
           </span>
           <span>
-            <kbd className="font-sans">Enter</kbd> 执行
+            <kbd className="font-sans">Enter</kbd> {t("palette.run")}
           </span>
           <span>
-            <kbd className="font-sans">Esc</kbd> 关闭
+            <kbd className="font-sans">Esc</kbd> {t("palette.close")}
           </span>
         </div>
       </div>

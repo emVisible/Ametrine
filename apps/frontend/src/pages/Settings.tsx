@@ -5,15 +5,19 @@ import { apiClient } from "../api/client";
 import useAuthStore from "../stores/useAuthStore";
 import { useTheme } from "../hooks/useTheme";
 import { useToast } from "../hooks/useToast";
+import { useI18n } from "../i18n/context";
+import { LangSwitcher } from "../i18n/I18nProvider";
+import { intlLocale } from "../i18n";
 import { Tabs } from "../components/ui";
 import { CheckIcon, MoonIcon, SunIcon } from "../components/icons";
 import type { User } from "../types/user";
 
 type Tab = "general" | "quota";
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: "general", label: "偏好设置" },
-  { key: "quota", label: "用量配额" },
+/** 存文案键而不是文案：切语言时不必重建这张表 */
+const TABS: { key: Tab; labelKey: string }[] = [
+  { key: "general", labelKey: "settings.tabGeneral" },
+  { key: "quota", labelKey: "settings.tabQuota" },
 ];
 
 function FieldRow({
@@ -43,6 +47,7 @@ function FieldRow({
 function PreferencesPanel({ user }: { user: User }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useI18n();
   const { theme, toggle } = useTheme();
 
   const [preferences, setPreferences] = useState<Record<string, unknown>>(
@@ -57,9 +62,9 @@ function PreferencesPanel({ user }: { user: User }) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", user.id] });
-      toast("偏好设置已保存", "success");
+      toast(t("settings.prefsSaved"), "success");
     },
-    onError: (e: Error) => toast(`保存失败：${e.message}`, "error"),
+    onError: (e: Error) => toast(t("common.saveFailed", { msg: e.message }), "error"),
   });
 
   const update = (key: string, value: unknown) =>
@@ -68,7 +73,10 @@ function PreferencesPanel({ user }: { user: User }) {
   return (
     <section className="a-card px-4">
       <div className="divide-y divide-line-subtle">
-        <FieldRow title="主题" description="界面配色，切换即时生效">
+        <FieldRow
+          title={t("settings.theme")}
+          description={t("settings.themeDesc")}
+        >
           <button
             type="button"
             onClick={toggle}
@@ -79,34 +87,30 @@ function PreferencesPanel({ user }: { user: User }) {
             ) : (
               <MoonIcon className="h-3.5 w-3.5" />
             )}
-            {theme === "dark" ? "深色" : "浅色"}
+            {theme === "dark" ? t("settings.dark") : t("settings.light")}
           </button>
         </FieldRow>
 
-        <FieldRow title="默认模型" description="对话使用的 LLM 模型">
+        <FieldRow
+          title={t("settings.model")}
+          description={t("settings.modelDesc")}
+        >
           <select
             value={(preferences.model as string) || "default"}
             onChange={(e) => update("model", e.target.value)}
-            aria-label="默认模型"
+            aria-label={t("settings.model")}
             className="a-input !w-auto cursor-pointer !py-1"
           >
-            <option value="default">系统默认</option>
+            <option value="default">{t("settings.systemDefault")}</option>
             <option value="qwen">Qwen</option>
             <option value="deepseek">DeepSeek</option>
           </select>
         </FieldRow>
 
-        <FieldRow title="回复语言" description="模型回答使用的语言">
-          <select
-            value={(preferences.language as string) || "zh"}
-            onChange={(e) => update("language", e.target.value)}
-            aria-label="回复语言"
-            className="a-input !w-auto cursor-pointer !py-1"
-          >
-            <option value="zh">中文</option>
-            <option value="en">English</option>
-            <option value="auto">自动检测</option>
-          </select>
+        <FieldRow title={t("settings.uiLang")} description={t("settings.uiLangDesc")}>
+          {/* 以前这里写的是 preferences.language —— 全站没人读它，是个死控件；
+              现在直接接真正的语言开关（界面语言即时生效，记在本机） */}
+          <LangSwitcher />
         </FieldRow>
       </div>
 
@@ -118,7 +122,7 @@ function PreferencesPanel({ user }: { user: User }) {
           className="a-btn a-btn-primary"
         >
           {save.isSuccess && <CheckIcon className="h-3.5 w-3.5" />}
-          {save.isPending ? "保存中…" : "保存偏好"}
+          {save.isPending ? t("common.saving") : t("settings.savePrefs")}
         </button>
       </div>
     </section>
@@ -128,28 +132,29 @@ function PreferencesPanel({ user }: { user: User }) {
 function QuotaPanel({ user }: { user: User }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const save = useMutation({
     mutationFn: (body: Partial<User>) =>
       apiClient(`/user/${user.id}`, { method: "PATCH", body }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user", user.id] });
-      toast("配额已更新", "success");
+      toast(t("settings.quotaUpdated"), "success");
     },
-    onError: (e: Error) => toast(`更新失败：${e.message}`, "error"),
+    onError: (e: Error) => toast(t("common.updateFailed", { msg: e.message }), "error"),
   });
 
   const groups = [
     {
       field: "daily_token_limit" as const,
-      title: "每日 Token 限额",
+      title: t("settings.dailyLimit"),
       current: user.daily_token_limit,
       used: user.daily_token_used,
       options: [50_000, 100_000, 200_000, 500_000],
     },
     {
       field: "monthly_token_limit" as const,
-      title: "每月 Token 限额",
+      title: t("settings.monthlyLimit"),
       current: user.monthly_token_limit,
       used: user.monthly_token_used,
       options: [1_000_000, 3_000_000, 5_000_000, 10_000_000],
@@ -165,8 +170,10 @@ function QuotaPanel({ user }: { user: User }) {
               {group.title}
             </p>
             <p className="text-[11px] text-ink-subtle tnum">
-              已用 {(group.used ?? 0).toLocaleString("zh-CN")} · 上限{" "}
-              {(group.current ?? 0).toLocaleString("zh-CN")}
+              {t("settings.quotaUsed", {
+                used: (group.used ?? 0).toLocaleString(intlLocale()),
+                limit: (group.current ?? 0).toLocaleString(intlLocale()),
+              })}
             </p>
           </div>
           <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -185,7 +192,7 @@ function QuotaPanel({ user }: { user: User }) {
                   }`}
                 >
                   {selected && <CheckIcon className="h-3 w-3" />}
-                  {limit.toLocaleString("zh-CN")}
+                  {limit.toLocaleString(intlLocale())}
                 </button>
               );
             })}
@@ -199,6 +206,7 @@ function QuotaPanel({ user }: { user: User }) {
 export default function SettingsPage() {
   const storedUser = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<Tab>("general");
 
   const { data: user, isLoading } = useQuery<User>({
@@ -210,22 +218,24 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto w-full max-w-[48rem] px-4 py-6 md:px-8">
       <header className="mb-5">
-        <h1 className="text-[--text-2xl] font-semibold text-ink">系统设置</h1>
+        <h1 className="text-[--text-2xl] font-semibold text-ink">
+          {t("page.settings")}
+        </h1>
         <p className="mt-1 text-[--text-sm] text-ink-muted">
-          界面偏好与用量配额
+          {t("settings.pageDesc")}
         </p>
       </header>
 
       <Tabs
-        ariaLabel="设置分组"
+        ariaLabel={t("settings.groups")}
         value={activeTab}
         onChange={setActiveTab}
-        items={TABS}
+        items={TABS.map((tab) => ({ key: tab.key, label: t(tab.labelKey) }))}
       />
 
       {isLoading || !user ? (
         <div className="a-card px-4 py-10 text-center text-[--text-sm] text-ink-subtle">
-          正在读取账号配置…
+          {t("settings.loadingAccount")}
         </div>
       ) : activeTab === "general" ? (
         <PreferencesPanel key={user.id} user={user} />

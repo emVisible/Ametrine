@@ -3,6 +3,8 @@
 // 原先三个平铺 tab 各自重复「选库→选集合→列卡片」的逻辑，且上传后 window.location.reload()。
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { useI18n } from "../i18n/context";
+import { intlLocale } from "../i18n";
 import { resolveDrilldown } from "../utils/drilldown";
 import { paginate } from "../utils/pagination";
 import {
@@ -40,27 +42,36 @@ import {
 } from "../components/icons";
 
 function IndexStatusBadge({ doc }: { doc: KbDocument }) {
+  const { t } = useI18n();
   const status = doc.meta?.index_status;
   // 后端只在成功时写 chunk_count、失败时写 index_error，缺失必须容错
   if (status === "indexed")
     return (
-      <StatusBadge tone="success" dot title={`${doc.meta?.chunk_count ?? 0} 个分块`}>
-        已索引
+      <StatusBadge
+        tone="success"
+        dot
+        title={t("admin.vector.chunksN", { n: doc.meta?.chunk_count ?? 0 })}
+      >
+        {t("admin.vector.indexed")}
       </StatusBadge>
     );
   if (status === "failed")
     return (
-      <StatusBadge tone="danger" dot title={doc.meta?.index_error || "索引失败"}>
-        索引失败
+      <StatusBadge
+        tone="danger"
+        dot
+        title={doc.meta?.index_error || t("admin.vector.indexFailed")}
+      >
+        {t("admin.vector.indexFailed")}
       </StatusBadge>
     );
   if (status === "pending")
     return (
       <StatusBadge tone="warning" dot>
-        排队中
+        {t("admin.vector.pending")}
       </StatusBadge>
     );
-  return <StatusBadge tone="neutral">无索引信息</StatusBadge>;
+  return <StatusBadge tone="neutral">{t("admin.vector.noIndexInfo")}</StatusBadge>;
 }
 
 /* ─────────────── 第一级：知识库 ─────────────── */
@@ -73,6 +84,7 @@ function DatabaseList({
   collectionsByDb: Map<number, KbCollection[]>;
 }) {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
@@ -90,7 +102,7 @@ function DatabaseList({
           db.name.toLowerCase().includes(needle) ||
           (db.description ?? "").toLowerCase().includes(needle),
       )
-      .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+      .sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
   }, [databases, query]);
 
   const paged = paginate(rows, page);
@@ -98,7 +110,7 @@ function DatabaseList({
   const columns: Column<KbDatabase>[] = [
     {
       key: "name",
-      header: "知识库",
+      header: t("common.database"),
       cell: (db) => (
         <div className="flex items-center gap-2.5">
           <DatabaseIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
@@ -107,11 +119,11 @@ function DatabaseList({
               {db.name}
               {/* 整列都是「可用」时徽章没有信息量，只标异常 */}
               {db.is_active === false && (
-                <StatusBadge tone="neutral">停用</StatusBadge>
+                <StatusBadge tone="neutral">{t("common.inactive")}</StatusBadge>
               )}
             </p>
             <p className="truncate text-[11px] text-ink-subtle">
-              {db.description || "暂无描述"}
+              {db.description || t("ui.noDescription")}
             </p>
           </div>
         </div>
@@ -119,19 +131,19 @@ function DatabaseList({
     },
     {
       key: "tenant",
-      header: "租户",
+      header: t("common.tenant"),
       hideBelow: "md",
       width: "12rem",
       cell: (db) =>
         db.tenant_name ? (
           <span className="text-ink-muted">{db.tenant_name}</span>
         ) : (
-          <span className="text-ink-subtle">未绑定</span>
+          <span className="text-ink-subtle">{t("admin.vector.unbound")}</span>
         ),
     },
     {
       key: "collections",
-      header: "集合",
+      header: t("common.collection"),
       align: "right",
       width: "6rem",
       cell: (db) => (
@@ -145,8 +157,8 @@ function DatabaseList({
   return (
     <>
       <PageHeader
-        title="知识库"
-        description="每个知识库对应一个独立的向量库命名空间，集合在其内部分隔检索范围"
+        title={t("page.vector")}
+        description={t("admin.vector.pageDesc")}
         actions={
           <button
             type="button"
@@ -154,14 +166,14 @@ function DatabaseList({
             onClick={() => setCreating(true)}
           >
             <PlusIcon className="h-4 w-4" />
-            新建知识库
+            {t("admin.vector.newDb")}
           </button>
         }
       />
 
       <Panel
         bodyClass="px-4 py-3"
-        title={`共 ${databases.length} 个知识库`}
+        title={t("admin.vector.dbCount", { n: databases.length })}
         actions={
           <SearchInput
             value={query}
@@ -169,7 +181,7 @@ function DatabaseList({
               setQuery(v);
               setPage(1);
             }}
-            placeholder="搜索知识库"
+            placeholder={t("admin.vector.searchDb")}
             className="w-56"
           />
         }
@@ -185,11 +197,13 @@ function DatabaseList({
           empty={
             <EmptyState
               icon={LibraryIcon}
-              title={query ? "没有匹配的知识库" : "还没有知识库"}
+              title={
+                query ? t("admin.vector.noDbMatch") : t("admin.vector.noDb")
+              }
               description={
                 query
-                  ? "换个关键词试试。"
-                  : "先创建一个知识库，再在其中建立集合并上传文档。"
+                  ? t("common.tryKeyword")
+                  : t("admin.vector.noDbDesc")
               }
               action={
                 query ? undefined : (
@@ -199,7 +213,7 @@ function DatabaseList({
                     onClick={() => setCreating(true)}
                   >
                     <PlusIcon className="h-4 w-4" />
-                    新建知识库
+                    {t("admin.vector.newDb")}
                   </button>
                 )
               }
@@ -211,8 +225,8 @@ function DatabaseList({
       <Modal
         open={creating}
         onClose={() => setCreating(false)}
-        title="新建知识库"
-        description="名称将同时用作 Milvus 数据库名，创建后不可重命名"
+        title={t("admin.vector.newDb")}
+        description={t("admin.vector.newDbDesc")}
         footer={
           <>
             <button
@@ -220,7 +234,7 @@ function DatabaseList({
               className="a-btn a-btn-ghost"
               onClick={() => setCreating(false)}
             >
-              取消
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -237,36 +251,36 @@ function DatabaseList({
                 )
               }
             >
-              {create.isPending ? "创建中…" : "创建"}
+              {create.isPending ? t("common.creating") : t("common.create")}
             </button>
           </>
         }
       >
         <div className="space-y-3.5">
           <TextInput
-            label="名称"
+            label={t("common.name")}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="例如：技术文档库"
+            placeholder={t("admin.vector.dbNameExample")}
             autoFocus
           />
           <TextInput
-            label="描述"
-            optional="选填"
+            label={t("common.description")}
+            optional={t("auth.optionalField")}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="这个知识库收录什么"
+            placeholder={t("admin.vector.dbDescPlaceholder")}
           />
           <Select
-            label="归属租户"
+            label={t("admin.vector.tenantLabel")}
             value={form.tenant_id}
             onChange={(e) => setForm({ ...form, tenant_id: e.target.value })}
-            placeholder="不绑定（全局知识库）"
-            options={(tenants ?? []).map((t) => ({
-              value: t.id,
-              label: t.name,
+            placeholder={t("admin.vector.tenantNoneOption")}
+            options={(tenants ?? []).map((tenant) => ({
+              value: tenant.id,
+              label: tenant.name,
             }))}
-            hint="一个租户最多绑定一个知识库，绑定后该知识库仅对该租户成员开放"
+            hint={t("admin.vector.tenantHint")}
           />
         </div>
       </Modal>
@@ -286,6 +300,7 @@ function CollectionList({
   documentsByCollection: Map<number, KbDocument[]>;
 }) {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState("");
@@ -302,21 +317,21 @@ function CollectionList({
           c.name.toLowerCase().includes(needle) ||
           (c.description ?? "").toLowerCase().includes(needle),
       )
-      .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+      .sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
   }, [collections, query]);
   const paged = paginate(rows, page);
 
   const columns: Column<KbCollection>[] = [
     {
       key: "name",
-      header: "集合",
+      header: t("common.collection"),
       cell: (col) => (
         <div className="flex items-center gap-2.5">
           <LayersIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
           <div className="min-w-0">
             <p className="truncate font-medium text-ink">{col.name}</p>
             <p className="truncate text-[11px] text-ink-subtle">
-              {col.description || "暂无描述"}
+              {col.description || t("ui.noDescription")}
             </p>
           </div>
         </div>
@@ -324,7 +339,7 @@ function CollectionList({
     },
     {
       key: "documents",
-      header: "文档",
+      header: t("common.document"),
       align: "right",
       width: "6rem",
       cell: (col) => (
@@ -335,7 +350,7 @@ function CollectionList({
     },
     {
       key: "created",
-      header: "创建时间",
+      header: t("common.createdAt"),
       align: "right",
       width: "10rem",
       hideBelow: "md",
@@ -351,11 +366,11 @@ function CollectionList({
     <>
       <PageHeader
         title={database.name}
-        description={database.description || "暂无描述"}
+        description={database.description || t("ui.noDescription")}
         breadcrumb={
           <Breadcrumbs
             items={[
-              { label: "知识库", to: "/admin/vector" },
+              { label: t("page.vector"), to: "/admin/vector" },
               { label: database.name },
             ]}
           />
@@ -367,13 +382,13 @@ function CollectionList({
             onClick={() => setCreating(true)}
           >
             <PlusIcon className="h-4 w-4" />
-            新建集合
+            {t("admin.vector.newCol")}
           </button>
         }
       />
 
       <Panel
-        title={`共 ${collections.length} 个集合`}
+        title={t("admin.vector.colCount", { n: collections.length })}
         bodyClass="px-4 py-3"
         actions={
           <SearchInput
@@ -382,7 +397,7 @@ function CollectionList({
               setQuery(v);
               setPage(1);
             }}
-            placeholder="搜索集合"
+            placeholder={t("admin.vector.searchCol")}
             className="w-56"
           />
         }
@@ -398,11 +413,13 @@ function CollectionList({
           empty={
             <EmptyState
               icon={LayersIcon}
-              title={query ? "没有匹配的集合" : "这个知识库还没有集合"}
+              title={
+                query ? t("admin.vector.noColMatch") : t("admin.vector.noCol")
+              }
               description={
                 query
-                  ? "换个关键词试试，集合名和描述都会参与匹配。"
-                  : "集合是上传文档的单位，也是检索时的选择粒度。"
+                  ? t("admin.vector.colSearchHint")
+                  : t("admin.vector.noColDesc")
               }
               action={
                 query ? undefined : (
@@ -412,7 +429,7 @@ function CollectionList({
                     onClick={() => setCreating(true)}
                   >
                     <PlusIcon className="h-4 w-4" />
-                    新建集合
+                    {t("admin.vector.newCol")}
                   </button>
                 )
               }
@@ -424,8 +441,8 @@ function CollectionList({
       <Modal
         open={creating}
         onClose={() => setCreating(false)}
-        title="新建集合"
-        description={`集合名将作为 Milvus collection 在「${database.name}」下创建`}
+        title={t("admin.vector.newCol")}
+        description={t("admin.vector.newColDesc", { name: database.name })}
         footer={
           <>
             <button
@@ -433,7 +450,7 @@ function CollectionList({
               className="a-btn a-btn-ghost"
               onClick={() => setCreating(false)}
             >
-              取消
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -449,23 +466,23 @@ function CollectionList({
                 )
               }
             >
-              {create.isPending ? "创建中…" : "创建"}
+              {create.isPending ? t("common.creating") : t("common.create")}
             </button>
           </>
         }
       >
         <div className="space-y-3.5">
           <TextInput
-            label="名称"
+            label={t("common.name")}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="例如：2026-Q3"
+            placeholder={t("admin.vector.colNameExample")}
             autoFocus
-            hint="集合名在全局范围内唯一，跨知识库同名会被拒绝"
+            hint={t("admin.vector.colNameHint")}
           />
           <TextInput
-            label="描述"
-            optional="选填"
+            label={t("common.description")}
+            optional={t("auth.optionalField")}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
@@ -486,6 +503,7 @@ function ChunkViewer({
   documentTitle: string;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const { data: chunks, isLoading } = useChunks(documentId);
   const [page, setPage] = useState(1);
   const paged = paginate(chunks ?? [], page);
@@ -495,16 +513,19 @@ function ChunkViewer({
       open
       onClose={onClose}
       title={documentTitle}
-      description={`共 ${paged.total} 个分块`}
+      description={t("admin.vector.chunkTotal", { n: paged.total })}
       width="max-w-2xl"
       footer={
         <Pagination paged={paged} onPageChange={setPage} />
       }
     >
       {isLoading ? (
-        <Loading label="正在读取分块…" />
+        <Loading label={t("admin.vector.loadingChunks")} />
       ) : !paged.items.length ? (
-        <EmptyState title="没有分块记录" description="该文档可能索引失败。" />
+        <EmptyState
+          title={t("admin.vector.noChunks")}
+          description={t("admin.vector.noChunksDesc")}
+        />
       ) : (
         <ol className="space-y-2">
           {paged.items.map((chunk, i) => (
@@ -520,7 +541,7 @@ function ChunkViewer({
                   chunk_id {chunk.id}
                 </span>
                 <span className="ml-auto text-[11px] text-ink-subtle tnum">
-                  {chunk.content?.length ?? 0} 字
+                  {t("admin.vector.charsN", { n: chunk.content?.length ?? 0 })}
                 </span>
               </div>
               <p className="whitespace-pre-wrap text-[--text-sm] leading-relaxed text-ink">
@@ -543,6 +564,7 @@ function DocumentList({
   collection: KbCollection;
   documents: KbDocument[];
 }) {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [uploading, setUploading] = useState(false);
@@ -578,16 +600,18 @@ function DocumentList({
   const columns: Column<KbDocument>[] = [
     {
       key: "title",
-      header: "文档",
+      header: t("common.document"),
       cell: (doc) => (
         <div className="flex items-center gap-2.5">
           <FileIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
           <div className="min-w-0">
             <p className="truncate font-medium text-ink">
-              {doc.title || "未命名"}
+              {doc.title || t("rag.untitled")}
             </p>
             <p className="truncate text-[11px] text-ink-subtle">
-              {doc.uploader ? `上传者 ${doc.uploader}` : "上传者未知"}
+              {doc.uploader
+                ? t("admin.vector.uploader", { name: doc.uploader })
+                : t("admin.vector.uploaderUnknown")}
             </p>
           </div>
         </div>
@@ -595,13 +619,13 @@ function DocumentList({
     },
     {
       key: "status",
-      header: "索引状态",
+      header: t("admin.vector.indexStatus"),
       width: "10rem",
       cell: (doc) => <IndexStatusBadge doc={doc} />,
     },
     {
       key: "chunks",
-      header: "分块",
+      header: t("common.chunks"),
       align: "right",
       width: "5rem",
       hideBelow: "sm",
@@ -613,7 +637,7 @@ function DocumentList({
     },
     {
       key: "created",
-      header: "上传时间",
+      header: t("admin.vector.uploadedAt"),
       align: "right",
       width: "9rem",
       hideBelow: "md",
@@ -634,7 +658,7 @@ function DocumentList({
           className="a-btn a-btn-outline !py-1 text-[11px]"
           onClick={() => setViewing(doc)}
         >
-          查看分块
+          {t("admin.vector.viewChunks")}
         </button>
       ),
     },
@@ -644,11 +668,11 @@ function DocumentList({
     <>
       <PageHeader
         title={collection.name}
-        description={`知识库 ${database.name} · 上传后由后端同步完成分块与索引`}
+        description={t("admin.vector.docPageDesc", { db: database.name })}
         breadcrumb={
           <Breadcrumbs
             items={[
-              { label: "知识库", to: "/admin/vector" },
+              { label: t("page.vector"), to: "/admin/vector" },
               { label: database.name, to: `/admin/vector/${database.id}` },
               { label: collection.name },
             ]}
@@ -686,31 +710,31 @@ function DocumentList({
             <UploadIcon className="h-4 w-4" />
           </span>
           <p className="text-[--text-sm] text-ink">
-            拖入文件，或
+            {t("admin.vector.dropHint")}
             <button
               type="button"
               className="mx-1 text-accent-ink underline decoration-accent-border underline-offset-2 hover:decoration-accent"
               onClick={() => inputRef.current?.click()}
               disabled={uploading}
             >
-              选择文件
+              {t("admin.vector.pickFile")}
             </button>
-            上传到「{collection.name}」
+            {t("admin.vector.uploadTo", { name: collection.name })}
           </p>
           <p className="text-[11px] text-ink-subtle">
-            支持 PDF、Word、Markdown、TXT、CSV、图片等格式；单个文件依次入库
+            {t("admin.vector.formats")}
           </p>
           {uploading && (
             <p className="mt-1 flex items-center gap-1.5 text-[11px] text-accent-ink">
               <Loading label="" />
-              正在解析、分块并建立索引…
+              {t("admin.vector.indexing")}
             </p>
           )}
         </div>
       </div>
 
       <Panel
-        title={`共 ${documents.length} 个文档`}
+        title={t("admin.vector.docCount", { n: documents.length })}
         bodyClass="px-4 py-3"
         actions={
           <SearchInput
@@ -719,7 +743,7 @@ function DocumentList({
               setQuery(v);
               setPage(1);
             }}
-            placeholder="搜索文档标题"
+            placeholder={t("admin.vector.searchDoc")}
             className="w-56"
           />
         }
@@ -734,9 +758,13 @@ function DocumentList({
           empty={
             <EmptyState
               icon={BookIcon}
-              title={query ? "没有匹配的文档" : "还没有文档"}
+              title={
+                query ? t("admin.vector.noDocMatch") : t("admin.vector.noDoc")
+              }
               description={
-                query ? "换个关键词试试。" : "用上方的上传区把第一份文档放进这个集合。"
+                query
+                  ? t("common.tryKeyword")
+                  : t("admin.vector.noDocDesc")
               }
             />
           }
@@ -746,7 +774,7 @@ function DocumentList({
       {viewing && (
         <ChunkViewer
           documentId={viewing.id}
-          documentTitle={viewing.title || "未命名文档"}
+          documentTitle={viewing.title || t("rag.untitled")}
           onClose={() => setViewing(null)}
         />
       )}
@@ -759,38 +787,48 @@ function DocumentList({
 // 加载中的骨架要按 URL 深度给：整页换成一个转圈会让页头、面板、表格集体塌陷，
 // 数据到位后所有内容一起下跳；更深的问题是第一帧没有 databases，
 // resolveDrilldown 会把一个合法深链判成「这个知识库不存在」——假报错。
-const SKELETON_LEVELS: Record<0 | 1 | 2, { columns: Column<never>[] }> = {
-  0: {
-    columns: [
-      { key: "name", header: "知识库", cell: () => null },
-      { key: "tenant", header: "租户", width: "12rem", cell: () => null },
-      { key: "collections", header: "集合", width: "6rem", align: "right", cell: () => null },
-    ],
-  },
-  1: {
-    columns: [
-      { key: "name", header: "集合", cell: () => null },
-      { key: "docs", header: "文档", width: "6rem", align: "right", cell: () => null },
-      { key: "created", header: "创建时间", width: "9rem", align: "right", cell: () => null },
-    ],
-  },
-  2: {
-    columns: [
-      { key: "title", header: "文档", cell: () => null },
-      { key: "status", header: "索引状态", width: "10rem", cell: () => null },
-      { key: "chunks", header: "分块", width: "5rem", align: "right", cell: () => null },
-      { key: "created", header: "上传时间", width: "9rem", align: "right", cell: () => null },
-    ],
-  },
+// 表头存文案键：模块级常量存译文的话，切语言后骨架仍然是旧语言。
+const SKELETON_LEVELS: Record<
+  0 | 1 | 2,
+  {
+    key: string;
+    headerKey: string;
+    width?: string;
+    align?: "left" | "right" | "center";
+  }[]
+> = {
+  0: [
+    { key: "name", headerKey: "common.database" },
+    { key: "tenant", headerKey: "common.tenant", width: "12rem" },
+    { key: "collections", headerKey: "common.collection", width: "6rem", align: "right" },
+  ],
+  1: [
+    { key: "name", headerKey: "common.collection" },
+    { key: "docs", headerKey: "common.document", width: "6rem", align: "right" },
+    { key: "created", headerKey: "common.createdAt", width: "9rem", align: "right" },
+  ],
+  2: [
+    { key: "title", headerKey: "common.document" },
+    { key: "status", headerKey: "admin.vector.indexStatus", width: "10rem" },
+    { key: "chunks", headerKey: "common.chunks", width: "5rem", align: "right" },
+    { key: "created", headerKey: "admin.vector.uploadedAt", width: "9rem", align: "right" },
+  ],
 };
 
 function ConsoleSkeleton({ depth }: { depth: 0 | 1 | 2 }) {
-  const level = SKELETON_LEVELS[depth];
+  const { t } = useI18n();
+  const columns: Column<never>[] = SKELETON_LEVELS[depth].map((c) => ({
+    key: c.key,
+    header: t(c.headerKey),
+    width: c.width,
+    align: c.align,
+    cell: () => null,
+  }));
   return (
     <div
       className="mx-auto w-full max-w-[68rem] px-4 py-6 md:px-8"
       aria-busy="true"
-      aria-label="正在读取知识库"
+      aria-label={t("admin.vector.loadingKb")}
     >
       {depth > 0 && <span className="skeleton mb-3 block h-3 w-28" />}
       <div className="mb-5 space-y-2">
@@ -802,13 +840,14 @@ function ConsoleSkeleton({ depth }: { depth: 0 | 1 | 2 }) {
         title={<span className="skeleton inline-block h-3.5 w-24 align-middle" />}
         actions={<span className="skeleton block h-7 w-56" />}
       >
-        <DataTable columns={level.columns} rows={[]} rowKey={() => 0} loading />
+        <DataTable columns={columns} rows={[]} rowKey={() => 0} loading />
       </Panel>
     </div>
   );
 }
 
 export default function AdminVectorPage() {
+  const { t } = useI18n();
   const { dbId, colId } = useParams<{ dbId?: string; colId?: string }>();
   const {
     databases,
@@ -827,8 +866,10 @@ export default function AdminVectorPage() {
         <Panel>
           <EmptyState
             icon={LibraryIcon}
-            title="无法读取知识库"
-            description={error instanceof Error ? error.message : "请确认后端已启动"}
+            title={t("admin.vector.loadFailed")}
+            description={
+              error instanceof Error ? error.message : t("admin.vector.backendDown")
+            }
           />
         </Panel>
       </div>
@@ -866,13 +907,16 @@ export default function AdminVectorPage() {
             icon={LibraryIcon}
             title={
               view.level === "database-missing"
-                ? "这个知识库不存在"
-                : "这个集合不存在"
+                ? t("admin.vector.dbMissing")
+                : t("admin.vector.colMissing")
             }
             description={
               view.level === "database-missing"
-                ? `编号 ${view.dbId} 的知识库可能已被删除，或属于另一个租户。`
-                : `「${view.database.name}」里没有编号为 ${view.colId} 的集合，可能已被删除。`
+                ? t("admin.vector.dbMissingDesc", { id: view.dbId })
+                : t("admin.vector.colMissingDesc", {
+                    name: view.database.name,
+                    id: view.colId,
+                  })
             }
             action={
               <Link
@@ -884,8 +928,8 @@ export default function AdminVectorPage() {
                 className="a-btn a-btn-primary"
               >
                 {view.level === "database-missing"
-                  ? "返回知识库列表"
-                  : `回到「${view.database.name}」`}
+                  ? t("admin.vector.backToDbList")
+                  : t("admin.vector.backToDb", { name: view.database.name })}
               </Link>
             }
           />

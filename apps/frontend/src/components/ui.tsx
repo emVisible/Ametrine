@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { intlLocale } from "../i18n";
 import { createPortal } from "react-dom";
 import {
   ConfirmContext,
@@ -17,6 +18,7 @@ import {
 } from "../hooks/useConfirm";
 import { useDialogFocus } from "../hooks/useDialogFocus";
 import { useRovingTabs } from "../hooks/useRovingTabs";
+import { useI18n } from "../i18n/context";
 import type { Page } from "../utils/pagination";
 import {
   CheckIcon,
@@ -65,8 +67,9 @@ export function Breadcrumbs({
 }: {
   items: { label: string; to?: string }[];
 }) {
+  const { t } = useI18n();
   return (
-    <nav aria-label="面包屑" className="mb-2 flex items-center gap-1 text-[11px]">
+    <nav aria-label={t("ui.breadcrumb")} className="mb-2 flex items-center gap-1 text-[11px]">
       {items.map((item, i) => (
         <span key={i} className="flex items-center gap-1">
           {i > 0 && <ChevronRightIcon className="h-3 w-3 text-ink-subtle" />}
@@ -121,14 +124,15 @@ export function Panel({
 
 /* ───────────────────────── 状态反馈 ───────────────────────── */
 
-export function Loading({ label = "加载中…" }: { label?: string }) {
+export function Loading({ label }: { label?: string }) {
+  const { t } = useI18n();
   return (
     <div
       role="status"
       className="flex items-center justify-center gap-2 py-12 text-[--text-sm] text-ink-subtle"
     >
       <Spinner className="h-4 w-4" aria-hidden />
-      {label}
+      {label ?? t("common.loading")}
     </div>
   );
 }
@@ -166,12 +170,13 @@ export function EmptyState({
 export function ErrorState({
   error,
   onRetry,
-  title = "请求失败",
+  title,
 }: {
   error: unknown;
   onRetry?: () => void;
   title?: string;
 }) {
+  const { t } = useI18n();
   return (
     <div
       role="alert"
@@ -181,15 +186,17 @@ export function ErrorState({
         <WarningIcon className="h-4 w-4" aria-hidden />
       </span>
       <div>
-        <p className="text-[--text-sm] font-medium text-ink">{title}</p>
+        <p className="text-[--text-sm] font-medium text-ink">
+          {title ?? t("errors.requestFailed")}
+        </p>
         <p className="mt-0.5 text-[--text-sm] text-ink-muted">
-          {error instanceof Error ? error.message : "未知错误"}
+          {error instanceof Error ? error.message : t("errors.unknown")}
         </p>
       </div>
       {onRetry && (
         <button type="button" onClick={onRetry} className="a-btn a-btn-outline !py-1">
           <RefreshIcon className="h-3.5 w-3.5" />
-          重试
+          {t("common.retry")}
         </button>
       )}
     </div>
@@ -289,14 +296,15 @@ export function DataTable<T>({
   onRetry?: () => void;
   empty?: ReactNode;
 }) {
+  const { t } = useI18n();
   const data = rows ?? [];
   if (error && !loading) return <ErrorState error={error} onRetry={onRetry} />;
   if (!loading && !data.length)
-    return <>{empty ?? <EmptyState title="暂无数据" />}</>;
+    return <>{empty ?? <EmptyState title={t("ui.noData")} />}</>;
 
   return (
     <table className="a-table" aria-busy={loading || undefined}>
-      {loading && <caption className="sr-only">正在加载数据…</caption>}
+      {loading && <caption className="sr-only">{t("ui.loadingData")}</caption>}
       <TableHead columns={columns} />
       {loading ? (
         // 加载态保留真实表头与列宽：整块换成 spinner 会让面板高度塌陷，
@@ -461,7 +469,7 @@ export function Picker<T extends string | number>({
   value,
   options,
   onChange,
-  placeholder = "请选择",
+  placeholder,
   disabled,
   className = "",
   panelClassName = "w-56",
@@ -475,6 +483,8 @@ export function Picker<T extends string | number>({
   className?: string;
   panelClassName?: string;
 }) {
+  const { t } = useI18n();
+  const fallbackPlaceholder = placeholder ?? t("ui.pick");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const root = useRef<HTMLDivElement>(null);
@@ -557,7 +567,7 @@ export function Picker<T extends string | number>({
             selected ? "text-ink" : "text-ink-subtle"
           }`}
         >
-          {selected?.label ?? placeholder}
+          {selected?.label ?? fallbackPlaceholder}
         </span>
         <ChevronDownIcon
           className={`h-3 w-3 shrink-0 text-ink-subtle transition-ui ${open ? "rotate-180" : ""}`}
@@ -573,7 +583,7 @@ export function Picker<T extends string | number>({
           className={`a-card anim-pop absolute bottom-full z-30 mb-1 max-h-56 overflow-y-auto py-1 shadow-pop ${panelClassName}`}
         >
           {options.length === 0 ? (
-            <li className="px-3 py-2 text-[11px] text-ink-subtle">没有可选项</li>
+            <li className="px-3 py-2 text-[11px] text-ink-subtle">{t("ui.noOptions")}</li>
           ) : (
             options.map((o, i) => (
               <li key={o.value} role="option" aria-selected={o.value === value}>
@@ -673,7 +683,7 @@ export function InfoRow({
 export function SearchInput({
   value,
   onValueChange,
-  placeholder = "搜索",
+  placeholder,
   className = "",
 }: {
   value: string;
@@ -681,14 +691,16 @@ export function SearchInput({
   placeholder?: string;
   className?: string;
 }) {
+  const { t } = useI18n();
+  const label = placeholder ?? t("common.search");
   return (
     <div className={`relative ${className}`}>
       <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" />
       <input
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
-        placeholder={placeholder}
-        aria-label={placeholder}
+        placeholder={label}
+        aria-label={label}
         className="a-input pl-8"
       />
     </div>
@@ -771,6 +783,7 @@ function ModalPanel({
   footer?: ReactNode;
   width: string;
 }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLDivElement>(null);
 
   useDialogFocus(ref);
@@ -805,7 +818,7 @@ function ModalPanel({
           <button
             type="button"
             onClick={onClose}
-            aria-label="关闭"
+            aria-label={t("common.close")}
             className="a-btn a-btn-ghost shrink-0 !px-1.5 !py-1"
           >
             <CloseIcon className="h-4 w-4" />
@@ -823,6 +836,7 @@ function ModalPanel({
 }
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const [state, setState] = useState<
     (ConfirmOptions & { resolve: (v: boolean) => void }) | null
   >(null);
@@ -850,14 +864,14 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         footer={
           <>
             <button type="button" className="a-btn a-btn-ghost" onClick={() => close(false)}>
-              {state?.cancelLabel ?? "取消"}
+              {state?.cancelLabel ?? t("common.cancel")}
             </button>
             <button
               type="button"
               className={`a-btn ${state?.tone === "accent" ? "a-btn-primary" : "a-btn-danger"}`}
               onClick={() => close(true)}
             >
-              {state?.confirmLabel ?? "确认删除"}
+              {state?.confirmLabel ?? t("ui.confirmDelete")}
             </button>
           </>
         }
@@ -879,12 +893,13 @@ export function Pagination({
   paged: Page<unknown>;
   onPageChange: (p: number) => void;
 }) {
+  const { t } = useI18n();
   const { page, pages, total } = paged;
   if (pages <= 1) return null;
   return (
-    <nav aria-label="分页" className="flex items-center justify-between gap-3">
+    <nav aria-label={t("ui.pagination")} className="flex items-center justify-between gap-3">
       <p role="status" className="text-[11px] text-ink-subtle tnum">
-        共 {total.toLocaleString("zh-CN")} 条 · 第 {page} / {pages} 页
+        {t("ui.pageSummary", { total: total.toLocaleString(intlLocale()), page, pages })}
       </p>
       <div className="flex items-center gap-1.5">
         <button
@@ -893,7 +908,7 @@ export function Pagination({
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
-          上一页
+          {t("ui.prevPage")}
         </button>
         <button
           type="button"
@@ -901,7 +916,7 @@ export function Pagination({
           disabled={page >= pages}
           onClick={() => onPageChange(page + 1)}
         >
-          下一页
+          {t("ui.nextPage")}
         </button>
       </div>
     </nav>

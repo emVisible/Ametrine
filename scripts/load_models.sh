@@ -11,7 +11,7 @@
 #     ~/.xinference/models 一直是空的」的原因。
 #  2) 引擎。本机 vllm 0.7.2 的 115 个架构里没有任何 Qwen3，所以 --model-engine vLLM
 #     报的是「Model not found in the model list」——看着像模型不存在，其实是引擎不匹配。
-#  3) set -e 连坐。以前 LLM 一失败整脚本退出，embedding / rerank / STT 根本没机会加载。
+#  3) set -e 连坐。以前 LLM 一失败整脚本退出，embedding / rerank 根本没机会加载。
 #     这里逐个尝试、逐个汇报，绝不因为一个失败就丢掉后面的。
 set -uo pipefail
 
@@ -34,7 +34,6 @@ read_env() {
 LLM=$(read_env XINFERENCE_LLM_MODEL_ID)
 EMBEDDING=$(read_env XINFERENCE_EMBEDDING_MODEL_ID)
 RERANK=$(read_env XINFERENCE_RERANK_MODEL_ID)
-STT=$(read_env XINFERENCE_STT_MODEL_ID)
 OCR=$(read_env XINFERENCE_OCR_MODEL_ID)
 LLM_SIZE=$(read_env XINFERENCE_LLM_SIZE); LLM_SIZE="${LLM_SIZE:-4}"
 LLM_ENGINE=$(read_env XINFERENCE_LLM_ENGINE)
@@ -131,7 +130,7 @@ launch() {
 }
 
 echo "配置: LLM=$LLM (${LLM_SIZE}B, engine=$LLM_ENGINE, max_len=$LLM_MAX_LEN)"
-echo "      EMBEDDING=$EMBEDDING  RERANK=$RERANK  STT=$STT  OCR=$OCR (LOAD_OCR=$LOAD_OCR)"
+echo "      EMBEDDING=$EMBEDDING  RERANK=$RERANK  OCR=$OCR (LOAD_OCR=$LOAD_OCR)"
 echo "端点: $BASE_URL"
 
 # 配置与本地缓存对不上是「模型死活起不来」里最省事的一类原因：
@@ -145,7 +144,7 @@ if [ -d "$HOME/.xinference/modelscope/models" ]; then
     hf_cached=$(find "$HOME/.xinference/cache" -maxdepth 3 -mindepth 2 -type d 2>/dev/null |
         sed 's#.*/##' | sort -u | tr '\n' ' ')
     echo "本地缓存目录名: modelscope=[${cached:-无}] cache=[${hf_cached:-无}]"
-    for want in "$LLM" "$EMBEDDING" "$RERANK" "$STT"; do
+    for want in "$LLM" "$EMBEDDING" "$RERANK"; do
         [ -z "$want" ] && continue
         if ! printf '%s %s' "$cached" "$hf_cached" | grep -qi -- "$want"; then
             echo "  ⚠ 配置里的「$want」在本地缓存目录名里没找到 —— 首次加载会走下载；"
@@ -165,11 +164,6 @@ echo
 
 [ -n "$RERANK" ] && launch "Rerank $RERANK" "$RERANK" \
     --model-name "$RERANK" --model-type rerank
-
-# SenseVoiceSmall 属于 audio 类型；query_engine_by_model_name 只接受
-# LLM/embedding/rerank/image，所以 audio 只能这样直接 launch
-[ -n "$STT" ] && FUNASR_DISABLE_UPDATE=true launch "STT $STT" "$STT" \
-    --model-name "$STT" --model-type audio
 
 # GOT-OCR2_0 过去从来没被加载过（.env 里 OCR_AGENT 用的是 Tesseract），
 # 所以要显式打开开关，避免白白多下几个 GB 权重

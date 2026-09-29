@@ -1,6 +1,7 @@
 // src/api/rag.ts
 // 知识库资源的 HTTP 边界。返回类型集中在这里，页面层不再到处 `any`。
 import useAuthStore from "../stores/useAuthStore";
+import { t } from "../i18n";
 import { apiClient } from "./client";
 import type {
   KbChunk,
@@ -78,13 +79,13 @@ export const documentAPI = {
     if (response.status === 401) {
       useAuthStore.getState().logout();
       window.location.href = "/login";
-      throw new Error("登录已过期，请重新登录");
+      throw new Error(t("errors.unauthorized"));
     }
     if (!response.ok) {
       const error = await response
         .json()
         .catch(() => ({ detail: `HTTP ${response.status}` }));
-      throw new Error(error.detail || error.message || "上传失败");
+      throw new Error(error.detail || error.message || t("errors.uploadFailed"));
     }
     const result = await response.json();
     return result.data ?? result;

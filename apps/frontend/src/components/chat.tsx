@@ -3,7 +3,19 @@
 // 此前两页的消息列宽 max-w-4xl 而输入框 max-w-3xl，视觉错位。
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Markdown from "./Markdown";
-import { CheckIcon, CopyIcon, RefreshIcon, SparkIcon, StopIcon, WarningIcon } from "./icons";
+import { useI18n } from "../i18n/context";
+import {
+  CheckIcon,
+  CopyIcon,
+  RefreshIcon,
+  SendIcon,
+  SparkIcon,
+  StopIcon,
+  WarningIcon,
+} from "./icons";
+
+/** 消息列与输入区共用的内容宽度：两侧留白换成正文可用的横向空间 */
+const COLUMN = "mx-auto w-full max-w-[60rem] px-4 md:px-6";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -27,7 +39,6 @@ export function MessageList({
   const [pinned, setPinned] = useState(true);
   // 首屏不该整屏升起：只有本次挂载之后新增的消息才做入场动画。
   // 用惰性 state 存基准值而不是 ref——渲染期读 ref 是被 lint 禁止的（react-hooks/refs）。
-  // <main key={pathname}> 会在切换会话时重挂载，基准值因此天然按会话重置。
   const [baseline] = useState(messages.length);
 
   useEffect(() => {
@@ -47,17 +58,17 @@ export function MessageList({
       onScroll={onScroll}
       className="min-h-0 flex-1 overflow-y-auto"
     >
-      <div className="mx-auto w-full max-w-[54rem] px-4 py-6 md:px-6">
+      <div className={`${COLUMN} py-5`}>
         {messages.length === 0 ? (
           empty
         ) : (
-          <div className="space-y-7">
+          <div className="space-y-6">
             {messages.map((m, i) => (
               <MessageRow key={i} message={m} animate={i >= baseline} />
             ))}
           </div>
         )}
-        {banner && <div className="anim-fade mt-5">{banner}</div>}
+        {banner && <div className="anim-fade mt-4">{banner}</div>}
         <div ref={endRef} />
       </div>
     </div>
@@ -71,6 +82,7 @@ function MessageRow({
   message: ChatMessage;
   animate?: boolean;
 }) {
+  const { t } = useI18n();
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
 
@@ -87,13 +99,15 @@ function MessageRow({
   return (
     <article className={animate ? "anim-rise" : undefined}>
       <header className="mb-1.5 flex items-center gap-2">
-        <span className="a-section-title">{isUser ? "你" : "Ametrine"}</span>
+        <span className="a-section-title">
+          {isUser ? t("common.you") : t("chat.ametrine")}
+        </span>
         {!isUser && !message.streaming && message.content && (
           <button
             type="button"
             onClick={copy}
-            aria-label="复制回答"
-            title="复制回答"
+            aria-label={t("common.copyAnswer")}
+            title={t("common.copyAnswer")}
             className="a-btn a-btn-ghost ml-auto !px-1.5 !py-1"
           >
             {copied ? (
@@ -123,6 +137,12 @@ function MessageRow({
   );
 }
 
+/**
+ * 输入区。以前是「textarea 一行 + 带边框的工具行一行」两层，
+ * 把整块顶到 100+px 高，而两侧明明还有横向空间 —— 正文能显示的行数因此被挤掉。
+ * 现在控件与输入框同处一条 band：左侧放检索范围等上下文控件，右侧放麦克风与发送，
+ * 高度回到一行（输入多行时才自然长高），提示文字只在宽屏上占横向留白。
+ */
 export function Composer({
   value,
   onChange,
@@ -131,10 +151,8 @@ export function Composer({
   busy,
   disabled,
   placeholder,
-  leading,
-  trailing,
-  header,
-  hint,
+  left,
+  right,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -143,20 +161,20 @@ export function Composer({
   busy: boolean;
   disabled?: boolean;
   placeholder: string;
-  leading?: ReactNode;
-  /** 渲染在输入框上方的上下文条（如已选检索范围） */
-  header?: ReactNode;
-  /** 渲染在工具行左侧的控件（如知识库/集合选择器） */
-  trailing?: ReactNode;
-  hint?: ReactNode;
+  /** 输入框左侧的同排控件（如知识库/集合选择器） */
+  left?: ReactNode;
+  /** 输入框右侧、发送按钮之前的控件（如语音输入） */
+  right?: ReactNode;
 }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLTextAreaElement>(null);
+  const hint = t("chat.enterHint");
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 224)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 208)}px`;
   }, [value]);
 
   const canSend = !!value.trim() && !busy && !disabled;
@@ -165,21 +183,26 @@ export function Composer({
     <div className="shrink-0 border-t border-line bg-surface">
       {/* 流式输出对读屏是静默的：只播报阶段状态，不播报逐字内容 */}
       <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {busy ? "正在生成回答，可按停止按钮中断" : ""}
+        {busy ? t("chat.liveRegion") : ""}
       </span>
-      <div className="mx-auto w-full max-w-[54rem] px-4 py-3 md:px-6">
-        <div className="rounded-[--radius-lg] border border-line bg-surface transition-colors focus-within:border-accent">
-          {header && (
-            <div className="flex flex-wrap items-center gap-2 px-3.5 pt-2.5 pb-1">
-              {header}
-            </div>
-          )}
+      <div className={`${COLUMN} pb-2.5 pt-2`}>
+        <div className="flex items-end gap-2 rounded-[--radius-lg] border border-line bg-surface px-2 py-1.5 transition-colors focus-within:border-accent">
+          {left}
+          <span
+            className="hidden shrink-0 pb-2 text-[11px] text-ink-subtle xl:inline"
+            aria-hidden
+          >
+            {hint}
+          </span>
           <textarea
             ref={ref}
+            id="chat-composer"
             rows={1}
             value={value}
             placeholder={placeholder}
             disabled={disabled || busy}
+            title={hint}
+            aria-describedby="chat-composer-hint"
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -187,56 +210,39 @@ export function Composer({
                 if (canSend) onSubmit();
               }
             }}
-            className="w-full resize-none bg-transparent px-3.5 py-3 text-[--text-sm] leading-relaxed text-ink outline-none placeholder:text-ink-subtle disabled:cursor-not-allowed disabled:text-ink-subtle"
+            className="min-h-[28px] min-w-[14rem] flex-1 resize-none bg-transparent px-1.5 py-2 text-[--text-sm] leading-relaxed text-ink outline-none placeholder:text-ink-subtle disabled:cursor-not-allowed disabled:text-ink-subtle"
           />
-          <div className="flex flex-wrap items-center gap-2 border-t border-line-subtle px-2.5 py-1.5">
-            {trailing}
-            {leading}
-            <span className="ml-auto hidden text-[11px] text-ink-subtle sm:inline">
-              {hint ?? "Enter 发送 · Shift + Enter 换行"}
-            </span>
-            {busy && onStop ? (
-              <button
-                type="button"
-                onClick={onStop}
-                className="a-btn a-btn-outline !px-2.5 !py-1 text-danger"
-              >
-                <StopIcon className="h-3.5 w-3.5" />
-                停止
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onSubmit}
-                disabled={!canSend}
-                className="a-btn a-btn-primary !px-3 !py-1"
-              >
-                <SendGlyph />
-                发送
-              </button>
-            )}
-          </div>
+          {right}
+          {busy && onStop ? (
+            <button
+              type="button"
+              onClick={onStop}
+              title={t("chat.stopTitle")}
+              aria-label={t("chat.stopTitle")}
+              className="a-btn a-btn-outline shrink-0 !px-2.5 !py-1.5 text-danger"
+            >
+              <StopIcon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t("common.stop")}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={!canSend}
+              title={t("chat.send")}
+              aria-label={t("chat.send")}
+              className="a-btn a-btn-primary shrink-0 !px-2.5 !py-1.5"
+            >
+              <SendIcon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t("chat.send")}</span>
+            </button>
+          )}
         </div>
+        <span id="chat-composer-hint" className="sr-only">
+          {hint}
+        </span>
       </div>
     </div>
-  );
-}
-
-function SendGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-3.5 w-3.5"
-      aria-hidden="true"
-    >
-      <path d="M4.5 12 20 4.5 15.5 20l-4-6z" />
-      <path d="M11.5 14 20 4.5" />
-    </svg>
   );
 }
 
@@ -251,6 +257,7 @@ export function ErrorNotice({
   message: string;
   onRetry?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       role="alert"
@@ -267,7 +274,7 @@ export function ErrorNotice({
           className="a-btn a-btn-outline shrink-0 !py-1 text-[11px]"
         >
           <RefreshIcon className="h-3.5 w-3.5" />
-          重试
+          {t("common.retry")}
         </button>
       )}
     </div>
@@ -286,7 +293,7 @@ export function EmptyState({
   aside?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+    <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
       <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface-sunken text-ink-subtle">
         <Icon className="h-5 w-5" />
       </div>

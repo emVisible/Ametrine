@@ -14,12 +14,15 @@ dependencies = [
     # unstructured-inference 等 lower bound 找不到交集，uv 只能报无解。
     #
     # 本机 GPU 是 RTX 2080 Ti（Turing sm_75）。vLLM 新版本一路在淘汰老架构，
-    # 而 9997 上配置的这些模型（Qwen3-Instruct / bge-m3 / bge-reranker-base /
-    # SenseVoiceSmall）在 Transformers 引擎下都有 model_spec，
+    # 而 9997 上配置的这些模型（Qwen3-Instruct / bge-m3 / bge-reranker-base）
+    # 在 Transformers 引擎下都有 model_spec，
     # 所以这里只装真正用到的引擎，vllm 整个不进依赖树。
     #
+    # audio（SenseVoiceSmall / whisper 那一支）已经随自建 ASR 一起摘掉：
+    # 语音输入改走浏览器 Web Speech API，不再需要一个几 GB 的 STT 模型。
+    #
     # 结论：不装 vllm ⇒ torch 不再被钉死 ⇒ 新版 xinference 可以正常升级。
-    "xinference[transformers,embedding,rerank,audio,image]>=3.5,<4",
+    "xinference[transformers,embedding,rerank,image]>=3.5,<4",
 ]
 
 [tool.uv]
