@@ -21,7 +21,8 @@ export const qk = {
   collectionsAll: ["knowledge", "collections", "all"] as const,
   documentsAll: ["knowledge", "documents", "all"] as const,
   documents: (colId: number) => ["knowledge", "documents", colId] as const,
-  chunks: (docId: number) => ["knowledge", "chunks", docId] as const,
+  chunks: (docId: number | string) => ["knowledge", "chunks", docId] as const,
+  chunkStats: (colId: number) => ["knowledge", "chunk-stats", colId] as const,
   tenants: ["access", "tenants"] as const,
   tenantOverview: ["access", "tenant-overview"] as const,
 };
@@ -94,11 +95,20 @@ export function useDocuments(collectionId: number | null) {
   });
 }
 
-export function useChunks(documentId: number | null) {
+export function useChunks(documentId: number | string | null) {
   return useQuery({
     queryKey: qk.chunks(documentId!),
     queryFn: () => documentAPI.getChunks(String(documentId)),
     enabled: !!documentId,
+  });
+}
+
+/** 集合内每个文档的 (总块数, 参与检索的块数)，现算。 */
+export function useChunkStats(collectionId: number | null) {
+  return useQuery({
+    queryKey: qk.chunkStats(collectionId!),
+    queryFn: () => documentAPI.chunkStats(collectionId!),
+    enabled: !!collectionId,
   });
 }
 
@@ -246,6 +256,64 @@ export function useUploadDocument(
     },
     successKey: "admin.vector.docUploaded",
     errorKey: "admin.vector.docUploadFailed",
+  });
+}
+
+/**
+ * 分块级操作的共同失效范围：动一块会同时改变
+ * 该文档的分块列表、所在集合的计数、以及整链的文档数，所以整组失效。
+ */
+function useChunkMutation<TVars>(options: {
+  mutationFn: (vars: TVars) => Promise<unknown>;
+  successKey: string;
+  errorKey: string;
+}) {
+  const queryClient = useQueryClient();
+  return useResourceMutation({
+    ...options,
+    invalidate: () => queryClient.invalidateQueries({ queryKey: ["knowledge"] }),
+  });
+}
+
+export function useSetChunkEnabled() {
+  return useChunkMutation({
+    mutationFn: (vars: {
+      docId: string;
+      chunkId: number;
+      enabled: boolean;
+    }) => documentAPI.setChunkEnabled(vars.docId, vars.chunkId, vars.enabled),
+    successKey: "admin.vector.chunkToggled",
+    errorKey: "admin.vector.chunkToggleFailed",
+  });
+}
+
+export function useSetDocumentEnabled() {
+  return useChunkMutation({
+    mutationFn: (vars: { docId: string; enabled: boolean }) =>
+      documentAPI.setDocumentEnabled(vars.docId, vars.enabled),
+    successKey: "admin.vector.docToggled",
+    errorKey: "admin.vector.chunkToggleFailed",
+  });
+}
+
+export function useUpdateChunk() {
+  return useChunkMutation({
+    mutationFn: (vars: {
+      docId: string;
+      chunkId: number;
+      content: string;
+    }) => documentAPI.updateChunk(vars.docId, vars.chunkId, vars.content),
+    successKey: "admin.vector.chunkUpdated",
+    errorKey: "admin.vector.chunkUpdateFailed",
+  });
+}
+
+export function useDeleteChunk() {
+  return useChunkMutation({
+    mutationFn: (vars: { docId: string; chunkId: number }) =>
+      documentAPI.deleteChunk(vars.docId, vars.chunkId),
+    successKey: "admin.vector.chunkDeleted",
+    errorKey: "admin.vector.chunkDeleteFailed",
   });
 }
 

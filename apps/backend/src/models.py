@@ -11,6 +11,7 @@ from sqlalchemy import (
     Text,
     BigInteger,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
@@ -126,6 +127,11 @@ class DocumentChunk(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     content = Column(Text)
+    # 停用而不删除：向量侧没有 enabled 标量字段（集合 schema 是既有的，
+    # 加字段要重建集合），所以排除放在读取正文这一层（chunk_get_many_service），
+    # 检索召回的 (doc_id, chunk_id) 到那里查不到行就等于不存在。
+    # 用 server_default 是为了让已有的 9 条历史分块默认参与检索，而不是全部消失。
+    enabled = Column(Boolean, nullable=False, server_default=text("true"))
 
     doc_id = Column(UUID(as_uuid=True), ForeignKey("document.id"))
     document = relationship("Document", back_populates="chunks")

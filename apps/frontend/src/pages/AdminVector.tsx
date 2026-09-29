@@ -25,22 +25,33 @@ import {
   SearchInput,
   Select,
   StatusBadge,
+  TextArea,
   TextInput,
   Toggle,
   type Column,
 } from "../components/ui";
 import {
+  useChunkStats,
   useCreateCollection,
   useCreateDatabase,
+  useDeleteChunk,
   useDeleteDocument,
   useKnowledgeIndex,
+  useSetChunkEnabled,
+  useSetDocumentEnabled,
   useTenants,
+  useUpdateChunk,
   useUploadDocument,
 } from "../hooks/queries";
 import { useChunks } from "../hooks/queries";
 import { useToast } from "../hooks/useToast";
 import { documentAPI, type RecallResult } from "../api/rag";
-import type { KbCollection, KbDatabase, KbDocument } from "../types/knowledge";
+import type {
+  KbChunk,
+  KbCollection,
+  KbDatabase,
+  KbDocument,
+} from "../types/knowledge";
 import {
   BookIcon,
   ChevronRightIcon,
@@ -674,26 +685,162 @@ function RecallPanel({
 }
 
 
+function ChunkRow({
+  chunk,
+  ordinal,
+  canWrite,
+  busy,
+  onToggle,
+  onSave,
+  onDelete,
+}: {
+  chunk: KbChunk;
+  ordinal: number;
+  canWrite: boolean;
+  busy: boolean;
+  onToggle: (enabled: boolean) => void;
+  onSave: (content: string) => void;
+  onDelete: () => void;
+}) {
+  const { t } = useI18n();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(chunk.content ?? "");
+  const enabled = chunk.enabled !== false;
+  const trimmed = draft.trim();
+
+  return (
+    <li className="rounded-[--radius-md] border border-line bg-surface-sunken p-3">
+      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+        <span className="a-badge border-line bg-surface text-ink-subtle tnum">
+          #{ordinal}
+        </span>
+        <span className="a-badge border-line bg-surface text-ink-subtle tnum">
+          chunk_id {chunk.id}
+        </span>
+        {/* 停用不是删除：内容还在，只是不进检索。标出来才知道为什么召不回它。 */}
+        {!enabled && (
+          <span className="a-badge border-warning-border bg-warning-soft text-warning">
+            {t("admin.vector.chunkOffBadge")}
+          </span>
+        )}
+        <span className="ml-auto text-[11px] text-ink-subtle tnum">
+          {t("admin.vector.charsN", { n: (chunk.content ?? "").length })}
+        </span>
+      </div>
+
+      {editing ? (
+        <div className="space-y-2">
+          <TextArea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={6}
+            aria-label={t("admin.vector.chunkEditAria", { n: chunk.id })}
+          />
+          {/* 改正文会重算这一块的向量：只改关系库的文本、向量留在原处，
+              检索就会按旧内容召回新内容，分数与文字从此对不上且一声不响。 */}
+          <p className="text-[11px] leading-relaxed text-ink-subtle">
+            {t("admin.vector.chunkEditHint")}
+          </p>
+          <div className="flex justify-end gap-1.5">
+            <button
+              type="button"
+              className="a-btn a-btn-ghost !py-1 text-[11px]"
+              disabled={busy}
+              onClick={() => {
+                setDraft(chunk.content ?? "");
+                setEditing(false);
+              }}
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              className="a-btn a-btn-primary !py-1 text-[11px]"
+              disabled={busy || !trimmed || trimmed === (chunk.content ?? "").trim()}
+              onClick={() => {
+                onSave(trimmed);
+                setEditing(false);
+              }}
+            >
+              {t("common.save")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="whitespace-pre-wrap text-[--text-sm] leading-relaxed text-ink">
+            {chunk.content}
+          </p>
+          {canWrite && (
+            <div className="mt-2 flex justify-end gap-1.5">
+              <button
+                type="button"
+                className="a-btn a-btn-outline !py-1 text-[11px]"
+                disabled={busy}
+                onClick={() => onToggle(!enabled)}
+              >
+                {enabled
+                  ? t("admin.vector.chunkOff")
+                  : t("admin.vector.chunkOn")}
+              </button>
+              <button
+                type="button"
+                className="a-btn a-btn-outline !py-1 text-[11px]"
+                disabled={busy}
+                onClick={() => setEditing(true)}
+              >
+                {t("common.edit")}
+              </button>
+              <button
+                type="button"
+                className="a-btn a-btn-danger !py-1 text-[11px]"
+                disabled={busy}
+                onClick={onDelete}
+              >
+                {t("common.del")}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </li>
+  );
+}
+
 function ChunkViewer({
   documentId,
   documentTitle,
+  canWrite,
   onClose,
 }: {
   documentId: number;
   documentTitle: string;
+  canWrite: boolean;
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const { data: chunks, isLoading } = useChunks(documentId);
   const [page, setPage] = useState(1);
   const paged = paginate(chunks ?? [], page);
+  const docId = String(documentId);
+
+  const toggle = useSetChunkEnabled();
+  const update = useUpdateChunk();
+  const remove = useDeleteChunk();
+  const busy = toggle.isPending || update.isPending || remove.isPending;
+  const offCount = (chunks ?? []).filter((c) => c.enabled === false).length;
 
   return (
     <Modal
       open
       onClose={onClose}
       title={documentTitle}
-      description={t("admin.vector.chunkTotal", { n: paged.total })}
+      description={
+        offCount
+          ? t("admin.vector.chunkOffTotal", { total: paged.total, off: offCount })
+          : t("admin.vector.chunkTotal", { n: paged.total })
+      }
       width="max-w-2xl"
       footer={
         <Pagination paged={paged} onPageChange={setPage} />
@@ -709,25 +856,25 @@ function ChunkViewer({
       ) : (
         <ol className="space-y-2">
           {paged.items.map((chunk, i) => (
-            <li
+            <ChunkRow
               key={chunk.id}
-              className="rounded-[--radius-md] border border-line bg-surface-sunken p-3"
-            >
-              <div className="mb-1.5 flex items-center gap-2">
-                <span className="a-badge border-line bg-surface text-ink-subtle tnum">
-                  #{paged.offset + i + 1}
-                </span>
-                <span className="a-badge border-line bg-surface text-ink-subtle tnum">
-                  chunk_id {chunk.id}
-                </span>
-                <span className="ml-auto text-[11px] text-ink-subtle tnum">
-                  {t("admin.vector.charsN", { n: chunk.content?.length ?? 0 })}
-                </span>
-              </div>
-              <p className="whitespace-pre-wrap text-[--text-sm] leading-relaxed text-ink">
-                {chunk.content}
-              </p>
-            </li>
+              chunk={chunk}
+              ordinal={paged.offset + i + 1}
+              canWrite={canWrite}
+              busy={busy}
+              onToggle={(enabled) =>
+                toggle.mutate({ docId, chunkId: chunk.id, enabled })
+              }
+              onSave={(content) => update.mutate({ docId, chunkId: chunk.id, content })}
+              onDelete={() =>
+                confirm({
+                  title: t("admin.vector.deleteChunkTitle", { n: chunk.id }),
+                  message: t("admin.vector.deleteChunkMsg"),
+                  confirmLabel: t("common.del"),
+                  tone: "danger",
+                }).then((ok) => ok && remove.mutate({ docId, chunkId: chunk.id }))
+              }
+            />
           ))}
         </ol>
       )}
@@ -748,6 +895,8 @@ function DocumentList({
   const confirm = useConfirm();
   const isAdmin = useIsAdmin();
   const remove = useDeleteDocument();
+  const toggleDoc = useSetDocumentEnabled();
+  const stats = useChunkStats(collection.id);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [uploading, setUploading] = useState(false);
@@ -810,13 +959,22 @@ function DocumentList({
       key: "chunks",
       header: t("common.chunks"),
       align: "right",
-      width: "5rem",
+      width: "6rem",
       hideBelow: "sm",
-      cell: (doc) => (
-        <span className="tnum text-ink-muted">
-          {doc.meta?.chunk_count ?? "—"}
-        </span>
-      ),
+      cell: (doc) => {
+        // 现算的 enabled/total 优先；meta.chunk_count 只在统计没回来时兜底，
+        // 因为它是上传时写死的一次性数字，删过一块就不会自己变小。
+        const s = stats.data?.[String(doc.id)];
+        return (
+          <span
+            className={`tnum ${
+              s && s.enabled < s.total ? "text-warning" : "text-ink-muted"
+            }`}
+          >
+            {s ? `${s.enabled}/${s.total}` : (doc.meta?.chunk_count ?? "—")}
+          </span>
+        );
+      },
     },
     {
       key: "created",
@@ -834,39 +992,62 @@ function DocumentList({
       key: "actions",
       header: "",
       align: "right",
-      width: "6rem",
-      cell: (doc) => (
-        <div className="flex justify-end gap-1.5">
-          <button
-            type="button"
-            className="a-btn a-btn-outline !py-1 text-[11px]"
-            onClick={() => setViewing(doc)}
-          >
-            {t("admin.vector.viewChunks")}
-          </button>
-          {/* 知识库原来只能往里加：传错了、传重了都清不掉。
-              删除是破坏性动作，所以只在管理员视角出现，且必须过确认。 */}
-          {isAdmin && (
+      width: "12rem",
+      cell: (doc) => {
+        const s = stats.data?.[String(doc.id)];
+        // 整篇的开关只是「把它的所有分块一起翻」的快捷方式，状态从现算的计数读，
+        // 不再额外存一份文档级开关（两处都能表达同一件事时，就会出现没人定义过的组合）。
+        const allOff = !!s && s.enabled === 0;
+        return (
+          <div className="flex flex-wrap justify-end gap-1.5">
             <button
               type="button"
-              className="a-btn a-btn-danger !py-1 text-[11px]"
-              disabled={remove.isPending}
-              onClick={() =>
-                confirm({
-                  title: t("admin.vector.deleteDocTitle", {
-                    name: doc.title || t("rag.untitled"),
-                  }),
-                  message: t("admin.vector.deleteDocMsg"),
-                  confirmLabel: t("common.del"),
-                  tone: "danger",
-                }).then((ok) => ok && remove.mutate(String(doc.id)))
-              }
+              className="a-btn a-btn-outline !py-1 text-[11px]"
+              onClick={() => setViewing(doc)}
             >
-              {t("common.del")}
+              {t("admin.vector.viewChunks")}
             </button>
-          )}
-        </div>
-      ),
+            {isAdmin && (
+              <button
+                type="button"
+                className="a-btn a-btn-outline !py-1 text-[11px]"
+                disabled={toggleDoc.isPending || !s}
+                onClick={() =>
+                  toggleDoc.mutate({
+                    docId: String(doc.id),
+                    enabled: !allOff,
+                  })
+                }
+              >
+                {allOff
+                  ? t("admin.vector.docOn")
+                  : t("admin.vector.docOff")}
+              </button>
+            )}
+            {/* 知识库原来只能往里加：传错了、传重了都清不掉。
+                删除是破坏性动作，所以只在管理员视角出现，且必须过确认。 */}
+            {isAdmin && (
+              <button
+                type="button"
+                className="a-btn a-btn-danger !py-1 text-[11px]"
+                disabled={remove.isPending}
+                onClick={() =>
+                  confirm({
+                    title: t("admin.vector.deleteDocTitle", {
+                      name: doc.title || t("rag.untitled"),
+                    }),
+                    message: t("admin.vector.deleteDocMsg"),
+                    confirmLabel: t("common.del"),
+                    tone: "danger",
+                  }).then((ok) => ok && remove.mutate(String(doc.id)))
+                }
+              >
+                {t("common.del")}
+              </button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -983,6 +1164,7 @@ function DocumentList({
         <ChunkViewer
           documentId={viewing.id}
           documentTitle={viewing.title || t("rag.untitled")}
+          canWrite={isAdmin}
           onClose={() => setViewing(null)}
         />
       )}

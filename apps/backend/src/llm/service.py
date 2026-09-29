@@ -70,17 +70,19 @@ class LLMService:
                 yield event
         yield dumps({"type": "done"}) + "\n"
 
-    def vector_rank(self, context: list[dict], limit: int = p) -> list[dict]:
-        """不重排时按向量距离直接排序。
+    def vector_rank(self, context: list[dict]) -> list[dict]:
+        """不重排时按向量距离排序，**不截断**。
 
         距离不能套进 min_relevance_score：那个阈值是给 rerank 的 0..1 相关性分的用的，
         而 MILVUS_METRIC_TYPE=L2，距离越小越好、量纲也不同。
-        所以这条路只取前 p 条，不做阈值过滤 —— 宁可少筛一层，
+        所以这条路只按距离排，不做阈值过滤 —— 宁可少筛一层，
         也不要把两种分数混在同一个阈值下。
+
+        截断挪到 hydrate_texts 里做：停用或已删除的分块取不到正文，会在补正文时被丢掉。
+        先截断再补正文的话，一条停用中的分块就会白占一个 p 名额，
+        于是「停用了垃圾内容，结果却少了一条好内容」—— 这正是这个功能最不该有的行为。
         """
-        ranked = sorted(
-            context, key=lambda hit: hit.get("distance", float("inf"))
-        )[:limit]
+        ranked = sorted(context, key=lambda hit: hit.get("distance", float("inf")))
         out = []
         for hit in ranked:
             entity = hit.get("entity") or {}
@@ -95,14 +97,18 @@ class LLMService:
             )
         return out
 
-    async def hydrate_texts(self, ranked: list[dict]) -> list[dict]:
-        """给向量排序路径补上正文，让 prompt 与引用跟重排路径同构。"""
+    async def hydrate_texts(self, ranked: list[dict], limit: int = p) -> list[dict]:
+        """给向量排序路径补上正文，让 prompt 与引用跟重排路径同构。
+
+        取不到正文的（分块被停用、被删除、或向量是孤儿）先剔掉，再截前 limit 条，
+        这样名额留给真正能进 prompt 的内容。
+        """
         pairs = [(r["doc_id"], r["chunk_id"]) for r in ranked]
         chunks = await self.relation_service.documentService.chunk_get_many_service(pairs)
         by_key = {(str(c.doc_id), c.id): c.content for c in chunks}
         for r in ranked:
             r["text"] = by_key.get((str(r["doc_id"]), r["chunk_id"]))
-        return [r for r in ranked if r["text"]]
+        return [r for r in ranked if r["text"]][:limit]
 
     async def rerank(
         self, question: str, context: list[dict], collection_name: str

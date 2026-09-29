@@ -15,7 +15,7 @@ from fastapi import (
     UploadFile,
 )
 from pymilvus import MilvusClient
-from src.client import get_milvus_service
+from src.client import get_embedding_model, get_milvus_service
 from src.config import xinference_embedding_model_id
 from src.llm.service import LLMService, get_llm_service
 from src.middleware.tags import ControllerTag
@@ -38,32 +38,82 @@ route_document = APIRouter(prefix="/document", tags=[ControllerTag.relation_db])
 # 查询接口（只读 PG）
 # ═══════════════════════════════════════════
 
-@route_document.get("/all", summary="获取所有Document")
-async def all_documents(service: DocumentService = Depends(get_document_service)):
-    return await service.document_get_all_service()
+
+async def _readable_database_ids(
+    current_user, perm_service: PermissionService
+) -> list[int]:
+    """当前用户可读的库 id；管理员拿到的是全量，所以这条路对两种身份都只有一份语义。"""
+    return [db["id"] for db in await perm_service.get_accessible_databases(current_user.id)]
 
 
-@route_document.get("/collection", summary="获取指定Collection下的Documents")
-async def get_specific(
-    collection_id: int,
+@route_document.get("/all", summary="获取所有Document（限可读库）")
+async def all_documents(
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
     service: DocumentService = Depends(get_document_service),
 ):
-    return await service.document_get_by_collection_service(collection_id=collection_id)
+    # 这四个只读路由原先挂在「登录后就放行」下面，没有任何库级判断：
+    # 换一个大一点的 document_id / doc_id 就能读到别人知识库的清单和全文，
+    # 而 /relation/document/all 直接把全租户的文档一次性倒给任何人。
+    # 知识库控制台对所有登录用户开放，所以按可读库过滤，而不是整条只留给管理员。
+    ids = await _readable_database_ids(current_user, perm_service)
+    return await service.document_get_all_service(database_ids=ids)
+
+
+@route_document.get("/collection", summary="获取指定Collection下的Documents（限可读库）")
+async def get_specific(
+    collection_id: int,
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
+    service: DocumentService = Depends(get_document_service),
+):
+    ids = await _readable_database_ids(current_user, perm_service)
+    return await service.document_get_by_collection_service(
+        collection_id=collection_id, database_ids=ids
+    )
+
+
+@route_document.get("/chunk/stats", summary="集合内每个文档的分块计数")
+async def chunk_stats(
+    collection_id: int,
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
+    service: DocumentService = Depends(get_document_service),
+):
+    """(总块数, 参与检索的块数) 现算，不读 document.meta.chunk_count。
+
+    那个字段是上传时写死的一次性数字：删掉一块之后它不会自己变小，
+    界面要是信它，就会长期显示一个没人核对过的计数。
+    """
+    located = await service.collection_locate_service(collection_id=collection_id)
+    await perm_service.require_read_database(
+        current_user.id, located["database_name"]
+    )
+    return await service.chunk_stats_by_collection_service(collection_id=collection_id)
 
 
 @route_document.get("/get", summary="获取Document详情")
 async def get(
     document_id: str,
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
     service: DocumentService = Depends(get_document_service),
 ):
+    if not await perm_service.can_access_document(current_user.id, document_id):
+        raise HTTPException(status_code=403, detail="您无权访问该文档所属知识库")
     return await service.document_get_service(document_id=document_id)
 
 
 @route_document.get("/chunk", summary="获取Document的所有Chunks")
 async def get_chunks(
     doc_id: str,
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
     service: DocumentService = Depends(get_document_service),
 ):
+    # 返回的行带 enabled 字段：停用中的分块也要能列出来，否则没法再把它打开。
+    if not await perm_service.can_access_document(current_user.id, doc_id):
+        raise HTTPException(status_code=403, detail="您无权访问该文档所属知识库")
     return await service.chunk_get_by_document_service(doc_id=doc_id)
 
 
@@ -229,6 +279,179 @@ async def delete_document(
     return await pg_service.document_delete_service(
         document_id=document_id, stored_path=doc.get("stored_path")
     )
+
+
+# ═══════════════════════════════════════════
+# 分块级管理（停用 / 改正文 / 删单块）
+# ═══════════════════════════════════════════
+
+_CHUNK_FILTER = 'doc_id == "%s" and chunk_id == %d'
+
+
+async def _require_chunk_write(doc_id: UUID, chunk_id: int, current_user, perm_service, pg_service):
+    """所有分块写路由的第一件事：确认这一块确实属于那篇文档，并且用户能写它所在的库。
+
+    分块主键是全局自增 id，只看 chunk_id 就能拿 A 文档的接口改到 B 文档的分块，
+    跨集合、跨租户都命中得了。
+    """
+    owner = await pg_service.chunk_ownership_service(doc_id=doc_id, chunk_id=chunk_id)
+    await perm_service.require_write_database(current_user.id, owner["database_name"])
+    return owner
+
+
+def _vector_item(embedding, doc_id: UUID, chunk_id: int, available_fields: set[str]) -> dict:
+    item = {
+        "embedding": [float(x) for x in embedding],
+        "doc_id": str(doc_id),
+        "chunk_id": chunk_id,
+    }
+    # 这几个字段是可选的：老集合没有它们，硬塞会报 schema 不匹配。
+    if "source_type" in available_fields:
+        item["source_type"] = "document"
+    if "embedding_model" in available_fields:
+        item["embedding_model"] = xinference_embedding_model_id
+    if "created_at" in available_fields:
+        item["created_at"] = int(time())
+    return item
+
+
+@route_document.patch("/chunk/{doc_id}/{chunk_id}/enabled", summary="停用/启用单个分块")
+async def set_chunk_enabled(
+    doc_id: UUID,
+    chunk_id: int,
+    enabled: bool = Body(..., embed=True),
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
+    pg_service: DocumentService = Depends(get_document_service),
+):
+    """停用 = 不参与检索，但正文与向量都留着，随时可以再打开。
+
+    专业 RAG 产品都有这一层：召回到一段过期或有问题的文字时，
+    正确的动作是先把它从检索里摘出来，而不是删掉整篇文档、或者重新上传一版。
+    排除在读取正文处生效（见 chunk_get_many_service），所以向量侧不用改。
+    """
+    await _require_chunk_write(doc_id, chunk_id, current_user, perm_service, pg_service)
+    return await pg_service.chunk_set_enabled_service(
+        doc_id=doc_id, chunk_id=chunk_id, enabled=enabled
+    )
+
+
+@route_document.patch("/{document_id}/enabled", summary="停用/启用整篇文档的分块")
+async def set_document_enabled(
+    document_id: UUID,
+    enabled: bool = Body(..., embed=True),
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
+    pg_service: DocumentService = Depends(get_document_service),
+):
+    doc = await pg_service.document_locate_service(document_id=document_id)
+    await perm_service.require_write_database(current_user.id, doc["database_name"])
+    return await pg_service.document_set_enabled_service(
+        doc_id=document_id, enabled=enabled
+    )
+
+
+@route_document.put("/chunk/{doc_id}/{chunk_id}", summary="修改分块正文并重新向量化")
+async def update_chunk(
+    doc_id: UUID,
+    chunk_id: int,
+    content: str = Body(..., embed=True),
+    # 依赖顺序：鉴权与权限排在会打 Milvus / Xinference 的依赖之前。
+    # get_embedding_model 只是构造句柄，联网是在正文里 embed 的那一刻，
+    # 所以模型没起来时这里仍然返回 403/404，而不是把权限判断顶成 500。
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
+    pg_service: DocumentService = Depends(get_document_service),
+    milvus: MilvusClient = Depends(get_milvus_service),
+    embeddings=Depends(get_embedding_model),
+):
+    """分块是可以改的：切分不理想时，改这一块的正文比重传整份文档代价小得多。
+
+    关键约束是「向量必须跟着正文走」。只更新 PG 的话，检索仍然按旧向量召回，
+    而引用与上下文取的是新正文 —— 分数与内容从此对不上，而且没有任何地方会报错。
+    所以顺序是：先算新向量，再换掉 Milvus 里的那条，最后才落 PG。
+    """
+    owner = await _require_chunk_write(doc_id, chunk_id, current_user, perm_service, pg_service)
+    new_text = content.strip()
+    if not new_text:
+        raise HTTPException(status_code=422, detail="分块正文不能为空")
+    if new_text == (owner["content"] or "").strip():
+        return {"chunk_id": chunk_id, "changed": False, "enabled": owner["enabled"]}
+
+    try:
+        embedding = embeddings.embed_documents([new_text])[0]
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail="向量化失败，分块未修改（模型侧：%s）" % type(exc).__name__,
+        )
+
+    collection_name = owner["collection_name"]
+    milvus.use_database(db_name=owner["database_name"])
+    try:
+        milvus.delete(
+            collection_name=collection_name,
+            filter=_CHUNK_FILTER % (doc_id, chunk_id),
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail="旧向量删除失败，分块正文未修改，可直接重试：%s" % type(exc).__name__,
+        )
+    try:
+        milvus.insert(
+            collection_name=collection_name,
+            data=[
+                _vector_item(
+                    embedding, doc_id, chunk_id, _collection_fields(milvus, collection_name)
+                )
+            ],
+        )
+        milvus.flush(collection_name=collection_name)
+    except Exception as exc:  # noqa: BLE001
+        # 说清楚后果：这一条此刻检索不到，但重试本次修改就能恢复。
+        raise HTTPException(
+            status_code=502,
+            detail="新向量写入失败：旧向量已删，该分块暂时检索不到。正文未修改，重试本次修改即可恢复（%s）"
+            % type(exc).__name__,
+        )
+
+    await pg_service.chunk_touch_service(
+        doc_id=doc_id, chunk_id=chunk_id, content=new_text
+    )
+    return {"chunk_id": chunk_id, "changed": True, "enabled": owner["enabled"]}
+
+
+@route_document.delete("/chunk/{doc_id}/{chunk_id}", summary="删除单个分块（PG + Milvus）")
+async def delete_chunk(
+    doc_id: UUID,
+    chunk_id: int,
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
+    pg_service: DocumentService = Depends(get_document_service),
+    milvus: MilvusClient = Depends(get_milvus_service),
+):
+    """删一块而不必删整篇文档。
+
+    顺序沿用文档删除那条：先向量后 PG。反过来一旦 Milvus 失败，PG 行已经没了，
+    那条向量就成了谁也查不到、也删不掉的孤儿。
+    """
+    owner = await _require_chunk_write(doc_id, chunk_id, current_user, perm_service, pg_service)
+    collection_name = owner["collection_name"]
+    milvus.use_database(db_name=owner["database_name"])
+    try:
+        milvus.delete(
+            collection_name=collection_name,
+            filter=_CHUNK_FILTER % (doc_id, chunk_id),
+        )
+        milvus.flush(collection_name=collection_name)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail="向量删除失败，分块未删除，可直接重试：%s" % type(exc).__name__,
+        )
+    await pg_service.chunk_delete_row_service(doc_id=doc_id, chunk_id=chunk_id)
+    return {"message": "分块 %d 已删除" % chunk_id, "chunk_id": chunk_id}
 
 
 @route_document.post("/recall", summary="检索预览（只跑检索与重排，不调用大模型）")

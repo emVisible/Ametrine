@@ -47,6 +47,16 @@ export interface KbChunk {
   doc_id?: number;
   content: string;
   created_at?: string;
+  /** false = 停用：正文与向量都留着，但检索取不到它，因此不会进 prompt 与引用 */
+  enabled?: boolean;
+}
+
+/** GET /relation/document/chunk/stats —— 每个文档现算的分块计数。
+ *  刻意不读 document.meta.chunk_count：那是上传时写死的一次性数字，
+ *  删过一块之后它不会自己变小。 */
+export interface KbChunkStats {
+  total: number;
+  enabled: number;
 }
 
 export interface Tenant {

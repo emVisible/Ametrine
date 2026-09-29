@@ -5,6 +5,7 @@ import { t } from "../i18n";
 import { apiClient } from "./client";
 import type {
   KbChunk,
+  KbChunkStats,
   KbCollection,
   KbDatabase,
   KbDocument,
@@ -135,4 +136,33 @@ export const documentAPI = {
     ),
   getChunks: (doc_id: string) =>
     apiClient<KbChunk[]>(`/relation/document/chunk?doc_id=${doc_id}`),
+  chunkStats: (collection_id: number) =>
+    apiClient<Record<string, KbChunkStats>>(
+      `/relation/document/chunk/stats?collection_id=${collection_id}`,
+    ),
+
+  /* ── 分块级控制 ───────────────────────────────────────────────
+     切分不理想时，改一块 / 停用一块的代价远小于重传整份文档。
+     停用是「不参与检索但内容留着」：正文与向量都不动，随时可以再打开；
+     删除会连向量一起走，所以后端先删向量、后删关系行，失败可直接重试。 */
+  setChunkEnabled: (doc_id: string, chunk_id: number, enabled: boolean) =>
+    apiClient<{ chunk_id: number; enabled: boolean }>(
+      `/relation/document/chunk/${doc_id}/${chunk_id}/enabled`,
+      { method: "PATCH", body: { enabled } },
+    ),
+  setDocumentEnabled: (document_id: string, enabled: boolean) =>
+    apiClient<{ document_id: string; enabled: boolean; changed: number }>(
+      `/relation/document/${document_id}/enabled`,
+      { method: "PATCH", body: { enabled } },
+    ),
+  updateChunk: (doc_id: string, chunk_id: number, content: string) =>
+    apiClient<{ chunk_id: number; changed: boolean; enabled: boolean }>(
+      `/relation/document/chunk/${doc_id}/${chunk_id}`,
+      { method: "PUT", body: { content } },
+    ),
+  deleteChunk: (doc_id: string, chunk_id: number) =>
+    apiClient<{ message: string; chunk_id: number }>(
+      `/relation/document/chunk/${doc_id}/${chunk_id}`,
+      { method: "DELETE" },
+    ),
 };
