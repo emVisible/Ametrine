@@ -304,6 +304,10 @@ class SystemService:
         return out
 
     async def _services(self, detailed: bool):
+        # 只问 redis / milvus；postgres 探测已拆到 _probe_postgres
+        return await anyio.to_thread.run_sync(self._probe_sync_services, detailed)
+
+    async def _probe_postgres(self, detailed: bool):
         services = {"postgres": {"ok": True}}
         try:
             await self.relation_db.execute(select(Database.id).limit(1))
@@ -311,16 +315,35 @@ class SystemService:
             services["postgres"] = _brief(e) | (
                 {"detail": f"{type(e).__name__}: {e}"} if detailed else {}
             )
-        services.update(
-            await anyio.to_thread.run_sync(self._probe_sync_services, detailed)
-        )
         return services
 
-    async def _models(self, detailed: bool):
-        """问 xinference 服务器「你实际加载了什么」，再和 .env 里配置的 id 对账。
+    def _resolve_models(self, want: dict) -> dict:
+        """按**应用真正使用的那条解析路径**判断模型在不在。
 
-        这一步不是可选项：对话没反应最常见的原因就是 LLM/EMBEDDING id 写的是
-        服务器上并不存在的模型名，而这在界面上完全不可见。
+        这里原来只是把 /v1/models 列出来的 model_name 和配置里的 id 比一下。
+        那是个假绿发生器：应用取模型用的是 get_model(model_uid=...)，
+        而 Xinference 的 uid 和 model_name 是两回事（启动时可以显式指定 uid）。
+        于是只要 uid 不等于名字，读数说「已加载」、真实调用却报 Model not found。
+        现在直接跑一遍 get_model —— 它成功，模型才真的可用。
+        """
+        from xinference_client import RESTfulClient
+
+        base = (xinference_addr or "").rstrip("/")
+        client = RESTfulClient(base_url=base, api_key=xinference_api_key or None)
+        out = {}
+        for role, mid in want.items():
+            try:
+                desc = client.get_model(model_uid=mid)
+                out[role] = {"ok": True, "name": getattr(desc, "model_name", mid)}
+            except Exception as exc:  # noqa: BLE001
+                out[role] = {"ok": False, "name": mid, "reason": type(exc).__name__}
+        return out
+
+    async def _models(self, detailed: bool):
+        """问服务器「配置里这三个模型现在能不能取到」。
+
+        这一步不是可选项：对话没反应最常见的原因就是 .env 里的模型 id
+        与服务器上真正加载的模型对不上，而这在界面上原本完全不可见。
         """
         want = {
             "llm": xinference_llm_model_id,
@@ -330,48 +353,45 @@ class SystemService:
         base = (xinference_addr or "").rstrip("/")
         if not base:
             return {
-                "endpoint": base or None,
+                "endpoint": None,
                 "reachable": False,
                 "reason": "not_configured",
                 "expected": want,
                 "missing": list(want),
                 "loaded": [],
             }
-        headers = {"Authorization": f"Bearer {xinference_api_key}"} if xinference_api_key else {}
         try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                resp = await client.get(f"{base}/v1/models", headers=headers)
-                resp.raise_for_status()
-                payload = resp.json()
-        except Exception as e:  # noqa: BLE001
+            resolved = await anyio.to_thread.run_sync(self._resolve_models, want)
+        except Exception as exc:  # noqa: BLE001
             out = {
                 "endpoint": base if detailed else None,
                 "reachable": False,
-                "reason": type(e).__name__,
+                "reason": type(exc).__name__,
                 "expected": want,
                 "missing": list(want),
                 "loaded": [],
             }
             if detailed:
-                out["detail"] = f"{type(e).__name__}: {e}"
+                out["detail"] = "%s: %s" % (type(exc).__name__, exc)
             return out
-        rows = payload.get("data") if isinstance(payload, dict) else payload
-        loaded = [
-            {
-                "name": item.get("model_name") or item.get("name"),
-                "type": item.get("model_type") or item.get("type"),
-                "status": item.get("status"),
-            }
-            for item in (rows or [])
-            if isinstance(item, dict)
-        ]
-        names = {m["name"] for m in loaded}
+
+        missing = [role for role, r in resolved.items() if not r["ok"]]
         return {
             "endpoint": base if detailed else None,
             "reachable": True,
             "expected": want,
-            "missing": [role for role, mid in want.items() if mid not in names],
-            "loaded": loaded if detailed else [],
+            "missing": missing,
+            "loaded": [
+                {
+                    "name": r.get("name"),
+                    "type": role,
+                    "status": "ready" if r["ok"] else "unavailable",
+                    "reason": r.get("reason"),
+                }
+                for role, r in resolved.items()
+            ]
+            if detailed
+            else [],
         }
 
     async def overview(self, user_id: int, is_admin: bool):
@@ -380,16 +400,20 @@ class SystemService:
         )
         # 原始报错文本、模型清单与内部端点只对管理员展开
         detailed = is_admin
-        knowledge, (activity, last_ingested), top, composition, services, models = (
-            await asyncio.gather(
-                self._knowledge(db_ids),
-                self._activity(db_ids),
-                self._top_collections(db_ids),
-                self._composition(db_ids),
-                self._services(detailed),
-                self._models(detailed),
-            )
+        # AsyncSession 不是并发安全的：把五条查询丢进 asyncio.gather 会让它们
+        # 在同一个 session 上交错取连接，实测直接抛 IllegalStateChangeError
+        # （'_connection_for_bind()  already in progress'）。
+        # 所以数据库部分老老实实顺序跑，只并发两个不碰 session 的网络探测
+        # （redis/milvus 已经在工作线程里，模型解析是独立 HTTP 调用）。
+        knowledge = await self._knowledge(db_ids)
+        activity, last_ingested = await self._activity(db_ids)
+        top = await self._top_collections(db_ids)
+        composition = await self._composition(db_ids)
+        postgres = await self._probe_postgres(detailed)
+        probed, models = await asyncio.gather(
+            self._services(detailed), self._models(detailed)
         )
+        services = {**postgres, **probed}
         return {
             # 明确告诉界面这份读数是全站还是仅本人可见范围 —— 否则同一个数字
             # 在管理员和普通用户眼里含义完全不同，界面上却看不出来。

@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import tuple_
 from sqlalchemy.future import select
 from src.client import get_relation_db
 from src.models import Collection, Database, Document, DocumentChunk
@@ -29,6 +30,23 @@ class DocumentService:
         await self.relation_db.commit()
         await self.relation_db.refresh(document)
         return document
+
+    async def chunk_get_many_service(self, pairs):
+        """一次取回多组 (doc_id, chunk_id) 的分块正文。
+
+        重排原来对每个向量命中各查一次库、再各发一次模型调用，
+        而每次只喂一个候选 —— 给单个文档排序没有意义，
+        还把 N 次网络往返串在回答路径上。这里收成一次查询 + 一次批量打分。
+        """
+        unique = list({(str(d), c) for d, c in pairs if d is not None})
+        if not unique:
+            return []
+        result = await self.relation_db.execute(
+            select(DocumentChunk).where(
+                tuple_(DocumentChunk.doc_id, DocumentChunk.id).in_(unique)
+            )
+        )
+        return result.scalars().all()
 
     async def document_find_by_digest(self, collection_id: int, sha256: str):
         """同一集合里内容完全相同的文档标题，没有则 None。

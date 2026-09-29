@@ -73,36 +73,57 @@ class LLMService:
     async def rerank(
         self, question: str, context: list[dict], collection_name: str
     ) -> list[dict]:
-        reranked_data = []
-        for item in context:
-            doc_id, chunk_id = item["entity"]["doc_id"], item["entity"]["chunk_id"]
-            chunks = await self.relation_service.documentService.chunk_get_by_document_service(
-                doc_id=doc_id, chunk_id=chunk_id, accuracy=True
-            )
-            part_res = await self.rerank_loop(
-                document=[
-                    {
-                        "text": chunk.content,
-                        "metadata": {"doc_id": doc_id, "chunk_id": chunk_id},
-                    }
-                    for chunk in chunks
-                ],
-                question=question,
-            )
-            reranked_data.append(part_res)
-        res = self.unify_filter(data=reranked_data, question=question)
-        return res
+        """一次批量重排，替掉「每个向量命中各打一次重排模型」。
 
-    async def rerank_loop(self, document: list[str], question: str):
+        旧写法对 context 里每一条命中各发一次 rerank，而每次只喂一个候选 ——
+        给单个文档排序没有意义（它自己就是第一名），
+        还把 N 次模型往返 + N 次取正文串在回答路径上。
+        现在一次取回全部正文、一次让模型对整批打分，排序交给 unify_filter。
+        """
+        pairs = [
+            (item["entity"]["doc_id"], item["entity"]["chunk_id"])
+            for item in context
+            if item.get("entity")
+        ]
+        if not pairs:
+            return []
+        chunks = await self.relation_service.documentService.chunk_get_many_service(pairs)
+        if not chunks:
+            return []
+        document = [
+            {"text": chunk.content, "doc_id": chunk.doc_id, "chunk_id": chunk.id}
+            for chunk in chunks
+        ]
+        part_res = await self.rerank_loop(document=document, question=question)
+        return self.unify_filter(data=[part_res], question=question)
+
+    async def rerank_loop(self, document: list[dict], question: str):
+        """整批交给重排模型，按**下标**回填元信息。
+
+        旧实现用文本内容做 key 回填。单条时不会撞，一旦批量就是真 bug：
+        两个内容相同的分块会在字典里互相覆盖，于是分数正确、doc_id/chunk_id 却张冠李戴，
+        引用会指向另一份同名内容。服务端返回的 index 才是可靠键。
+        """
         texts = [item["text"] for item in document]
-        text_to_meta = {item["text"]: item["metadata"] for item in document}
 
         loop = get_running_loop()
+        # k 传整批长度：先让模型把所有候选都排出来，截断交给 unify_filter 的 p，
+        # 否则 K=5 会在打分阶段就把第 6 条之后的候选直接丢掉。
         res: RerankResult = await loop.run_in_executor(
-            None, self.rerank_model.rerank, texts, question, k, None, True
+            None,
+            self.rerank_model.rerank,
+            texts,
+            question,
+            max(k, len(texts)),
+            None,
+            True,
         )
         for item in res["results"]:
-            item["metadata"] = text_to_meta.get(item["document"]["text"])
+            idx = item.get("index")
+            src = document[idx] if isinstance(idx, int) and 0 <= idx < len(document) else None
+            item["metadata"] = (
+                {"doc_id": src["doc_id"], "chunk_id": src["chunk_id"]} if src else {}
+            )
         return res
 
     def unify_filter(self, data: list[dict], question: str) -> list[dict]:
