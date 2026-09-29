@@ -86,6 +86,14 @@ async def user_update(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="只有管理员可以调整角色"
             )
+    # 用量配额是资源策略，不是个人偏好：以前普通用户能给自己把日限从 10 万改到 1000 万，
+    # 和「配额由管理员定」的语义直接冲突。role_id 之外再挡一层。
+    if {"daily_token_limit", "monthly_token_limit"} & set(updates) and not _is_admin(
+        current_user
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="用量配额只能由管理员调整"
+        )
     return UserRead.model_validate(await user_service.update_user(user_id, dto))
 
 

@@ -413,10 +413,14 @@ export const zh = {
       "当前浏览器没有 Web Speech API（SpeechRecognition）。用 Chrome 或 Edge 打开本应用后再开启。",
     savePrefs: "保存偏好",
     prefsSaved: "偏好设置已保存",
-    quotaUpdated: "配额已更新",
     dailyLimit: "每日 Token 限额",
     monthlyLimit: "每月 Token 限额",
     quotaUsed: "已用 {used} · 上限 {limit}",
+    quotaManaged: "配额由管理员设置，这里只展示你的用量与当前上限。",
+    quotaManagedAdmin:
+      "配额只能在「组织与权限」里按成员调整，这里只展示用量与当前上限。",
+    quotaNotEnforced:
+      "限额目前只做展示：后端还没有用量回写与超额拦截，改上限不会改变能不能继续对话。",
   },
   profile: {
     pageDesc: "账号信息、权限范围与系统提示词",

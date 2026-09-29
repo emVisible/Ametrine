@@ -1,5 +1,6 @@
 // src/pages/Settings.tsx
 import { useState } from "react";
+import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../api/client";
 import useAuthStore from "../stores/useAuthStore";
@@ -10,7 +11,7 @@ import { useI18n } from "../i18n/context";
 import { LangSwitcher } from "../i18n/I18nProvider";
 import { intlLocale } from "../i18n";
 import { Tabs } from "../components/ui";
-import { CheckIcon, MoonIcon, SunIcon } from "../components/icons";
+import { CheckIcon, InfoIcon, MoonIcon, SunIcon, WarningIcon } from "../components/icons";
 import type { User } from "../types/user";
 
 type Tab = "general" | "quota";
@@ -156,76 +157,83 @@ function PreferencesPanel({ user }: { user: User }) {
   );
 }
 
+/**
+ * 用量配额：只读。
+ *
+ * 配额是管理员的资源策略，不是个人偏好 —— 以前这一页让用户自己点一下就把自己
+ * 的日限从 10 万改成 1000 万（后端 PATCH 只挡了 role_id）。现在改的口在
+ * 「组织与权限」里（管理员侧），这一页只回答「我用了多少、上限是多少」。
+ */
 function QuotaPanel({ user }: { user: User }) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { t } = useI18n();
+  // /user/{id} 返回的是 User（没有 permissions 字段），管理员身份看 role_id：3 = 管理员
+  const isAdmin = user.role_id === 3;
 
-  const save = useMutation({
-    mutationFn: (body: Partial<User>) =>
-      apiClient(`/user/${user.id}`, { method: "PATCH", body }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user", user.id] });
-      toast(t("settings.quotaUpdated"), "success");
-    },
-    onError: (e: Error) => toast(t("common.updateFailed", { msg: e.message }), "error"),
-  });
-
-  const groups = [
+  const rows = [
     {
-      field: "daily_token_limit" as const,
+      key: "daily",
       title: t("settings.dailyLimit"),
-      current: user.daily_token_limit,
-      used: user.daily_token_used,
-      options: [50_000, 100_000, 200_000, 500_000],
+      used: user.daily_token_used ?? 0,
+      limit: user.daily_token_limit ?? 0,
     },
     {
-      field: "monthly_token_limit" as const,
+      key: "monthly",
       title: t("settings.monthlyLimit"),
-      current: user.monthly_token_limit,
-      used: user.monthly_token_used,
-      options: [1_000_000, 3_000_000, 5_000_000, 10_000_000],
+      used: user.monthly_token_used ?? 0,
+      limit: user.monthly_token_limit ?? 0,
     },
   ];
 
   return (
     <section className="a-card divide-y divide-line-subtle px-4">
-      {groups.map((group) => (
-        <div key={group.field} className="py-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-[--text-sm] font-medium text-ink">
-              {group.title}
-            </p>
-            <p className="text-[11px] text-ink-subtle tnum">
-              {t("settings.quotaUsed", {
-                used: (group.used ?? 0).toLocaleString(intlLocale()),
-                limit: (group.current ?? 0).toLocaleString(intlLocale()),
-              })}
-            </p>
+      {rows.map((row) => {
+        const pct =
+          row.limit > 0 ? Math.min(100, Math.round((row.used / row.limit) * 100)) : 0;
+        return (
+          <div key={row.key} className="py-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-[--text-sm] font-medium text-ink">{row.title}</p>
+              <p className="text-[11px] text-ink-subtle tnum">
+                {t("settings.quotaUsed", {
+                  used: row.used.toLocaleString(intlLocale()),
+                  limit: row.limit.toLocaleString(intlLocale()),
+                })}
+              </p>
+            </div>
+            <div
+              className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-sunken"
+              role="progressbar"
+              aria-label={row.title}
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className={`h-full rounded-full ${pct >= 90 ? "bg-warning" : "bg-accent"}`}
+                style={{ width: `${Math.max(pct, 2)}%` }}
+              />
+            </div>
           </div>
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {group.options.map((limit) => {
-              const selected = group.current === limit;
-              return (
-                <button
-                  key={limit}
-                  type="button"
-                  disabled={selected || save.isPending}
-                  onClick={() =>
-                    save.mutate({ [group.field]: limit } as Partial<User>)
-                  }
-                  className={`a-btn !py-1 text-[11px] tnum ${
-                    selected ? "a-btn-primary" : "a-btn-outline"
-                  }`}
-                >
-                  {selected && <CheckIcon className="h-3 w-3" />}
-                  {limit.toLocaleString(intlLocale())}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+        );
+      })}
+
+      <p className="flex items-start gap-2 py-3 text-[11px] leading-relaxed text-ink-muted">
+        <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-subtle" aria-hidden />
+        <span>
+          {isAdmin ? t("settings.quotaManagedAdmin") : t("settings.quotaManaged")}{" "}
+          {isAdmin && (
+            <Link to="/admin/access" className="text-accent-ink hover:underline">
+              {t("page.access")}
+            </Link>
+          )}
+        </span>
+      </p>
+
+      {/* 限额目前不拦截任何请求：与其让人以为改了数字就生效，不如把状态写在脸上 */}
+      <p className="flex items-start gap-2 py-3 text-[11px] leading-relaxed text-warning">
+        <WarningIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+        <span>{t("settings.quotaNotEnforced")}</span>
+      </p>
     </section>
   );
 }

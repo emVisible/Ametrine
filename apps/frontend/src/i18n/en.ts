@@ -433,10 +433,15 @@ export const en: Messages = {
       "This browser has no Web Speech API (SpeechRecognition). Open the app in Chrome or Edge first.",
     savePrefs: "Save preferences",
     prefsSaved: "Preferences saved",
-    quotaUpdated: "Quota updated",
     dailyLimit: "Daily token limit",
     monthlyLimit: "Monthly token limit",
     quotaUsed: "Used {used} · limit {limit}",
+    quotaManaged:
+      "Quotas are set by an administrator — this page only shows your usage and current limits.",
+    quotaManagedAdmin:
+      "Quotas can only be adjusted per member in Org & access — this page only shows usage and current limits.",
+    quotaNotEnforced:
+      "Limits are display-only today: there's no usage write-back or over-quota rejection yet, so changing a limit doesn't change whether chat keeps working.",
   },
   profile: {
     pageDesc: "Account details, access scope and system prompt",

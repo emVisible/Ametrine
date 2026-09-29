@@ -153,6 +153,77 @@ function TenantMemberRow({
   );
 }
 
+/**
+ * 管理员侧的配额编辑。
+ *
+ * 配额从「系统设置 → 用量配额」搬到这里：那是每个账号自己的页面，
+ * 把上限按钮放在那儿等于让用户自己改自己的配额（后端 PATCH 当时只挡了 role_id）。
+ * 只发 limit；用量由后端统计，目前还没接上（设置页已把这点写在脸上）。
+ */
+function QuotaEditor({
+  user,
+  disabled,
+  onSave,
+}: {
+  user: User;
+  disabled: boolean;
+  onSave: (body: Record<string, number>) => void;
+}) {
+  const { t } = useI18n();
+  const rows = [
+    {
+      field: "daily_token_limit",
+      title: t("settings.dailyLimit"),
+      used: user.daily_token_used ?? 0,
+      current: user.daily_token_limit ?? 100_000,
+      options: [50_000, 100_000, 200_000, 500_000],
+    },
+    {
+      field: "monthly_token_limit",
+      title: t("settings.monthlyLimit"),
+      used: user.monthly_token_used ?? 0,
+      current: user.monthly_token_limit ?? 3_000_000,
+      options: [1_000_000, 3_000_000, 5_000_000, 10_000_000],
+    },
+  ];
+
+  return (
+    <div className="divide-y divide-line-subtle">
+      {rows.map((row) => (
+        <div
+          key={row.field}
+          className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+        >
+          <div className="min-w-0">
+            <p className="text-[--text-sm] text-ink">{row.title}</p>
+            <p className="text-[11px] text-ink-subtle tnum">
+              {t("settings.quotaUsed", {
+                used: row.used.toLocaleString(intlLocale()),
+                limit: row.current.toLocaleString(intlLocale()),
+              })}
+            </p>
+          </div>
+          <Select
+            aria-label={row.title}
+            value={row.current}
+            className="!w-auto !py-1 text-[11px]"
+            disabled={disabled}
+            options={row.options.map((v) => ({
+              value: v,
+              label: v.toLocaleString(intlLocale()),
+            }))}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              if (next === row.current) return;
+              onSave({ [row.field]: next });
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
   const [tab, setTab] = useState<"info" | "grants" | "tenants">("info");
   const { t } = useI18n();
@@ -243,6 +314,13 @@ function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
                 {(user.total_token_used ?? 0).toLocaleString(intlLocale())}
               </span>
             }
+          />
+          {/* 配额从个人设置页搬到这里：它是管理员的资源策略，
+              放在「我的设置」里就等于让用户自己改自己的上限 */}
+          <QuotaEditor
+            user={user}
+            disabled={patch.isPending}
+            onSave={(body) => patch.mutate(body)}
           />
           <div className="flex items-center justify-between gap-3 pt-3">
             <span className="text-[--text-sm] text-ink-muted">{t("common.role")}</span>
