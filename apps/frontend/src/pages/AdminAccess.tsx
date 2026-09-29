@@ -212,8 +212,8 @@ function QuotaEditor({
               value: v,
               label: v.toLocaleString(intlLocale()),
             }))}
-            onChange={(e) => {
-              const next = Number(e.target.value);
+            onChange={(v) => {
+              const next = Number(v);
               if (next === row.current) return;
               onSave({ [row.field]: next });
             }}
@@ -337,8 +337,8 @@ function MemberDetail({ user, onClose }: { user: User; onClose: () => void }) {
                   value: roleId,
                   label: t(roleKeyOf(roleId)),
                 }))}
-                onChange={(e) => {
-                  const roleId = Number(e.target.value);
+                onChange={(v) => {
+                  const roleId = Number(v);
                   if (roleId === user.role_id) return;
                   confirm({
                     title: t("admin.access.changeRoleTitle", {
@@ -515,16 +515,19 @@ function MembersPanel() {
             <Select
               aria-label={t("admin.access.filterByRole")}
               value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
+              onChange={(v) => {
+                setRoleFilter(String(v));
                 setPage(1);
               }}
               className="!w-auto !py-1 text-[11px]"
+              panelClassName="w-36"
               placeholder={t("admin.access.allRoles")}
-              options={[1, 2, 3].map((roleId) => ({
-                value: String(roleId),
-                label: t(roleKeyOf(roleId)),
-              }))}
+              options={[
+                { value: "", label: t("admin.access.allRoles") },
+                ...[1, 2, 3].map((roleId) => ({
+                  value: String(roleId),
+                  label: t(roleKeyOf(roleId)),
+              }))]}
             />
             <SearchInput
               value={query}
@@ -626,14 +629,14 @@ function TenantMembersModal({
           <Select
             label={t("admin.access.addMember")}
             value={pick}
-            onChange={(e) => setPick(e.target.value)}
+            onChange={(v) => setPick(String(v))}
             placeholder={
               candidates.length
                 ? t("admin.access.pickMember")
                 : t("admin.access.noMembersToAdd")
             }
             options={candidates.map((u) => ({
-              value: u.id,
+              value: String(u.id),
               label: u.email ? `${u.name} · ${u.email}` : u.name,
             }))}
           />

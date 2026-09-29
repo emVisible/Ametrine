@@ -10,7 +10,7 @@ import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n/context";
 import { LangSwitcher } from "../i18n/I18nProvider";
 import { intlLocale } from "../i18n";
-import { Tabs } from "../components/ui";
+import { Select, Tabs } from "../components/ui";
 import { CheckIcon, InfoIcon, MoonIcon, SunIcon, WarningIcon } from "../components/icons";
 import type { User } from "../types/user";
 
@@ -101,16 +101,18 @@ function PreferencesPanel({ user }: { user: User }) {
           title={t("settings.model")}
           description={t("settings.modelDesc")}
         >
-          <select
-            value={(preferences.model as string) || "default"}
-            onChange={(e) => update("model", e.target.value)}
+          <Select
             aria-label={t("settings.model")}
-            className="a-input !w-auto cursor-pointer !py-1"
-          >
-            <option value="default">{t("settings.systemDefault")}</option>
-            <option value="qwen">Qwen</option>
-            <option value="deepseek">DeepSeek</option>
-          </select>
+            value={(preferences.model as string) || "default"}
+            onChange={(v) => update("model", String(v))}
+            className="!w-auto"
+            panelClassName="w-44"
+            options={[
+              { value: "default", label: t("settings.systemDefault") },
+              { value: "qwen", label: "Qwen" },
+              { value: "deepseek", label: "DeepSeek" },
+            ]}
+          />
         </FieldRow>
 
         <FieldRow title={t("settings.uiLang")} description={t("settings.uiLangDesc")}>

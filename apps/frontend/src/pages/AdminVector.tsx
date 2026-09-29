@@ -274,12 +274,17 @@ function DatabaseList({
           <Select
             label={t("admin.vector.tenantLabel")}
             value={form.tenant_id}
-            onChange={(e) => setForm({ ...form, tenant_id: e.target.value })}
+            onChange={(v) => setForm({ ...form, tenant_id: String(v) })}
             placeholder={t("admin.vector.tenantNoneOption")}
-            options={(tenants ?? []).map((tenant) => ({
-              value: tenant.id,
-              label: tenant.name,
-            }))}
+            panelClassName="w-full"
+            options={[
+              // 自绘 listbox 的 placeholder 不可选中，「不绑定租户」必须是真选项
+              { value: "", label: t("admin.vector.tenantNoneOption") },
+              ...(tenants ?? []).map((tenant) => ({
+                value: String(tenant.id),
+                label: tenant.name,
+              })),
+            ]}
             hint={t("admin.vector.tenantHint")}
           />
         </div>

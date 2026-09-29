@@ -419,34 +419,59 @@ export function TextArea({
   );
 }
 
+/**
+ * 表单里的下拉。
+ *
+ * 它以前是原生 `<select>`：面板由浏览器绘制（深色主题下整块白底 + 系统蓝高亮），
+ * 和同一页里自制的 listbox 长成两个世界。现在全站只有一个实现：
+ * Picker 负责 listbox 本体，Select 只负责「字段标签 + 提示 + 整宽」这层表单语义。
+ * 需要「无/全部」这类可选项时，请把它写成显式 option：自绘 listbox 的
+ * placeholder 只是占位提示，不能像原生 `<option value="">` 那样被选中。
+ */
 export function Select({
   label,
   hint,
   options,
   placeholder,
   id: idProp,
-  ...rest
-}: React.SelectHTMLAttributes<HTMLSelectElement> & {
+  className,
+  panelClassName,
+  value,
+  onChange,
+  disabled,
+  ...aria
+}: {
   label?: string;
   hint?: string;
   options: { value: string | number; label: string }[];
   placeholder?: string;
+  id?: string;
+  className?: string;
+  panelClassName?: string;
+  value: string | number | null;
+  onChange: (v: string | number) => void;
+  disabled?: boolean;
+  "aria-label"?: string;
 }) {
   const auto = useId();
   const id = idProp ?? auto;
+  const ariaLabel = aria["aria-label"];
   const body = (
-    <select id={id} className="a-input cursor-pointer" {...rest}>
-      {placeholder && <option value="">{placeholder}</option>}
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <Picker
+      id={id}
+      label={label ?? ariaLabel ?? placeholder ?? ""}
+      value={value}
+      options={options}
+      placeholder={placeholder}
+      disabled={disabled}
+      className={className}
+      panelClassName={panelClassName}
+      onChange={onChange}
+    />
   );
   if (!label) return body;
   return (
-    <div>
+    <div className="min-w-0">
       <label htmlFor={id} className="a-label">
         {label}
       </label>
@@ -473,6 +498,7 @@ export function Picker<T extends string | number>({
   disabled,
   className = "",
   panelClassName = "w-56",
+  id,
 }: {
   label: string;
   value: T | null;
@@ -482,6 +508,8 @@ export function Picker<T extends string | number>({
   disabled?: boolean;
   className?: string;
   panelClassName?: string;
+  /** 给 <label htmlFor> 用 */
+  id?: string;
 }) {
   const { t } = useI18n();
   const fallbackPlaceholder = placeholder ?? t("ui.pick");
@@ -549,6 +577,7 @@ export function Picker<T extends string | number>({
   return (
     <div ref={root} className={`relative min-w-0 ${className}`} onKeyDown={onKeyDown}>
       <button
+        id={id}
         type="button"
         disabled={disabled}
         aria-haspopup="listbox"
@@ -556,7 +585,7 @@ export function Picker<T extends string | number>({
         aria-controls={open ? listId : undefined}
         aria-label={label}
         onClick={() => (open ? setOpen(false) : openPanel())}
-        className={`flex w-full items-center gap-1.5 rounded-[--radius-md] border border-line bg-surface-sunken px-2 py-1 text-left text-[11px] transition-ui ${
+        className={`flex w-full items-center gap-1.5 rounded-[--radius-md] border border-line bg-surface-sunken px-3 py-1.5 text-left text-[--text-sm] transition-ui ${
           disabled
             ? "cursor-not-allowed opacity-50"
             : "hover:border-accent-border focus-visible:border-accent"
@@ -580,7 +609,7 @@ export function Picker<T extends string | number>({
           role="listbox"
           aria-label={label}
           tabIndex={-1}
-          className={`a-card anim-pop absolute bottom-full z-30 mb-1 max-h-56 overflow-y-auto py-1 shadow-pop ${panelClassName}`}
+          className={`a-card anim-pop absolute top-full z-30 mt-1 max-h-56 overflow-y-auto py-1 shadow-pop ${panelClassName}`}
         >
           {options.length === 0 ? (
             <li className="px-3 py-2 text-[11px] text-ink-subtle">{t("ui.noOptions")}</li>
@@ -591,7 +620,7 @@ export function Picker<T extends string | number>({
                   type="button"
                   onMouseEnter={() => setActive(i)}
                   onClick={() => commit(i)}
-                  className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] transition-ui ${
+                  className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition-ui ${
                     i === active ? "bg-surface-hover text-ink" : "text-ink-muted"
                   }`}
                 >
