@@ -1,6 +1,14 @@
-<img src="apps/frontend/public/logo.svg" alt="Ametrine" width="220" />
+<div align="center">
+
+<img src="apps/frontend/public/favicon.png" alt="Ametrine" width="96" height="96" />
+
+# Ametrine
 
 > A self-hosted Retrieval-Augmented-Generation workspace: your documents, your models, your database — no vendor in the loop.
+
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
+![Runtime](https://img.shields.io/badge/runtime-self--hosted-blue)
 
 **English** · [简体中文](README_zh.md)
 
@@ -8,6 +16,8 @@ Ametrine is a local-first knowledge base built around RAG. It ingests real docum
 splits them semantically, embeds them into Milvus, and answers questions with citations you can
 click open. Multi-tenancy, per-knowledge-base permissions, token quotas, and chunk-level curation
 are part of the product, not bolted on.
+
+</div>
 
 ---
 

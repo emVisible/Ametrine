@@ -1,12 +1,22 @@
-<img src="apps/frontend/public/logo.svg" alt="Ametrine" width="220" />
+<div align="center">
+
+<img src="apps/frontend/public/favicon.png" alt="Ametrine" width="96" height="96" />
+
+# Ametrine
 
 > 一套自托管的 RAG 工作空间：文档是你的，模型是你的，数据库也是你的，中间没有别人。
+
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
+![Runtime](https://img.shields.io/badge/runtime-self--hosted-blue)
 
 [English](README.md) · **简体中文**
 
 Ametrine 是一个本地优先的知识库系统，核心是检索增强生成（RAG）。它接收真实文档、按语义切分、
 向量化进 Milvus，然后带着可点开的引用回答问题。多租户、知识库级权限、Token 配额与分块级治理
 是产品的一部分，不是外挂的补丁。
+
+</div>
 
 ---
 
