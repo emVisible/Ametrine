@@ -705,3 +705,78 @@ CUDA 上下文）并完成了一次真实推理。所以真实情况是「**装�
 `e2e_probe%` 账号数 0、其名下会话 0、全库孤儿消息 0。
 **有一处我清不掉**：库里还有一个更早 session 留下的 `qa-anon-probe`（id 27），
 我没有它的口令、也不该用你的 root 口令，交给你删。
+
+## 十三、后端依赖真正换掉（2026-09-29 收尾，`uv sync` 之后才算做完）
+
+前面所有结论都建立在「新环境装好了」上，但 **`apps/backend` 的声明没动**，所以
+`uv run xinference-local` 拿到的还是 2.10。这一节把这条尾巴剪掉，并记录过程中撞出来的事。
+
+### 改了什么
+
+| 项 | 前 | 后（实测） |
+| --- | --- | --- |
+| backend 依赖 | `xinference[all]==2.10` + `langchain-xinference` | `xinference-client>=3.5,<4`（langchain-xinference 删除，全仓 0 处 import） |
+| 锁定的包数 | 463 | **202**（`uv lock` 输出 `Resolved 202 packages`） |
+| `apps/backend/.venv` 体积 | 11 GB | **6.4 GB** |
+| vllm / xformers / xoscar / xinference 服务端 | 在 | **全部不在**（`PackageNotFoundError`） |
+| torch / transformers | 2.5.1 / 4.57.6（被 vllm 钉死） | 仍是 2.5.1 / 4.57.6，但**这次是 `torchvision 0.20.1` 与文档链路要的**，不再是 vllm 的硬等号 |
+
+### 顺手挖出来的真正问题：后端一直没声明自己的运行时
+
+`uv sync` 一执行，后端直接起不来 —— 因为下面这些**全是靠 `xinference[all]` 传递进来的**：
+
+```
+fastapi  starlette  uvicorn  python-jose  email-validator
+```
+
+`email-validator` 尤其隐蔽：它只在 `pydantic.EmailStr`（`src/user/dto.py` 两处）运行时才需要，
+`import` 扫描根本看不见它。连 `.venv/bin/uvicorn` 这个入口脚本都被删掉了 —— 也就是说
+**只要有人老老实实 `uv sync` 一次，这个后端就起不来**，跟 xinference 半毛钱关系没有。
+现在按旧锁里的版本把它们显式声明进 `pyproject.toml`。
+
+### 3.x 客户端的两个坑（都改了代码）
+
+1. **顶层模块改名**：`xinference-client 3.5.0` 装的是 `xinference_client`（下划线），
+   不再是 `xinference.client`；`AudioModelHandle` 也搬到了
+   `xinference_client.client.restful.restful_client.RESTfulAudioModelHandle`。
+2. **`get_model()` 是即时的**，实测：
+   `RuntimeError: Failed to get the model description … Model not found in the model list, uid: bge-m3`。
+   而 `get_llm_service` 每条请求都要注入 `llm / embedding / rerank` 三个句柄 ——
+   于是「只装 LLM、没装 rerank」的机器上，**连根本不经过 rerank 的纯对话也会 500**。
+   新增 `LazyModelHandle`（`src/client.py`）把服务端往返推到第一次真正用到的时候：
+   实测 `get_llm_model()` 构造时不打服务端，`resolve()` 得到 `RESTfulChatModelHandle`；
+   `rerank` 在被调用时才报错，且报错点名模型与修复办法。
+
+### 「为什么 `uv run xinference-local` 还是 2.10」的实底
+
+`ss -ltnp` 与 `/proc/<pid>/exe` 实测：当时监听 9997 的进程是
+`apps/backend/.venv/bin/xinference-local`，而它的可执行文件已经**是 `(deleted)`** ——
+包被卸载了、进程还活着。所以你看到的一直是那个 0 模型的空转旧进程，不是新装的 3.5.0。
+
+### 这台机器上的切换已经做了（有一处需要你决定）
+
+现在 `:9997` 跑的是 `apps/inference/.venv` 的 **3.5.0**，`gemma-4` 已加载，一发推理实测返回
+`content="2"`（24+1=25 tokens），`:3000` 后端与 `:8000` 前端都在，
+`GET :8000/api/llm/references` → 401（说明前端代理→后端链路通）。
+
+**但鉴权我按「保持原状」处理了**：3.5.0 的 `XINFERENCE_AUTH_ADVANCED` 默认是 `true`，
+而 `~/.xinference/auth/auth.db` 里**已经有一个管理员**（用户名 `ametrine`，
+`created_at 2026-09-28 15:45:26`，api_keys 表 0 行）。那个口令不是我设的、我也不该猜或改，
+所以我用 `XINFERENCE_AUTH_ADVANCED=false` 启动，行为与你原来的匿名 2.10 一致，**没碰 auth.db**。
+要真开鉴权，你自己以 `ametrine` 登录后 `POST /v1/admin/keys` 签发一把、填进
+`.env` 的 `XINFERENCE_API_KEY` 即可（后端代码这条路径早就实测通了）。
+
+### 端到端复测（真实 `:3000`，不是隔离端口）
+
+临时账号写进 `user.system_prompt` 的暗号，在回答末尾**原样出现**：
+
+```
+正文：Embedding 是一种将文本、图像或其他复杂数据转换为**高维向量**…从而捕捉数据的语义和上下文关系。  青柠编号 8341
+SSE：42 行 / 1068 字节；无 error 事件；匿名 /api/chat → 401
+```
+
+测试账号与其会话已全部自删（库里 `fin%_probe%`/`e2e_probe%` 计数 0）。
+一处必须承认的自伤：我用 `printf >>` 追加 `.env` 键值时，正好赶上该文件**末尾没有换行**，
+把 `SEMAPHORE=32` 和第一行追加粘成了一行，后端随即在 `Settings()` 处
+`int_parsing` 报错。已修回 `SEMAPHORE=32` 并去掉多余的 admin 行；
+教训是：**改 `.env` 必须用替换而不是追加**（`set_kv` 现在也是这么写的）。

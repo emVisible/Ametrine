@@ -4,7 +4,9 @@ import json
 import redis as redis_lib
 import re
 from fastapi import Depends, UploadFile
-from xinference.client.handlers import AudioModelHandle
+from xinference_client.client.restful.restful_client import (
+    RESTfulAudioModelHandle as AudioModelHandle,
+)
 from src.client import get_stt_handle
 
 

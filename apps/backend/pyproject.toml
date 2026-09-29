@@ -12,13 +12,23 @@ dependencies = [
     "colorlog>=6.9.0",
     "compressed-tensors>=0.9.1",
     "dotenv>=0.9.9",
+    # 下面四个原先都是靠 xinference[all] 传递进来的（`uv sync` 一执行就被剪掉，
+    # 后端直接起不来：fastapi/starlette/jose 全部 ModuleNotFoundError，
+    # 连 .venv/bin/uvicorn 这个入口脚本都没了）。应用自己的运行时必须自己声明。
+    "fastapi>=0.136.3",
+    # pydantic.EmailStr（src/user/dto.py 两处）在运行时才要它，原先也是 xinference[all] 带进来的
+    "email-validator>=2.3.0",
+    "starlette>=1.2.1",
+    "uvicorn[standard]>=0.48.0",
+    "python-jose[cryptography]>=3.5.0",
     "httpx>=0.27.2",
     "hyperpyyaml>=1.2.3",
     "langchain>=0.3.25",
     "langchain-community>=0.3.24",
     "langchain-experimental>=0.3.4",
     "langchain-milvus>=0.2.0",
-    "langchain-xinference>=0.1.1",
+    # langchain-xinference 已移除：全仓库 0 处 import（ChatXinference 只是死导入，
+    # 向量化走 src/client.py 里自己实现的 CredentialedEmbeddings）。
     "nvidia-ml-py>=13.610.43",
     "passlib>=1.7.4",
     "pdf2image>=1.17.0",
@@ -38,5 +48,9 @@ dependencies = [
     "transformers>=4.57.6",
     "unstructured>=0.17.2",
     "unstructured-inference>=1.0.2",
-    "xinference[all]==2.10",
+    # 后端只是 xinference 的**调用方**（只用 xinference.client），
+    # 原先写的是 `xinference[all]==2.10` —— 那会把整个服务端 + vllm 0.7.2 装进应用环境，
+    # 而 vllm 0.7.2 硬锁 `torch==2.5.1`，连带 transformers 卡在 4.57.x、读不懂新模型架构。
+    # 服务端由 apps/inference 独立提供（见 scripts/setup_inference_env.sh 与 dev.sh）。
+    "xinference-client>=3.5,<4",
 ]

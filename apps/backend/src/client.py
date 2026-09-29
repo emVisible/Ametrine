@@ -12,8 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import declarative_base
 from src.config import xinference_addr, xinference_llm_model_id
 from transformers import AutoTokenizer
-from xinference.client import RESTfulClient
-from xinference.client.handlers import AudioModelHandle
+from xinference_client import RESTfulClient
 
 from .config import (
     chunk_overlap,
@@ -68,13 +67,46 @@ def get_redis() -> Redis:
     return client
 
 
+class LazyModelHandle:
+    """把 `get_model` 的服务端往返推到第一次真正用到时。
+
+    3.x 客户端的 `get_model` 是即时的（实测会 `RuntimeError: Failed to get the model
+    description … Model not found in the model list`），而 `get_llm_service` 每条请求都要
+    注入 llm / rerank 两个句柄 —— 于是「只装了 LLM、没装 rerank」的机器上，
+    纯 LLM 对话（根本不走 rerank）也会在依赖注入阶段炸 500。
+    惰性化之后：用到才解析，没装就在使用它的那条路径上报错，语义与「服务端没这个模型」一致。
+    """
+
+    def __init__(self, model_uid: str):
+        self._model_uid = model_uid
+        self._handle = None
+
+    @property
+    def model_uid(self) -> str:
+        return self._model_uid
+
+    def resolve(self):
+        if self._handle is None:
+            try:
+                self._handle = client.get_model(model_uid=self._model_uid)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Xinference 上没有可用的模型「{self._model_uid}」：{e}。"
+                    "先跑 scripts/load_models.sh，或把 .env 里的模型 id 改成实际加载的那个。"
+                ) from e
+        return self._handle
+
+    def __getattr__(self, name):
+        return getattr(self.resolve(), name)
+
+
 def get_llm_model():
-    return client.get_model(model_uid=xinference_llm_model_id)
+    return LazyModelHandle(xinference_llm_model_id)
 
 
 @lru_cache()
 def get_rerank_model():
-    return client.get_model(model_uid=xinference_rerank_model_id)
+    return LazyModelHandle(xinference_rerank_model_id)
 
 
 class CredentialedEmbeddings(Embeddings):
@@ -105,8 +137,8 @@ def get_embedding_model():
 
 
 @lru_cache()
-def get_stt_handle() -> AudioModelHandle:
-    return client.get_model(model_uid=xinference_stt_model_id)
+def get_stt_handle() -> LazyModelHandle:
+    return LazyModelHandle(xinference_stt_model_id)
 
 
 @lru_cache()
