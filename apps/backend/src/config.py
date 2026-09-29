@@ -51,7 +51,15 @@ class Settings(BaseSettings):
         env_file = ".env"
 
 
-settings = Settings()
+try:
+    settings = Settings()
+except Exception as exc:  # noqa: BLE001
+    # 缺 .env 时报的是「字段缺失」，一条也看不出其实只是还没复制模板；
+    # 而 Settings() 在 import 期执行，所以这一下不接住，症状就是「main.py 导不进去」。
+    raise RuntimeError(
+        "后端配置不完整。先执行：cp apps/backend/.env.example apps/backend/.env，"
+        "再按里面的说明填 SECRET_KEY / POSTGRE_ADDR / 模型 id。"
+    ) from exc
 
 
 @lru_cache()

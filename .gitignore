@@ -1,4 +1,11 @@
 code_collection.txt
+
+# 本地配置：SECRET_KEY、数据库口令、模型 id 都在这里面，绝不进版本库。
+# 模板是 .env.example（要跟踪），所以这里只挡精确文件名。
+.env
+.env.*
+!.env.example
+
 # frontend
 node_modules
 dist
