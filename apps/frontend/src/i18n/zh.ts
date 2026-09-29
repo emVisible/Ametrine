@@ -22,6 +22,7 @@ export const zh = {
     rag: "检索问答",
     vector: "知识库",
     access: "组织与权限",
+    tenantDetail: "租户详情",
     settings: "系统设置",
     profile: "个人资料",
     forbidden: "无权访问",
@@ -396,6 +397,31 @@ export const zh = {
       unassigned: "未分配租户",
       unassignedDesc:
         "这些人还不属于任何租户，只能通过下面的单独授权访问知识库。",
+      orphanGrantsHint: "这里只列没有绑定任何租户的知识库；随租户开放的库请在租户页授权，避免同一条关系出现两个编辑口。",
+      allViaTenant: "全部知识库都随租户开放",
+      allViaTenantDesc: "这个人能读到的库都由租户关系决定，没有需要单独授权的游离知识库。",
+      tenantsReadonlyHint: "租户归属只在租户页编辑，这里给入口。",
+      openTenant: "进入租户页",
+      memberTotal: "共 {n} 名成员",
+      memberShort: "{n} 人",
+      legacyBadge: "旧口径",
+      tenantMissing: "这个租户不存在",
+      tenantMissingDesc: "编号 {id} 的租户可能已被删除。",
+      backToTenants: "返回租户列表",
+      tenantDetailDesc: "{members} 名成员 · {owners} 名管理者",
+      unboundDbDesc: "没有绑定知识库的成员读不到任何文档。创建一个库并绑定到这个租户，或把它挂到别的租户上。",
+      tenantStats: "租户信息",
+      tenantDetailFoot: "随本租户知识库的授权在这里编辑；没有绑定租户的知识库在成员详情里授权。",
+      grantLevel: {
+        read: "只读",
+        write: "读写",
+        manage: "管理",
+      },
+      grantHint: {
+        read: "只读：可检索，不能上传",
+        write: "读写：可上传与删除文档",
+        manage: "管理：可改集合与授权",
+      },
     },
   },
   dash: {
@@ -485,8 +511,10 @@ export const zh = {
     quotaManaged: "配额由管理员设置，这里只展示你的用量与当前上限。",
     quotaManagedAdmin:
       "配额只能在「组织与权限」里按成员调整，这里只展示用量与当前上限。",
+    quotaUnlimited: "无限制",
+    quotaUnlimitedNote: "该维度不设上限，用量仍然照常统计。",
     quotaNotEnforced:
-      "限额目前只做展示：后端还没有用量回写与超额拦截，改上限不会改变能不能继续对话。",
+      "用量由服务端按当天/当月的回复正文实时统计，达到上限后对话与检索会返回 429，次日自动恢复。",
   },
   profile: {
     pageDesc: "账号信息、权限范围与系统提示词",

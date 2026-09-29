@@ -38,7 +38,6 @@ import { useChunks } from "../hooks/queries";
 import type { KbCollection, KbDatabase, KbDocument } from "../types/knowledge";
 import {
   BookIcon,
-  ChevronRightIcon,
   DatabaseIcon,
   FileIcon,
   LayersIcon,
@@ -106,7 +105,6 @@ function DatabaseRow({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const navigate = useNavigate();
   // 后端把建集合收紧成管理员专属后，普通成员进来是只读的：
   // 继续显示按钮只会换来一个 403。
   const isAdmin = useIsAdmin();
@@ -227,36 +225,51 @@ function DatabaseRow({
             : t("admin.vector.noCol")}
         </p>
       ) : (
-        <ul className="mt-2 divide-y divide-line-subtle border-t border-line-subtle">
+        /*
+          格子而不是一条行：展开带里每行只放两三个集合，剩下 90% 宽度是空的。
+          auto-fill + minmax 让一行随视口落到 4~7 个，不必为断点写死列数。
+          元信息（文档数/已索引）贴在名字下面一行内，不单独占行 ——
+          集合名和它的描述本来就是一个语义单元，拆成两行反而要眼睛来回找。
+        */
+        <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
           {rows.map((col) => {
             const docs = documentsByCollection.get(col.id) ?? [];
             const indexed = docs.filter(
               (d) => d.meta?.index_status === "indexed",
             ).length;
+            const failed = docs.filter(
+              (d) => d.meta?.index_status === "failed",
+            ).length;
             return (
-              <li key={col.id}>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/admin/vector/${database.id}/${col.id}`)}
-                  className="flex w-full items-center gap-3 py-2 text-left transition-ui hover:bg-surface-hover"
+              <li key={col.id} className="min-w-0">
+                <Link
+                  to={`/admin/vector/${database.id}/${col.id}`}
+                  className="flex h-full flex-col gap-1 rounded-[--radius-md] border border-line bg-surface px-2.5 py-2 transition-ui hover:border-accent-border hover:bg-surface-sunken"
                 >
-                  <LayersIcon className="h-3.5 w-3.5 shrink-0 text-ink-subtle" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[--text-sm] text-ink">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <LayersIcon className="h-3.5 w-3.5 shrink-0 text-ink-subtle" />
+                    <span className="min-w-0 flex-1 truncate text-[--text-sm] font-medium text-ink">
                       {col.name}
                     </span>
-                    <span className="block truncate text-[11px] text-ink-subtle">
+                    {failed > 0 && (
+                      <span
+                        className="shrink-0 rounded-full bg-danger-soft px-1.5 text-[10px] text-danger tnum"
+                        title={t("admin.vector.failedN", { n: failed })}
+                      >
+                        {failed}
+                      </span>
+                    )}
+                  </span>
+                  {/* 描述与计数共用一行：名字长时各自截断，谁也不把谁挤下去 */}
+                  <span className="flex min-w-0 items-baseline justify-between gap-2">
+                    <span className="min-w-0 flex-1 truncate text-[10px] text-ink-subtle">
                       {col.description || t("ui.noDescription")}
                     </span>
+                    <span className="shrink-0 text-[10px] text-ink-muted tnum">
+                      {docs.length}/{indexed}
+                    </span>
                   </span>
-                  <span className="shrink-0 text-[11px] text-ink-muted tnum">
-                    {t("admin.vector.docStats", {
-                      docs: docs.length,
-                      indexed,
-                    })}
-                  </span>
-                  <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 text-ink-subtle" />
-                </button>
+                </Link>
               </li>
             );
           })}

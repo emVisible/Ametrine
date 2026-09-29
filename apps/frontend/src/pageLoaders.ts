@@ -17,6 +17,7 @@ export const loadChat = () => import("./pages/Chat");
 export const loadRagChat = () => import("./pages/RAGChat");
 export const loadVectorPage = () => import("./pages/AdminVector");
 export const loadAccessPage = () => import("./pages/AdminAccess");
+export const loadTenantDetailPage = () => import("./pages/AdminTenantDetail");
 export const loadForbidden = () => import("./pages/Forbidden");
 
 export type PageLoader = () => Promise<{ default: ComponentType }>;
@@ -30,6 +31,7 @@ export const pageLoaders: PageLoader[] = [
   loadRagChat,
   loadVectorPage,
   loadAccessPage,
+  loadTenantDetailPage,
   loadForbidden,
 ];
 

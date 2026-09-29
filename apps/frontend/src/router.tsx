@@ -13,6 +13,7 @@ import {
   loadProfile,
   loadRagChat,
   loadSettings,
+  loadTenantDetailPage,
   loadVectorPage,
 } from "./pageLoaders";
 
@@ -42,6 +43,12 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute requiredRoles={["admin"]} />,
             children: [
               { path: "/admin/access", element: pageView(loadAccessPage) },
+              // 租户子页面：成员归属、该租户知识库的授权都在这里管，
+              // 可分享、可后退，不用把两层折叠状态猜回来。
+              {
+                path: "/admin/tenants/:tenantId",
+                element: pageView(loadTenantDetailPage),
+              },
             ],
           },
           { path: "/403", element: pageView(loadForbidden) },

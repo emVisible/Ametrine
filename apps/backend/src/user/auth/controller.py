@@ -3,8 +3,11 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.client import get_relation_db
 from src.config import access_token_expire_minutes
 from src.middleware.tags import ControllerTag
+from ..quota import usage_snapshot
 from ..service import UserService, get_user_service
 from .service import AuthService, get_auth_service, get_current_user, permission_map
 
@@ -38,12 +41,17 @@ async def login(
 
 
 @route_auth.get("/current")
-async def current_user(current_user=Depends(get_current_user)):
+async def current_user(
+    current_user=Depends(get_current_user),
+    quota_db: AsyncSession = Depends(get_relation_db),
+):
+    # daily_token_used 以前直接回 ORM 上那个从不被写的列，所以永远是 0。
+    # 现在回派生值，并带上 monthly 与两个 unlimited 标志 ——
+    # 设置页要据此决定画进度条还是写「无限制」，不该自己再判一次 limit<=0。
     return {
         "id": current_user.id,
         "name": current_user.name,
         "email": current_user.email,
         "permissions": permission_map(current_user.role_id),
-        "daily_token_used": current_user.daily_token_used,
-        "daily_token_limit": current_user.daily_token_limit,
+        **(await usage_snapshot(quota_db, current_user)),
     }

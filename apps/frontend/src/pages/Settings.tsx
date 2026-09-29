@@ -25,19 +25,26 @@ const TABS: { key: Tab; labelKey: string }[] = [
 function FieldRow({
   title,
   description,
+  note,
   children,
 }: {
   title: string;
   description: string;
+  /** 整幅宽度的补充说明，渲染在行下方。
+      长文案塞进右侧控件列会把那一列撑到换行，行解剖就和别的行不一致了 —— 语音输入那条就是这样歪掉的。 */
+  note?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 py-3">
-      <div className="min-w-0">
-        <p className="text-[--text-sm] font-medium text-ink">{title}</p>
-        <p className="mt-0.5 text-[11px] text-ink-subtle">{description}</p>
+    <div className="py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[--text-sm] font-medium text-ink">{title}</p>
+          <p className="mt-0.5 text-[11px] text-ink-subtle">{description}</p>
+        </div>
+        <div className="shrink-0">{children}</div>
       </div>
-      <div className="shrink-0">{children}</div>
+      {note && <div className="mt-2 text-[11px] leading-relaxed text-ink-subtle">{note}</div>}
     </div>
   );
 }
@@ -124,23 +131,24 @@ function PreferencesPanel({ user }: { user: User }) {
         <FieldRow
           title={t("settings.voiceInput")}
           description={t("settings.voiceDesc")}
-        >
-          <div className="flex flex-col items-end gap-1.5">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={voiceOn}
-              disabled={!speechOk}
-              onClick={() => setVoiceInput(!voiceOn)}
-              className={`a-btn !py-1 ${voiceOn ? "a-btn-primary" : "a-btn-outline"}`}
-            >
-              {voiceOn ? t("settings.voiceOn") : t("settings.voiceOff")}
-            </button>
-            {/* 联网前提是硬信息，不能只写在 tooltip 里：这决定内网部署能不能开 */}
-            <p className="max-w-[24rem] text-right text-[11px] leading-relaxed text-ink-subtle">
+          note={
+            /* 联网前提是硬信息，不能只写在 tooltip 里：这决定内网部署能不能开 */
+            <span className="flex items-start gap-1.5">
+              <InfoIcon className="mt-0.5 h-3 w-3 shrink-0" />
               {speechOk ? t("settings.voiceNet") : t("settings.voiceUnsupported")}
-            </p>
-          </div>
+            </span>
+          }
+        >
+          <button
+            type="button"
+            role="switch"
+            aria-checked={voiceOn}
+            disabled={!speechOk}
+            onClick={() => setVoiceInput(!voiceOn)}
+            className={`a-btn !py-1 ${voiceOn ? "a-btn-primary" : "a-btn-outline"}`}
+          >
+            {voiceOn ? t("settings.voiceOn") : t("settings.voiceOff")}
+          </button>
         </FieldRow>
       </div>
 

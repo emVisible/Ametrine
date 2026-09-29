@@ -14,6 +14,9 @@ const TITLES: { match: (path: string) => boolean; key: string }[] = [
   { match: (p) => under(p, "/rag"), key: "page.rag" },
   { match: (p) => under(p, "/admin/vector"), key: "page.vector" },
   { match: (p) => under(p, "/admin/access"), key: "page.access" },
+  // 租户子页面用租户名以外的通用标题：这里拿不到租户名（数据在页面里加载），
+  // 编一个 id 进标题反而不如稳定的「租户详情」。
+  { match: (p) => under(p, "/admin/tenants"), key: "page.tenantDetail" },
   { match: (p) => under(p, "/settings"), key: "page.settings" },
   { match: (p) => under(p, "/profile"), key: "page.profile" },
   { match: (p) => under(p, "/403"), key: "page.forbidden" },

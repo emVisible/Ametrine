@@ -25,6 +25,7 @@ export const en: Messages = {
     rag: "Retrieval",
     vector: "Knowledge base",
     access: "Org & access",
+    tenantDetail: "Tenant detail",
     settings: "Settings",
     profile: "Profile",
     forbidden: "Access denied",
@@ -416,6 +417,35 @@ export const en: Messages = {
       unassigned: "No tenant",
       unassignedDesc:
         "These people belong to no tenant yet, so they can only reach knowledge bases through the individual grants below.",
+      orphanGrantsHint:
+        "Only bases bound to no tenant are listed here; bases opened through a tenant are granted on the tenant page, so one relation never gets two editors.",
+      allViaTenant: "All bases are open through tenants",
+      allViaTenantDesc:
+        "Everything this person can read comes from a tenant relation; there are no unbound bases left to grant.",
+      tenantsReadonlyHint: "Membership is edited on the tenant page; this side just links through.",
+      openTenant: "Open tenant page",
+      memberTotal: "{n} members",
+      memberShort: "{n} people",
+      legacyBadge: "Legacy",
+      tenantMissing: "This tenant does not exist",
+      tenantMissingDesc: "Tenant #{id} may have been deleted.",
+      backToTenants: "Back to tenants",
+      tenantDetailDesc: "{members} members · {owners} managers",
+      unboundDbDesc:
+        "Members of a tenant with no knowledge base cannot retrieve anything. Create a base and bind it here, or attach it to another tenant.",
+      tenantStats: "Tenant details",
+      tenantDetailFoot:
+        "Grants for this tenant's base are edited here; bases bound to no tenant are granted from the member detail.",
+      grantLevel: {
+        read: "Read",
+        write: "Write",
+        manage: "Manage",
+      },
+      grantHint: {
+        read: "Read only: can search, cannot upload",
+        write: "Read/write: can upload and delete documents",
+        manage: "Manage: can change collections and grants",
+      },
     },
   },
   dash: {
@@ -513,8 +543,10 @@ export const en: Messages = {
       "Quotas are set by an administrator — this page only shows your usage and current limits.",
     quotaManagedAdmin:
       "Quotas can only be adjusted per member in Org & access — this page only shows usage and current limits.",
+    quotaUnlimited: "Unlimited",
+    quotaUnlimitedNote: "No cap on this dimension; usage is still counted.",
     quotaNotEnforced:
-      "Limits are display-only today: there's no usage write-back or over-quota rejection yet, so changing a limit doesn't change whether chat keeps working.",
+      "Usage is tallied server-side from today's / this month's answer text; hitting the cap makes chat and retrieval return 429, and it resets on its own.",
   },
   profile: {
     pageDesc: "Account details, access scope and system prompt",

@@ -899,12 +899,34 @@ function ModalPanel({
 
   useDialogFocus(ref);
 
+  // onClose 几乎都是调用方现写的箭头函数，每次父组件渲染都是新身份。
+  // 把它放进 effect 依赖里，就等于「父组件每渲染一次就重跑一次这个 effect」——
+  // 于是表单每敲一个字，下面那句 focus 就把光标从输入框抢走一次，
+  // 表现成「一输入弹层就 deactive、光标丢失」。这里用 ref 持有最新回调，effect 只在挂载时跑。
+  const closeRef = useRef(onClose);
+  // 在 effect 里同步而不是渲染期赋值：渲染期写 ref 本身就被 rules-of-hooks 拦下。
+  // 不带依赖数组 = 每次渲染后都刷新，Escape 与关闭按钮拿到的永远是最新回调。
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    closeRef.current = onClose;
+  });
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeRef.current();
     document.addEventListener("keydown", onKey);
-    ref.current?.querySelector<HTMLElement>("input,textarea,select,button")?.focus();
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
+
+  // 初始焦点：优先第一个「可输入的控件」而不是第一个可聚焦元素。
+  // 原来选的是 input,textarea,select,button，而文档顺序里第一个是头部的关闭按钮，
+  // 于是带表单的弹层打开后焦点落在 X 上，Tab 与回车语义都不对。
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const field = node.querySelector<HTMLElement>(
+      "input:not([type=hidden]),textarea,select,[contenteditable=true]",
+    );
+    (field ?? node.querySelector<HTMLElement>("button"))?.focus();
+  }, []);
 
   return (
     <div

@@ -13,6 +13,7 @@ from src.middleware.tags import ControllerTag
 from src.vector.documents.service import DocumentService, get_document_service
 from src.user.permissions import PermissionService, get_permission_service
 from src.user.auth.service import get_current_user
+from src.user.quota import enforce_quota
 
 from .dto.chat import LLMChat
 from .prompt import compose_system_prompt, system_prompt_llm, system_prompt_rag
@@ -33,9 +34,11 @@ async def chat(
     # 而它原本是这四个端点里唯一没有鉴权的：任何人不带凭证就能占信号量、烧推理算力。
     # /api/llm/rag 早就有 current_user，这里补齐同一标准。
     # 依赖必须排在 service 之前：service 会去打 Xinference，本机没模型时先炸 500，
-    # 「没登录」的请求就看不到 401（实测踩过）。
-    current_user=Depends(get_current_user),
+    # 「没登录」的请求就看不到 401（实测踩过）。enforce_quota 自带 current_user 依赖，
+    # 所以把它放在最前同时满足了这两条。
+    _quota=Depends(enforce_quota),
     service: LLMService = Depends(get_llm_service),
+    current_user=Depends(get_current_user),
 ):
     prompt, chat_history = attrgetter("prompt", "chat_history")(dto)
 
@@ -67,6 +70,8 @@ async def search(
     dto: RAGChat,
     # current_user 必须排在 document_service / service 之前：后面的依赖会真去打
     # Milvus 与 Xinference，本机没就绪时先炸 500，未登录的请求就永远看不到 401。
+    # enforce_quota 排最前：配额到点的请求不该再去占一次检索与重排的算力。
+    _quota=Depends(enforce_quota),
     current_user=Depends(get_current_user),
     document_service: DocumentService = Depends(get_document_service),
     service: LLMService = Depends(get_llm_service),

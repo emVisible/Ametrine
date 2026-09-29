@@ -280,17 +280,34 @@ export function useToggleMember() {
   });
 }
 
-/** 授予 / 收回某个用户对某个知识库的读权限。 */
-export function useToggleGrant() {
+/**
+ * 设置某个用户对某个知识库的访问级别。
+ *
+ * 上一版这里写死了 `can_read: true, can_write: true` —— 界面上那颗按钮写的是「授权」，
+ * 实际却一次给了读写。现在级别由调用方显式传，撤销则删整行。
+ */
+export type GrantLevel = "read" | "write" | "manage";
+
+const GRANT_FLAGS: Record<GrantLevel, { can_read: boolean; can_write: boolean; can_manage: boolean }> = {
+  read: { can_read: true, can_write: false, can_manage: false },
+  write: { can_read: true, can_write: true, can_manage: false },
+  manage: { can_read: true, can_write: true, can_manage: true },
+};
+
+export function useSetGrant() {
   return useAccessMutation({
-    mutationFn: (vars: { userId: number; dbId: number; on: boolean }) =>
-      vars.on
+    mutationFn: (vars: {
+      userId: number;
+      dbId: number;
+      level: GrantLevel | null;
+    }) =>
+      vars.level === null
         ? apiClient(`/user/permission/${vars.userId}/databases/${vars.dbId}`, {
-            method: "POST",
-            body: { can_read: true, can_write: true, can_manage: false },
+            method: "DELETE",
           })
         : apiClient(`/user/permission/${vars.userId}/databases/${vars.dbId}`, {
-            method: "DELETE",
+            method: "POST",
+            body: GRANT_FLAGS[vars.level],
           }),
     errorKey: "admin.access.grantFailed",
   });
