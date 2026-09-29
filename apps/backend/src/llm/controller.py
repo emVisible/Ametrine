@@ -83,11 +83,19 @@ async def search(
     )(dto)
     await perm_service.require_read_database(current_user.id, database_name)
     context = await document_service.document_query_service(
-        database_name=database_name, collection_name=collection_name, data=raw_prompt
+        database_name=database_name,
+        collection_name=collection_name,
+        data=raw_prompt,
+        limit=dto.top_k,
     )
-    output = await service.rerank(
-        question=raw_prompt, context=context, collection_name=collection_name
-    )
+    if dto.rerank:
+        output = await service.rerank(
+            question=raw_prompt, context=context, collection_name=collection_name
+        )
+    else:
+        # 关掉重排时走向量距离直排：省掉一整轮重排模型往返，
+        # 代价是不再套用 min_relevance_score（那是给 0..1 相关性分定的阈值）。
+        output = await service.hydrate_texts(service.vector_rank(context))
     prompt = service.create_user_prompt(question=raw_prompt, context=output)
     references = await service.parse_references(output)
     session_id = str(uuid4())

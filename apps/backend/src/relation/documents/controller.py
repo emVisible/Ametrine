@@ -5,7 +5,15 @@ from pathlib import Path
 from time import time
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 from pymilvus import MilvusClient
 from src.client import get_milvus_service
 from src.config import xinference_embedding_model_id
@@ -16,6 +24,10 @@ from src.relation.databases.service import DatabaseService, get_database_service
 from src.user.auth.service import get_current_user
 from src.user.permissions.service import PermissionService, get_permission_service
 from src.utils.other import use_vector_database
+from src.vector.documents.service import (
+    DocumentService as VectorDocumentService,
+    get_document_service as get_vector_document_service,
+)
 from src.vector.documents.loader import process_documents
 from .service import DocumentService, get_document_service
 
@@ -217,3 +229,58 @@ async def delete_document(
     return await pg_service.document_delete_service(
         document_id=document_id, stored_path=doc.get("stored_path")
     )
+
+
+@route_document.post("/recall", summary="检索预览（只跑检索与重排，不调用大模型）")
+async def recall_test(
+    collection_name: str = Body(..., embed=True),
+    database_name: str = Body(..., embed=True),
+    query: str = Body(..., embed=True),
+    top_k: int = Body(10, embed=True),
+    rerank: bool = Body(True, embed=True),
+    current_user=Depends(get_current_user),
+    perm_service: PermissionService = Depends(get_permission_service),
+    document_service: DocumentService = Depends(get_document_service),
+    vector_document_service: VectorDocumentService = Depends(
+        get_vector_document_service
+    ),
+    llm_service: LLMService = Depends(get_llm_service),
+):
+    """命中测试：给一句话，看知识库到底召回了什么、分数多少。
+
+    这是 RAGFlow / Dify 这类产品里排障价值最高的一个子功能 ——
+    「回答不对」分成三种：没召回到、召回到但排序靠后、召回到也排第一但模型没用好。
+    没有这个面板就只能靠改 .env 重启再猜。
+    刻意不调用大模型：既快又省，也不会把预览算进用量配额。
+    """
+    await perm_service.require_read_database(current_user.id, database_name)
+    hits = await vector_document_service.document_query_service(
+        database_name=database_name, collection_name=collection_name, data=query, limit=top_k
+    )
+
+    if rerank:
+        ranked = await llm_service.rerank(
+            question=query, context=hits, collection_name=collection_name
+        )
+        mode = "rerank"
+    else:
+        ranked = await llm_service.hydrate_texts(llm_service.vector_rank(hits))
+        mode = "vector"
+
+    references = await llm_service.parse_references(ranked)
+    titles = {r.get("id"): r.get("title") for r in references}
+    return {
+        "mode": mode,
+        "candidate_count": len(hits),
+        "returned": len(ranked),
+        "results": [
+            {
+                "doc_id": item.get("doc_id"),
+                "document_title": titles.get(item.get("doc_id")),
+                "chunk_id": item.get("chunk_id"),
+                "relevance_score": item.get("relevance_score"),
+                "text": item.get("text"),
+            }
+            for item in ranked
+        ],
+    }

@@ -17,7 +17,9 @@ export interface ChatRequest {
 export interface RAGRequest extends ChatRequest {
   database_name: string;
   collection_name: string;
+  /** 后端 DTO 已有这两个字段，开关才不再是装饰 */
   rerank?: boolean;
+  top_k?: number;
 }
 
 /**

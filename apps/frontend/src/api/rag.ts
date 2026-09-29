@@ -12,6 +12,21 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000/api";
 
+export interface RecallHit {
+  doc_id: string;
+  document_title: string | null;
+  chunk_id: number;
+  relevance_score: number | null;
+  text: string | null;
+}
+
+export interface RecallResult {
+  mode: "rerank" | "vector";
+  candidate_count: number;
+  returned: number;
+  results: RecallHit[];
+}
+
 export const databaseAPI = {
   getAll: () => apiClient<KbDatabase[]>("/relation/database/all"),
   getMine: () => apiClient<KbDatabase[]>("/relation/database/mine"),
@@ -49,6 +64,20 @@ export const collectionAPI = {
 };
 
 export const documentAPI = {
+  /**
+   * 检索预览（命中测试）：只跑检索与重排，不调用大模型。
+   *
+   * 「回答不对」其实是三种不同的病：没召回、召回了但排序靠后、
+   * 召回也排第一但模型没用好。没有这个面板就只能改 .env 重启再猜。
+   */
+  recall: (body: {
+    collection_name: string;
+    database_name: string;
+    query: string;
+    top_k: number;
+    rerank: boolean;
+  }) =>
+    apiClient<RecallResult>("/relation/document/recall", { method: "POST", body }),
   remove: (documentId: string) =>
     apiClient<{ message: string; removed_file: boolean }>(
       `/relation/document/${documentId}`,

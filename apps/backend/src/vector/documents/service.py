@@ -28,8 +28,15 @@ class DocumentService:
 
     @use_vector_database()
     async def document_query_service(
-        self, database_name: str, collection_name: str, data: str
+        self, database_name: str, collection_name: str, data: str, limit: int = 10
     ):
+        """向量检索。limit 由调用方给，原来写死 10。
+
+        命中的每条是 {id, distance, entity{doc_id, chunk_id}}：
+        distance 一直在结果里（它不是 output_field，是检索器附带的），
+        所以「不重排、直接按向量距离取前 p 条」这条路是可行的 ——
+        之前以为要先把 distance 加进 output_fields 才能做，是判断错了。
+        """
         if not self.milvus_service.has_collection(collection_name=collection_name):
             raise HTTPException(status_code=404, detail="Collection not found")
         try:
@@ -39,7 +46,7 @@ class DocumentService:
                 data=[self.llm_service.embedding_model.embed_query(data)],
                 output_fields=["doc_id", "chunk_id"],
                 timeout=30,
-                limit=10,
+                limit=limit,
             )
             return res[0]
         finally:

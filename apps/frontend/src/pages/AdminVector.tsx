@@ -26,6 +26,7 @@ import {
   Select,
   StatusBadge,
   TextInput,
+  Toggle,
   type Column,
 } from "../components/ui";
 import {
@@ -37,9 +38,12 @@ import {
   useUploadDocument,
 } from "../hooks/queries";
 import { useChunks } from "../hooks/queries";
+import { useToast } from "../hooks/useToast";
+import { documentAPI, type RecallResult } from "../api/rag";
 import type { KbCollection, KbDatabase, KbDocument } from "../types/knowledge";
 import {
   BookIcon,
+  ChevronRightIcon,
   DatabaseIcon,
   FileIcon,
   LayersIcon,
@@ -517,6 +521,158 @@ function DatabaseList({
 }
 
 /* ─────────────── 第三级：文档与分块 ─────────────── */
+/* ─────────────── 检索预览（命中测试） ─────────────── */
+
+/**
+ * 给一句话，看这个集合到底召回了什么、分数多少 —— 不调用大模型。
+ *
+ * 这是同类产品里排障价值最高的一个入口：「回答不对」其实是三种不同的病 ——
+ * 没召回到、召回到但排序靠后、召回也排第一但模型没用好。
+ * 没有这个面板就只能改 .env 重启再猜，而三种病的解法完全不同。
+ * 刻意不跑大模型：既快又省，也不会把预览算进用量配额。
+ */
+function RecallPanel({
+  database,
+  collection,
+}: {
+  database: KbDatabase;
+  collection: KbCollection;
+}) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [rerank, setRerank] = useState(true);
+  const [topK, setTopK] = useState(10);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<RecallResult | null>(null);
+
+  const run = async () => {
+    const q = query.trim();
+    if (!q) return;
+    setBusy(true);
+    try {
+      setResult(
+        await documentAPI.recall({
+          collection_name: collection.name,
+          database_name: database.name,
+          query: q,
+          top_k: topK,
+          rerank,
+        }),
+      );
+    } catch (e) {
+      toast(t("admin.vector.recallFailed", { msg: (e as Error).message }), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="a-card mb-4 overflow-hidden">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left"
+      >
+        <ChevronRightIcon
+          className={`h-3.5 w-3.5 shrink-0 text-ink-subtle transition-ui ${open ? "rotate-90" : ""}`}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[--text-sm] font-medium text-ink">
+            {t("admin.vector.recallTitle")}
+          </span>
+          <span className="block truncate text-[11px] text-ink-subtle">
+            {t("admin.vector.recallDesc")}
+          </span>
+        </span>
+      </button>
+
+      {open && (
+        <div className="border-t border-line-subtle px-3.5 py-3">
+          <div className="flex flex-wrap items-end gap-2">
+            <TextInput
+              label={t("admin.vector.recallQuery")}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("admin.vector.recallPlaceholder")}
+              className="min-w-[12rem] flex-1"
+            />
+            <Select
+              aria-label={t("chat.topK")}
+              label={t("admin.vector.recallTopK")}
+              value={topK}
+              onChange={(v) => setTopK(Number(v))}
+              className="!w-24"
+              options={[5, 10, 20, 30].map((n) => ({ value: n, label: String(n) }))}
+            />
+            <button
+              type="button"
+              className="a-btn a-btn-primary"
+              disabled={busy || !query.trim()}
+              onClick={run}
+            >
+              {busy ? t("common.loading") : t("admin.vector.recallRun")}
+            </button>
+          </div>
+
+          <div className="mt-2">
+            <Toggle checked={rerank} onChange={setRerank} label={t("admin.vector.recallUseRerank")} />
+          </div>
+
+          {result && (
+            <div className="mt-3">
+              <p className="mb-2 text-[11px] text-ink-subtle tnum">
+                {t("admin.vector.recallSummary", {
+                  mode: result.mode,
+                  candidates: result.candidate_count,
+                  returned: result.returned,
+                })}
+              </p>
+              {!result.results.length ? (
+                <p className="rounded-[--radius-md] border border-warning-border bg-warning-soft px-3 py-2 text-[--text-sm] text-ink">
+                  {t("admin.vector.recallEmpty")}
+                </p>
+              ) : (
+                <ol className="space-y-2">
+                  {result.results.map((h, i) => (
+                    <li
+                      key={`${h.doc_id}-${h.chunk_id}`}
+                      className="rounded-[--radius-md] border border-line bg-surface-sunken p-2.5"
+                    >
+                      <div className="mb-1 flex items-center gap-2 text-[10px] text-ink-subtle tnum">
+                        <span className="a-badge border-line bg-surface text-ink-subtle">
+                          #{i + 1}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {h.document_title || String(h.doc_id).slice(0, 8)}
+                        </span>
+                        <span>
+                          {result.mode === "rerank"
+                            ? t("admin.vector.recallScore", {
+                                n: (h.relevance_score ?? 0).toFixed(4),
+                              })
+                            : t("admin.vector.recallDistance", {
+                                n: (h.relevance_score ?? 0).toFixed(3),
+                              })}
+                        </span>
+                      </div>
+                      <p className="line-clamp-3 whitespace-pre-wrap text-[--text-sm] leading-relaxed text-ink">
+                        {h.text}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function ChunkViewer({
   documentId,
@@ -729,6 +885,8 @@ function DocumentList({
           />
         }
       />
+
+      <RecallPanel database={database} collection={collection} />
 
       <div className="mb-4">
         <div

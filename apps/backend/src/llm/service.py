@@ -70,6 +70,40 @@ class LLMService:
                 yield event
         yield dumps({"type": "done"}) + "\n"
 
+    def vector_rank(self, context: list[dict], limit: int = p) -> list[dict]:
+        """不重排时按向量距离直接排序。
+
+        距离不能套进 min_relevance_score：那个阈值是给 rerank 的 0..1 相关性分的用的，
+        而 MILVUS_METRIC_TYPE=L2，距离越小越好、量纲也不同。
+        所以这条路只取前 p 条，不做阈值过滤 —— 宁可少筛一层，
+        也不要把两种分数混在同一个阈值下。
+        """
+        ranked = sorted(
+            context, key=lambda hit: hit.get("distance", float("inf"))
+        )[:limit]
+        out = []
+        for hit in ranked:
+            entity = hit.get("entity") or {}
+            out.append(
+                {
+                    "text": None,
+                    "doc_id": entity.get("doc_id"),
+                    "chunk_id": entity.get("chunk_id"),
+                    "relevance_score": hit.get("distance"),
+                    "score_kind": "l2_distance",
+                }
+            )
+        return out
+
+    async def hydrate_texts(self, ranked: list[dict]) -> list[dict]:
+        """给向量排序路径补上正文，让 prompt 与引用跟重排路径同构。"""
+        pairs = [(r["doc_id"], r["chunk_id"]) for r in ranked]
+        chunks = await self.relation_service.documentService.chunk_get_many_service(pairs)
+        by_key = {(str(c.doc_id), c.id): c.content for c in chunks}
+        for r in ranked:
+            r["text"] = by_key.get((str(r["doc_id"]), r["chunk_id"]))
+        return [r for r in ranked if r["text"]]
+
     async def rerank(
         self, question: str, context: list[dict], collection_name: str
     ) -> list[dict]:
@@ -126,7 +160,9 @@ class LLMService:
             )
         return res
 
-    def unify_filter(self, data: list[dict], question: str) -> list[dict]:
+    def unify_filter(
+        self, data: list[dict], question: str, min_score: float | None = None
+    ) -> list[dict]:
         """
         三个修正（都是会静默降低回答质量的）：
 
@@ -141,11 +177,12 @@ class LLMService:
            参考信息变成空串，模型收到「没有参考」却没有任何提示。改为返回 []，
            让 create_user_prompt 的 else 分支给出明确的「无参考信息」文案。
         """
+        threshold = min_relevance_score if min_score is None else min_score
         best: dict[tuple, dict] = {}
         for part in data:
             for chunk in part.get("results", []):
                 score = chunk.get("relevance_score", 0)
-                if score < min_relevance_score:
+                if score < threshold:
                     continue
                 metadata = chunk.get("metadata") or {}
                 key = (metadata.get("doc_id"), metadata.get("chunk_id"))

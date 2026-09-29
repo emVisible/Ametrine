@@ -20,7 +20,7 @@ import {
   Composer,
   type ChatMessage,
 } from "../components/chat";
-import { StatusBadge } from "../components/ui";
+import { Select, StatusBadge, Toggle } from "../components/ui";
 import ScopePicker from "../components/ScopePicker";
 import type { KbCollection } from "../types/knowledge";
 import {
@@ -163,6 +163,9 @@ function NoReferenceNote() {
 export default function RAGChatPage() {
   const { t } = useI18n();
   const [input, setInput] = useState("");
+  // 检索参数原来只能改 .env 重启；后端把它们接进请求体之后，这里才是真的在调参。
+  const [enableRerank, setEnableRerank] = useState(true);
+  const [topK, setTopK] = useState(10);
   const [selectedDbId, setSelectedDbId] = useState<number | null>(null);
   const [selectedColId, setSelectedColId] = useState<number | null>(null);
 
@@ -225,6 +228,8 @@ export default function RAGChatPage() {
         chat_history: history,
         database_name: selectedDb.name,
         collection_name: selectedCol.name,
+        rerank: enableRerank,
+        top_k: topK,
       },
       (token) => useSessionStore.getState().appendToken(id, token),
       (refs) => {
@@ -322,6 +327,21 @@ export default function RAGChatPage() {
                 setSelectedColId(colId);
               }}
             />
+            <span className="hidden items-center gap-2 xl:flex">
+              <Toggle
+                checked={enableRerank}
+                onChange={setEnableRerank}
+                label={t("chat.rerank")}
+              />
+              <Select
+                aria-label={t("chat.topK")}
+                value={topK}
+                onChange={(v) => setTopK(Number(v))}
+                className="!w-auto !py-1 text-[11px]"
+                panelClassName="w-32"
+                options={[5, 10, 20, 30].map((n) => ({ value: n, label: String(n) }))}
+              />
+            </span>
           </>
         }
         right={
