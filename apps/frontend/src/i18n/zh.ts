@@ -239,6 +239,8 @@ export const zh = {
       noDbMatch: "没有匹配的知识库",
       noDb: "还没有知识库",
       noDbDesc: "先创建一个知识库，再在其中建立集合并上传文档。",
+      noDbDescMember:
+        "还没有你能访问的知识库。创建知识库是管理员的权限，需要由管理员为你授权后才能检索与上传。",
       newDbDesc: "名称将同时用作 Milvus 数据库名，创建后不可重命名",
       dbNameExample: "例如：技术文档库",
       dbDescPlaceholder: "这个知识库收录什么",

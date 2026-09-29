@@ -428,7 +428,13 @@ function DatabaseList({
             icon={LibraryIcon}
             title={needle ? t("admin.vector.noDbMatch") : t("admin.vector.noDb")}
             description={
-              needle ? t("common.tryKeyword") : t("admin.vector.noDbDesc")
+              // 空状态的文案要跟着能做的事走：创建按钮只对管理员出现，
+              // 给普通用户留一句「先创建一个知识库」等于指一条他没资格走的路。
+              needle
+                ? t("common.tryKeyword")
+                : isAdmin
+                  ? t("admin.vector.noDbDesc")
+                  : t("admin.vector.noDbDescMember")
             }
             action={
               needle || !isAdmin ? undefined : (

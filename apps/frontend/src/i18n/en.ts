@@ -245,6 +245,8 @@ export const en: Messages = {
       noDb: "No knowledge bases yet",
       noDbDesc:
         "Create a knowledge base first, then add collections to it and upload documents.",
+      noDbDescMember:
+        "No knowledge base is available to you yet. Creating one is an admin capability — ask an admin to grant you access before retrieving or uploading.",
       newDbDesc:
         "The name doubles as the Milvus database name and can't be renamed later",
       dbNameExample: "e.g. Product docs",
