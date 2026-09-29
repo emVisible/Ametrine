@@ -13,9 +13,9 @@
 **English** · [简体中文](README_zh.md)
 
 Ametrine is a local-first knowledge base built around RAG. It ingests real documents,
-splits them semantically, embeds them into Milvus, and answers questions with citations you can
-click open. Multi-tenancy, per-knowledge-base permissions, token quotas, and chunk-level curation
-are part of the product, not bolted on.
+splits them semantically, embeds them into Milvus, and answers questions with the source document,
+chunk id and relevance score attached. Multi-tenancy, per-knowledge-base permissions, token quotas,
+and chunk-level curation are part of the product, not bolted on.
 
 </div>
 
