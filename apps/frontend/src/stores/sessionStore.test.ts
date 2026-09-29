@@ -19,6 +19,7 @@ vi.stubGlobal("localStorage", localStorageStub);
 vi.stubGlobal("window", { localStorage: localStorageStub });
 
 const { default: useSessionStore } = await import("./sessionStore");
+const { conversationAPI } = await import("../api/converstion");
 
 const at = (daysAgo: number) =>
   new Date(Date.now() - daysAgo * 86_400_000).toISOString();
@@ -67,5 +68,80 @@ describe("renameSession", () => {
     const state = useSessionStore.getState();
     expect(state.sessions.find((s) => s.id === "llm-2")?.title).toBe("改过的名字");
     expect(state.sessions.find((s) => s.id === "llm-1")?.title).toBe("llm-1");
+  });
+});
+
+describe("createSession 的空白单例", () => {
+  const blank = (id: string, mode: Session["mode"]): Session => ({
+    id,
+    title: "",
+    mode,
+    messages: [],
+    createdAt: at(0),
+    updatedAt: at(0),
+  });
+
+  it("已有一条没写过、也没改过名的空白会话时回到它，不新建、不打后端", async () => {
+    useSessionStore.setState({
+      sessions: [blank("draft-1", "llm"), session("llm-1", "llm", 1)],
+      currentSessionId: "llm-1",
+    });
+    const create = vi.spyOn(conversationAPI, "create").mockResolvedValue({ id: "should-not-happen" });
+
+    const id = await useSessionStore.getState().createSession("llm");
+
+    expect(id).toBe("draft-1");
+    expect(create).not.toHaveBeenCalled();
+    const state = useSessionStore.getState();
+    expect(state.currentSessionId).toBe("draft-1");
+    expect(state.sessions).toHaveLength(2);
+    create.mockRestore();
+  });
+
+  it("连点三次 + 也只有一条空白草稿", async () => {
+    useSessionStore.setState({ sessions: [], currentSessionId: null });
+    const create = vi
+      .spyOn(conversationAPI, "create")
+      .mockImplementation(async () => ({ id: `row-${Math.random()}` }));
+
+    const ids = [
+      await useSessionStore.getState().createSession("llm"),
+      await useSessionStore.getState().createSession("llm"),
+      await useSessionStore.getState().createSession("llm"),
+    ];
+
+    expect(new Set(ids).size).toBe(1);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().sessions).toHaveLength(1);
+    create.mockRestore();
+  });
+
+  it("草稿写过内容后，+ 才能开下一条", async () => {
+    useSessionStore.setState({ sessions: [], currentSessionId: null });
+    const create = vi
+      .spyOn(conversationAPI, "create")
+      .mockResolvedValueOnce({ id: "a" })
+      .mockResolvedValueOnce({ id: "b" });
+
+    const first = await useSessionStore.getState().createSession("llm");
+    useSessionStore.getState().beginTurn(first, "你好");
+    const second = await useSessionStore.getState().createSession("llm");
+
+    expect(second).not.toBe(first);
+    expect(create).toHaveBeenCalledTimes(2);
+    create.mockRestore();
+  });
+
+  it("按模式分别计：检索的草稿不挡对话的新建", async () => {
+    useSessionStore.setState({
+      sessions: [blank("rag-draft", "rag")],
+      currentSessionId: "rag-draft",
+    });
+    const create = vi.spyOn(conversationAPI, "create").mockResolvedValue({ id: "llm-new" });
+
+    expect(await useSessionStore.getState().createSession("llm")).toBe("llm-new");
+    expect(await useSessionStore.getState().createSession("rag")).toBe("rag-draft");
+    expect(create).toHaveBeenCalledTimes(1);
+    create.mockRestore();
   });
 });

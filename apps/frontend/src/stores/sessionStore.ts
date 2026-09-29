@@ -73,6 +73,18 @@ const useSessionStore = create<SessionState>()(
       currentSessionId: null,
 
       createSession: async (mode = 'llm') => {
+        // 单例节流：已经有一条「没写过内容、也没改过名」的空白会话，就回到它身上。
+        // 连点 + 不该攒出多条「新对话」，更不该往库里多写几条空 Conversation
+        // （后端行是这里立刻建的，所以重复点击的代价是一条删不掉也打不开的记录）。
+        // 一旦用户改过名或发过消息，它就不再是草稿，此时才允许另开一条。
+        const blank = get().sessions.find(
+          (s) => s.mode === mode && s.messages.length === 0 && !s.title,
+        )
+        if (blank) {
+          if (get().currentSessionId !== blank.id) set({ currentSessionId: blank.id })
+          return blank.id
+        }
+
         // 先在后端创建 Conversation
         let backendId: string
         try {
