@@ -1,23 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from src.middleware.tags import ControllerTag
-from src.user.auth.service import get_current_user, permission_map
+from src.user.auth.service import get_current_user, is_admin
 from .dto import UserCreate, UserUpdate, UserListResponse, UserRead
 from .service import UserService, get_user_service
 
 route_base = APIRouter(prefix="/user", tags=[ControllerTag.user])
-
-
-def _permissions(user) -> list[str]:
-    """permission_map 用的是字面量字典，库里出现 1/2/3 之外的 role_id 会抛 KeyError。
-    未识别的角色按最小权限处理，而不是让请求 500。"""
-    try:
-        return permission_map(user.role_id)
-    except KeyError:
-        return ["user"]
-
-
-def _is_admin(user) -> bool:
-    return "admin" in _permissions(user)
 
 
 @route_base.post("/create")
@@ -56,7 +43,7 @@ async def user_get_by_id(
     current_user=Depends(get_current_user),
 ):
     # 只有本人和管理员能读某个用户的详细资料（含邮箱）
-    if user_id != current_user.id and not _is_admin(current_user):
+    if user_id != current_user.id and not is_admin(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权查看该用户")
     user = await user_service.get_user_by_id(user_id=user_id)
     if not user:
@@ -77,18 +64,18 @@ async def user_update(
       1) 只能改自己，除非调用者是管理员；
       2) role_id 属于权限字段，只有管理员能改，且改的是别人。
     """
-    if user_id != current_user.id and not _is_admin(current_user):
+    if user_id != current_user.id and not is_admin(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权修改该用户")
 
     updates = dto.model_dump(exclude_unset=True)
     if "role_id" in updates and updates["role_id"] is not None:
-        if not _is_admin(current_user):
+        if not is_admin(current_user):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="只有管理员可以调整角色"
             )
     # 用量配额是资源策略，不是个人偏好：以前普通用户能给自己把日限从 10 万改到 1000 万，
     # 和「配额由管理员定」的语义直接冲突。role_id 之外再挡一层。
-    if {"daily_token_limit", "monthly_token_limit"} & set(updates) and not _is_admin(
+    if {"daily_token_limit", "monthly_token_limit"} & set(updates) and not is_admin(
         current_user
     ):
         raise HTTPException(
@@ -103,7 +90,7 @@ async def user_delete(
     user_service: UserService = Depends(get_user_service),
     current_user=Depends(get_current_user),
 ):
-    if user_id != current_user.id and not _is_admin(current_user):
+    if user_id != current_user.id and not is_admin(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权删除该用户")
     deleted = await user_service.delete_user(user_id=user_id)
     if not deleted:

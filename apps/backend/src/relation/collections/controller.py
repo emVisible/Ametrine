@@ -1,6 +1,7 @@
 # src/relation/collections/controller.py
 from fastapi import APIRouter, Body, Depends, HTTPException
 from src.middleware.tags import ControllerTag
+from src.user.auth.service import get_admin_user
 from src.relation.databases.service import DatabaseService, get_database_service
 from src.vector.collections.service import CollectionService as VectorCollectionService, get_collection_service as get_vector_collection_service
 from .service import CollectionService, get_collection_service
@@ -8,7 +9,11 @@ from .service import CollectionService, get_collection_service
 route_collection = APIRouter(prefix="/collection", tags=[ControllerTag.relation_db])
 
 
-@route_collection.post("/create", summary="创建Collection（PG → Milvus 同步）")
+@route_collection.post(
+    "/create",
+    summary="创建Collection（PG → Milvus 同步）",
+    dependencies=[Depends(get_admin_user)],
+)
 async def create_collection(
     name: str = Body(..., embed=True),
     database_id: int = Body(..., embed=True),
@@ -41,21 +46,19 @@ async def create_collection(
     return result
 
 
-@route_collection.delete("/delete", summary="删除Collection（PG → Milvus 同步）")
+@route_collection.delete(
+    "/delete",
+    summary="删除Collection（PG → Milvus 同步）",
+    dependencies=[Depends(get_admin_user)],
+)
 async def delete_collection(
     collection_name: str = Body(..., embed=True),
     database_name: str = Body(..., embed=True),
     service: CollectionService = Depends(get_collection_service),
     vector_collection_service: VectorCollectionService = Depends(get_vector_collection_service),
 ):
-    # 1. 先删 PG
-    collection = await service.collection_get_service(name=collection_name)
-    if not collection:
-        raise HTTPException(status_code=404, detail="Collection not found")
-    # collection service 需要加 delete 方法，或者直接在这里操作 db
-    # 简单处理：用 service 的 db 直接删
-    await service.relation_db.delete(collection)
-    await service.relation_db.commit()
+    # 1. 先删 PG（原来这里绕开 service 直接摸 relation_db，service 层早有同名方法）
+    await service.collection_delete_service(name=collection_name)
 
     # 2. 同步删 Milvus
     try:

@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 from src.client import get_relation_db
 from src.models import Database, Tenant
+from src.user.auth.service import is_admin
 
 
 class DatabaseService:
@@ -33,69 +34,77 @@ class DatabaseService:
         await self.relation_db.refresh(database)
         return database
 
+    async def _rows(self, databases, tenants_by_db: dict[int, str]):
+        return [
+            {
+                "id": db.id,
+                "name": db.name,
+                "description": db.description,
+                "is_active": db.is_active,
+                "tenant_name": tenants_by_db.get(db.id),
+            }
+            for db in databases
+        ]
+
+    async def _tenant_names_by_database_id(self):
+        """一次查完「哪个租户绑了哪个库」，替掉列表接口里每行一次的 Tenant 查询。"""
+        result = await self.relation_db.execute(
+            select(Tenant.database_id, Tenant.name).where(
+                Tenant.database_id.is_not(None)
+            )
+        )
+        return {row[0]: row[1] for row in result.all()}
+
     async def database_get_all_service(self):
         result = await self.relation_db.execute(select(Database))
-        databases = result.scalars().all()
-        res = []
-        for db in databases:
-            tenant_result = await self.relation_db.execute(
-                select(Tenant).where(Tenant.database_id == db.id)
-            )
-            tenant = tenant_result.scalar_one_or_none()
-            res.append(
-                {
-                    "id": db.id,
-                    "name": db.name,
-                    "description": db.description,
-                    "is_active": db.is_active,
-                    "tenant_name": tenant.name if tenant else None,
-                }
-            )
-        return res
+        tenants_by_db = await self._tenant_names_by_database_id()
+        return await self._rows(result.scalars().all(), tenants_by_db)
 
     async def database_get_all_for_user(self, user_id: int):
-        """返回用户有权限访问的数据库列表"""
-        from src.models import UserDatabasePermission, User
+        """返回用户可访问的数据库列表。
 
-        # admin 看全部
+        判定口径必须和 PermissionService.can_read_database 一致，否则会出现
+        「列表里看不到、但直接提问却能检索到」的分裂：那里承认租户间接授权，
+        这里以前只查直接授权行。两条来源（直接授权 + 所属租户绑定的库）现在都取。
+        """
+        from src.models import UserDatabasePermission, User, TenantMember
+
         user_result = await self.relation_db.execute(
             select(User).where(User.id == user_id)
         )
         user = user_result.scalar_one_or_none()
-        if user and user.role_id == 3:
+        if user and is_admin(user):
             return await self.database_get_all_service()
 
-        # 普通用户只看被授权的
         perm_result = await self.relation_db.execute(
             select(UserDatabasePermission.database_id).where(
                 UserDatabasePermission.user_id == user_id,
                 UserDatabasePermission.can_read == True,
             )
         )
-        db_ids = [row[0] for row in perm_result.all()]
+        db_ids = {row[0] for row in perm_result.all()}
+
+        member_result = await self.relation_db.execute(
+            select(TenantMember.tenant_id).where(TenantMember.user_id == user_id)
+        )
+        tenant_ids = [row[0] for row in member_result.all()]
+        if tenant_ids:
+            # 归属关系在 Tenant.database_id 上（Database 侧没有 tenant_id 列）。
+            bound_result = await self.relation_db.execute(
+                select(Tenant.database_id).where(
+                    Tenant.id.in_(tenant_ids), Tenant.database_id.is_not(None)
+                )
+            )
+            db_ids.update(row[0] for row in bound_result.all())
+
         if not db_ids:
             return []
 
         result = await self.relation_db.execute(
             select(Database).where(Database.id.in_(db_ids))
         )
-        databases = result.scalars().all()
-        res = []
-        for db in databases:
-            tenant_result = await self.relation_db.execute(
-                select(Tenant).where(Tenant.database_id == db.id)
-            )
-            tenant = tenant_result.scalar_one_or_none()
-            res.append(
-                {
-                    "id": db.id,
-                    "name": db.name,
-                    "description": db.description,
-                    "is_active": db.is_active,
-                    "tenant_name": tenant.name if tenant else None,
-                }
-            )
-        return res
+        tenants_by_db = await self._tenant_names_by_database_id()
+        return await self._rows(result.scalars().all(), tenants_by_db)
 
     async def database_get_service(self, name: str):
         result = await self.relation_db.execute(
@@ -126,9 +135,20 @@ class DatabaseService:
         return db.name if db else None
 
     async def database_delete_service(self, name: str):
-        db = await self.database_get_service(name)
+        # 原来这里把 database_get_service() 返回的 **字典** 交给 session.delete()，
+        # 而 AsyncSession.delete() 只接受映射实例 —— 删除知识库与创建失败的回滚都会炸。
+        result = await self.relation_db.execute(
+            select(Database).where(Database.name == name)
+        )
+        db = result.scalar_one_or_none()
         if not db:
             raise HTTPException(status_code=404, detail="Database not found")
+        # tenant.database_id 外键指向本行，先解绑再删，否则 400 而不是干净删除。
+        tenant_result = await self.relation_db.execute(
+            select(Tenant).where(Tenant.database_id == db.id)
+        )
+        for tenant in tenant_result.scalars().all():
+            tenant.database_id = None
         await self.relation_db.delete(db)
         await self.relation_db.commit()
 

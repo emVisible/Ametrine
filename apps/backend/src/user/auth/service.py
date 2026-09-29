@@ -65,6 +65,28 @@ def permission_map(permission_id: int):
     return map[permission_id]
 
 
+def permissions_of(user) -> list[str]:
+    """permission_map 是字面量字典，库里出现 1/2/3 之外的 role_id 会抛 KeyError。
+    未识别的角色按最小权限处理，而不是让请求 500。"""
+    try:
+        return permission_map(getattr(user, "role_id", None) or 0)
+    except KeyError:
+        return ["user"]
+
+
+def is_admin(user) -> bool:
+    return "admin" in permissions_of(user)
+
+
+async def get_admin_user(current_user=Depends(get_current_user)):
+    """依赖型管理员闸门：/relation 与 /user/permission 的写操作全部只允许管理员调用。"""
+    if not is_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="仅管理员可执行此操作"
+        )
+    return current_user
+
+
 def get_auth_service(
     client: Session = Depends(get_relation_db),
     user_service: UserService = Depends(get_user_service),

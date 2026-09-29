@@ -5,12 +5,16 @@ from src.vector.databases.service import (
     get_database_service as get_vector_database_service,
 )
 from .service import DatabaseService, get_database_service
-from src.user.auth.service import get_current_user
+from src.user.auth.service import get_current_user, get_admin_user
 
 route_database = APIRouter(prefix="/database", tags=[ControllerTag.relation_db])
 
 
-@route_database.post("/create", summary="创建Database（PG → Milvus 同步）")
+@route_database.post(
+    "/create",
+    summary="创建Database（PG → Milvus 同步）",
+    dependencies=[Depends(get_admin_user)],
+)
 async def create(
     name: str = Body(..., embed=True),
     description: str = Body(..., embed=True),
@@ -39,7 +43,11 @@ async def create(
     return result
 
 
-@route_database.delete("/delete", summary="删除Database（PG → Milvus 同步）")
+@route_database.delete(
+    "/delete",
+    summary="删除Database（PG → Milvus 同步）",
+    dependencies=[Depends(get_admin_user)],
+)
 async def delete(
     name: str = Body(..., embed=True),
     service: DatabaseService = Depends(get_database_service),
