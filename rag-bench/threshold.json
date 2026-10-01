@@ -1,0 +1,94 @@
+{
+  "n_queries": 120,
+  "n_gold_scores": 255,
+  "n_other_scores": 945,
+  "gold_median": 0.0397,
+  "other_median": 0.0002,
+  "configured": 0.3,
+  "p_per_answer": 3,
+  "ranking_ignoring_threshold": {
+    "vector": {
+      "hit@1": 0.4667,
+      "hit@3": 0.5417,
+      "MRR": 0.5145
+    },
+    "rerank": {
+      "hit@1": 0.5333,
+      "hit@3": 0.5833,
+      "MRR": 0.5635
+    }
+  },
+  "sweep": [
+    {
+      "threshold": 0.0,
+      "gold_kept": 1.0,
+      "noise_kept": 1.0,
+      "queries_with_nothing": 0.0
+    },
+    {
+      "threshold": 0.001,
+      "gold_kept": 0.7961,
+      "noise_kept": 0.2212,
+      "queries_with_nothing": 0.2
+    },
+    {
+      "threshold": 0.003,
+      "gold_kept": 0.702,
+      "noise_kept": 0.1079,
+      "queries_with_nothing": 0.3
+    },
+    {
+      "threshold": 0.005,
+      "gold_kept": 0.6745,
+      "noise_kept": 0.0889,
+      "queries_with_nothing": 0.3167
+    },
+    {
+      "threshold": 0.01,
+      "gold_kept": 0.6196,
+      "noise_kept": 0.0677,
+      "queries_with_nothing": 0.3583
+    },
+    {
+      "threshold": 0.02,
+      "gold_kept": 0.5686,
+      "noise_kept": 0.0476,
+      "queries_with_nothing": 0.4083
+    },
+    {
+      "threshold": 0.05,
+      "gold_kept": 0.4667,
+      "noise_kept": 0.0222,
+      "queries_with_nothing": 0.4667
+    },
+    {
+      "threshold": 0.1,
+      "gold_kept": 0.3961,
+      "noise_kept": 0.0148,
+      "queries_with_nothing": 0.5083
+    },
+    {
+      "threshold": 0.2,
+      "gold_kept": 0.3333,
+      "noise_kept": 0.0095,
+      "queries_with_nothing": 0.5833
+    },
+    {
+      "threshold": 0.3,
+      "gold_kept": 0.2863,
+      "noise_kept": 0.0053,
+      "queries_with_nothing": 0.65
+    },
+    {
+      "threshold": 0.3,
+      "current": true,
+      "gold_kept": 0.2863,
+      "noise_kept": 0.0053,
+      "queries_with_nothing": 0.65
+    },
+    {
+      "threshold": 0.0397,
+      "note": "金标中位分（不是建议阈值，只是分布位置）"
+    }
+  ]
+}

@@ -1,0 +1,299 @@
+{
+  "fmt-csv-01-v1": {
+    "doc_id": "1cf673e0-511c-42a5-946a-6c4b9d3c6175",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-csv-01-v1.csv",
+    "path": "formats/csv/fmt-csv-01-v1.csv",
+    "tier": "real",
+    "domain": "csv",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-docx-01-202507-202603-q3-expenditure-by-campaign.docx": {
+    "doc_id": "21e69a4d-2d8c-4b98-b76d-4474520a00f4",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-docx-01-202507-202603-q3-expenditure-by-campaign.docx.docx",
+    "path": "formats/docx/fmt-docx-01-202507-202603-q3-expenditure-by-campaign.docx.docx",
+    "tier": "real",
+    "domain": "docx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-docx-02-media-expenditure-by-campaign-fy2023-2024.docx": {
+    "doc_id": "e83835e8-5453-4c19-9bd6-9e3c55996b02",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-docx-02-media-expenditure-by-campaign-fy2023-2024.docx.docx",
+    "path": "formats/docx/fmt-docx-02-media-expenditure-by-campaign-fy2023-2024.docx.docx",
+    "tier": "real",
+    "domain": "docx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-docx-03-rfc8446.txt": {
+    "doc_id": "48328c89-9b34-4908-9b72-3489505945b0",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-docx-03-rfc8446.txt.docx",
+    "path": "formats/docx/fmt-docx-03-rfc8446.txt.docx",
+    "tier": "real",
+    "domain": "docx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-docx-04-rfc854.txt": {
+    "doc_id": "5c3ed612-a87f-482c-828a-2c519fe8ecd2",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-docx-04-rfc854.txt.docx",
+    "path": "formats/docx/fmt-docx-04-rfc854.txt.docx",
+    "tier": "real",
+    "domain": "docx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-eml-01-re-new-sequences-window": {
+    "doc_id": "fda3e64e-862b-464d-ba58-40536ecc9c44",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-eml-01-re-new-sequences-window.eml",
+    "path": "formats/eml/fmt-eml-01-re-new-sequences-window.eml",
+    "tier": "real",
+    "domain": "eml",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-eml-02-zzzzteana-re-alexander": {
+    "doc_id": "443f8a42-3d1d-44b2-bf4d-4908438c12fc",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-eml-02-zzzzteana-re-alexander.eml",
+    "path": "formats/eml/fmt-eml-02-zzzzteana-re-alexander.eml",
+    "tier": "real",
+    "domain": "eml",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-eml-03-zzzzteana-moscow-bomber": {
+    "doc_id": "19d9709e-54f0-4bd4-8ae1-4a83b11553bc",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-eml-03-zzzzteana-moscow-bomber.eml",
+    "path": "formats/eml/fmt-eml-03-zzzzteana-moscow-bomber.eml",
+    "tier": "real",
+    "domain": "eml",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-eml-04-irr-klez-the-virus-that-won-t-die": {
+    "doc_id": "6ef56265-ae04-4fc9-af37-42237eeadefe",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-eml-04-irr-klez-the-virus-that-won-t-die.eml",
+    "path": "formats/eml/fmt-eml-04-irr-klez-the-virus-that-won-t-die.eml",
+    "tier": "real",
+    "domain": "eml",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-html-01-rfc-9112-http-1.1": {
+    "doc_id": "4856daad-f53a-4cf2-b61e-02f421c49939",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-html-01-rfc-9112-http-1.1.html",
+    "path": "formats/html/fmt-html-01-rfc-9112-http-1.1.html",
+    "tier": "real",
+    "domain": "html",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-html-02-postgresql-documentation-18-select": {
+    "doc_id": "f9eac726-15ff-4d9c-8bd3-da2c8d115bba",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-html-02-postgresql-documentation-18-select.html",
+    "path": "formats/html/fmt-html-02-postgresql-documentation-18-select.html",
+    "tier": "real",
+    "domain": "html",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-markdown-01-rfc1918.txt": {
+    "doc_id": "616930e0-e5fc-4f6c-a79f-fd23596df8ef",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-markdown-01-rfc1918.txt.markdown",
+    "path": "formats/markdown/fmt-markdown-01-rfc1918.txt.markdown",
+    "tier": "real",
+    "domain": "markdown",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-md-01-rfc2119.txt": {
+    "doc_id": "4841fa82-57c2-4f4e-a5b9-86b2bf156200",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-md-01-rfc2119.txt.md",
+    "path": "formats/md/fmt-md-01-rfc2119.txt.md",
+    "tier": "real",
+    "domain": "md",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-odt-01-edificesmunicipauxcdnndg.odt": {
+    "doc_id": "57b0c900-d09b-47ff-bb36-768a0b3a51a8",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-odt-01-edificesmunicipauxcdnndg.odt.odt",
+    "path": "formats/odt/fmt-odt-01-edificesmunicipauxcdnndg.odt.odt",
+    "tier": "real",
+    "domain": "odt",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-odt-02-data_dictionary_performance_measurement_framewor": {
+    "doc_id": "62b06845-5a87-459c-ab21-f6abd1f8c18a",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-odt-02-data_dictionary_performance_measurement_framewor.odt",
+    "path": "formats/odt/fmt-odt-02-data_dictionary_performance_measurement_framewor.odt",
+    "tier": "real",
+    "domain": "odt",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-odt-03-wtt-odta-dd.odt": {
+    "doc_id": "68139070-fa31-43d1-8870-c6134801fdb1",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-odt-03-wtt-odta-dd.odt.odt",
+    "path": "formats/odt/fmt-odt-03-wtt-odta-dd.odt.odt",
+    "tier": "real",
+    "domain": "odt",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-odt-04-rfc6749.txt": {
+    "doc_id": "8f2bb49a-24d0-4126-85d4-e028b5f31f06",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-odt-04-rfc6749.txt.odt",
+    "path": "formats/odt/fmt-odt-04-rfc6749.txt.odt",
+    "tier": "real",
+    "domain": "odt",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-pptx-01-2024-07-update-backlog-reduction-leveraging-arti": {
+    "doc_id": "e3f848f7-1709-44f0-8ae1-8ce56e79c932",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-pptx-01-2024-07-update-backlog-reduction-leveraging-arti.pptx",
+    "path": "formats/pptx/fmt-pptx-01-2024-07-update-backlog-reduction-leveraging-arti.pptx",
+    "tier": "real",
+    "domain": "pptx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-pptx-02-2024-07-mise-a-jour-reduction-de-larriere-tirer-": {
+    "doc_id": "bcd48383-88bf-453b-8c40-254b5a856120",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-pptx-02-2024-07-mise-a-jour-reduction-de-larriere-tirer-.pptx",
+    "path": "formats/pptx/fmt-pptx-02-2024-07-mise-a-jour-reduction-de-larriere-tirer-.pptx",
+    "tier": "real",
+    "domain": "pptx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-pptx-03-2025-08-presentation-aiva-progress-dashboard.ppt": {
+    "doc_id": "d668a01a-723f-4375-a508-1e33df1dfd16",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-pptx-03-2025-08-presentation-aiva-progress-dashboard.ppt.pptx",
+    "path": "formats/pptx/fmt-pptx-03-2025-08-presentation-aiva-progress-dashboard.ppt.pptx",
+    "tier": "real",
+    "domain": "pptx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-pptx-04-2025-08-presentation-tableau-de-bord-des-progres": {
+    "doc_id": "5fcfd313-01d2-4617-a8d1-3242dfa60f38",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-pptx-04-2025-08-presentation-tableau-de-bord-des-progres.pptx",
+    "path": "formats/pptx/fmt-pptx-04-2025-08-presentation-tableau-de-bord-des-progres.pptx",
+    "tier": "real",
+    "domain": "pptx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-txt-01-pg84.txt": {
+    "doc_id": "b14c5143-fb9c-4962-8f51-a0c04c50d7a2",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-txt-01-pg84.txt.txt",
+    "path": "formats/txt/fmt-txt-01-pg84.txt.txt",
+    "tier": "real",
+    "domain": "txt",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-txt-02-doc": {
+    "doc_id": "04e6f660-adcf-4171-847e-b11d8b7236a5",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-txt-02-doc.txt",
+    "path": "formats/txt/fmt-txt-02-doc.txt",
+    "tier": "real",
+    "domain": "txt",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-xlsx-01-understanding-the-tables.xlsx": {
+    "doc_id": "06eb7d1b-99c3-4816-b6fb-139d59eb5c89",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-xlsx-01-understanding-the-tables.xlsx.xlsx",
+    "path": "formats/xlsx/fmt-xlsx-01-understanding-the-tables.xlsx.xlsx",
+    "tier": "real",
+    "domain": "xlsx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-xlsx-02-explication-des-tableaux.xlsx": {
+    "doc_id": "1aaa24dc-10dc-47f8-9d76-48ba04e5b570",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-xlsx-02-explication-des-tableaux.xlsx.xlsx",
+    "path": "formats/xlsx/fmt-xlsx-02-explication-des-tableaux.xlsx.xlsx",
+    "tier": "real",
+    "domain": "xlsx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-xlsx-03-20261001-maxoas-gisrates.xlsx": {
+    "doc_id": "4324d03a-f921-4218-af70-79a71602b8a7",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-xlsx-03-20261001-maxoas-gisrates.xlsx.xlsx",
+    "path": "formats/xlsx/fmt-xlsx-03-20261001-maxoas-gisrates.xlsx.xlsx",
+    "tier": "real",
+    "domain": "xlsx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-xlsx-04-table1.xlsx": {
+    "doc_id": "82a7ee02-8958-4172-95ce-15a48beeb3e8",
+    "collection": "ragbench_fastfmt",
+    "title": "fmt-xlsx-04-table1.xlsx.xlsx",
+    "path": "formats/xlsx/fmt-xlsx-04-table1.xlsx.xlsx",
+    "tier": "real",
+    "domain": "xlsx",
+    "lang": "en",
+    "reconciled": true
+  },
+  "fmt-csv-02-v1": {
+    "doc_id": "df8a64b5-9695-4111-a55d-95a796c5033e",
+    "collection": "ragbench_fastfmt",
+    "title": "（无标题，取文件名）fmt-csv-02-v1.csv",
+    "path": "formats/csv/fmt-csv-02-v1.csv",
+    "tier": "real",
+    "domain": "csv",
+    "lang": "en"
+  },
+  "fmt-odt-03-rfc8446.txt": {
+    "doc_id": "fa4ce965-f37e-4445-9d7e-a1a9be62c7b7",
+    "collection": "ragbench_fastfmt",
+    "title": "（无标题，取文件名）fmt-odt-03-rfc8446.txt.odt",
+    "path": "formats/odt/fmt-odt-03-rfc8446.txt.odt",
+    "tier": "real",
+    "domain": "odt",
+    "lang": "en"
+  },
+  "fmt-odt-04-rfc854.txt": {
+    "doc_id": "30e19516-e923-409e-a6ed-7d6b7a074538",
+    "collection": "ragbench_fastfmt",
+    "title": "（无标题，取文件名）fmt-odt-04-rfc854.txt.odt",
+    "path": "formats/odt/fmt-odt-04-rfc854.txt.odt",
+    "tier": "real",
+    "domain": "odt",
+    "lang": "en"
+  }
+}

@@ -1,0 +1,1052 @@
+{
+  "rfc9110": {
+    "doc_id": "8ab523bf-2dfa-4af2-aa6a-13c007b8ca1a",
+    "collection": "ragbench_all",
+    "title": "rfc9110.md",
+    "path": "corpus/protocol/rfc9110.md",
+    "tier": "mid",
+    "domain": "protocol",
+    "lang": "en",
+    "reconciled": true
+  },
+  "rfc9112": {
+    "doc_id": "5b7c085a-852b-4061-90c8-902fdc2c55f7",
+    "collection": "ragbench_all",
+    "title": "rfc9112.md",
+    "path": "corpus/protocol/rfc9112.md",
+    "tier": "mid",
+    "domain": "protocol",
+    "lang": "en",
+    "reconciled": true
+  },
+  "rfc8446": {
+    "doc_id": "edb10759-a51f-4e65-89af-a4f65b47782e",
+    "collection": "ragbench_all",
+    "title": "rfc8446.md",
+    "path": "corpus/protocol/rfc8446.md",
+    "tier": "mid",
+    "domain": "protocol",
+    "lang": "en",
+    "reconciled": true
+  },
+  "rfc6749": {
+    "doc_id": "200a9e01-623e-4e77-be45-f59dc308f35e",
+    "collection": "ragbench_all",
+    "title": "rfc6749.md",
+    "path": "corpus/protocol/rfc6749.md",
+    "tier": "mid",
+    "domain": "protocol",
+    "lang": "en",
+    "reconciled": true
+  },
+  "rfc854": {
+    "doc_id": "4f13bd69-68f7-40f5-b95f-5daddba7dab1",
+    "collection": "ragbench_all",
+    "title": "rfc854.md",
+    "path": "corpus/protocol/rfc854.md",
+    "tier": "mid",
+    "domain": "protocol",
+    "lang": "en",
+    "reconciled": true
+  },
+  "rfc1149": {
+    "doc_id": "bc518c8d-594c-4f34-9ab3-3e029bd393f9",
+    "collection": "ragbench_all",
+    "title": "rfc1149.md",
+    "path": "corpus/protocol/rfc1149.md",
+    "tier": "mid",
+    "domain": "protocol",
+    "lang": "en",
+    "reconciled": true
+  },
+  "rfc3514": {
+    "doc_id": "002bf8c5-3086-45fc-961d-f76a66908bf6",
+    "collection": "ragbench_all",
+    "title": "rfc3514.md",
+    "path": "corpus/protocol/rfc3514.md",
+    "tier": "mid",
+    "domain": "protocol",
+    "lang": "en",
+    "reconciled": true
+  },
+  "mdn-http-zh": {
+    "doc_id": "565c5bf7-feee-4247-bbc4-7f72009c53ed",
+    "collection": "ragbench_all",
+    "title": "mdn-http-zh.md",
+    "path": "corpus/web-docs/mdn-http-zh.md",
+    "tier": "mid",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "mdn-cors-zh": {
+    "doc_id": "f71a78d0-3069-4ca5-ae4e-1932b2f5feb3",
+    "collection": "ragbench_all",
+    "title": "mdn-cors-zh.md",
+    "path": "corpus/web-docs/mdn-cors-zh.md",
+    "tier": "high",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "mdn-csp-zh": {
+    "doc_id": "0662b67c-e325-4f42-b574-87ad906e5d54",
+    "collection": "ragbench_all",
+    "title": "mdn-csp-zh.md",
+    "path": "corpus/web-docs/mdn-csp-zh.md",
+    "tier": "high",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "mdn-cache-zh": {
+    "doc_id": "1768c47f-602f-44c8-a5be-fa1d78bdaee5",
+    "collection": "ragbench_all",
+    "title": "mdn-cache-zh.md",
+    "path": "corpus/web-docs/mdn-cache-zh.md",
+    "tier": "high",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "mdn-css-layout-zh": {
+    "doc_id": "1987b8e0-8874-4ee1-85b7-02fcbc2fa039",
+    "collection": "ragbench_all",
+    "title": "mdn-css-layout-zh.md",
+    "path": "corpus/web-docs/mdn-css-layout-zh.md",
+    "tier": "mid",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "mdn-a11y-zh": {
+    "doc_id": "1950591a-c012-4200-b209-ad9e63dc92c4",
+    "collection": "ragbench_all",
+    "title": "mdn-a11y-zh.md",
+    "path": "corpus/web-docs/mdn-a11y-zh.md",
+    "tier": "high",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "mdn-js-memory-zh": {
+    "doc_id": "b672bde5-5b19-4b0a-9836-bfca72d764b0",
+    "collection": "ragbench_all",
+    "title": "mdn-js-memory-zh.md",
+    "path": "corpus/web-docs/mdn-js-memory-zh.md",
+    "tier": "high",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "mdn-webapi-zh": {
+    "doc_id": "97d002c5-4e57-4f53-a3da-b738553ee007",
+    "collection": "ragbench_all",
+    "title": "mdn-webapi-zh.md",
+    "path": "corpus/web-docs/mdn-webapi-zh.md",
+    "tier": "mid",
+    "domain": "web-docs",
+    "lang": "en",
+    "reconciled": true
+  },
+  "py-csv-zh": {
+    "doc_id": "39a6d6bf-2435-4fc3-8126-4614bd138636",
+    "collection": "ragbench_all",
+    "title": "py-csv-zh.md",
+    "path": "corpus/programming/py-csv-zh.md",
+    "tier": "low",
+    "domain": "programming",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "py-sqlite-zh": {
+    "doc_id": "78af3c1c-500e-4744-a29e-363b5821291c",
+    "collection": "ragbench_all",
+    "title": "py-sqlite-zh.md",
+    "path": "corpus/programming/py-sqlite-zh.md",
+    "tier": "low",
+    "domain": "programming",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "py-concurrent-zh": {
+    "doc_id": "4e5b21e5-9d4e-4f5a-845e-a7c7f253db03",
+    "collection": "ragbench_all",
+    "title": "py-concurrent-zh.md",
+    "path": "corpus/programming/py-concurrent-zh.md",
+    "tier": "low",
+    "domain": "programming",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "py-typing-zh": {
+    "doc_id": "d568ee98-fa39-4fd3-a3ea-dc7ab99a8b87",
+    "collection": "ragbench_all",
+    "title": "py-typing-zh.md",
+    "path": "corpus/programming/py-typing-zh.md",
+    "tier": "low",
+    "domain": "programming",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "py-logging-zh": {
+    "doc_id": "a009bcaa-be4a-47f7-bb1f-8be9eafbec53",
+    "collection": "ragbench_all",
+    "title": "py-logging-zh.md",
+    "path": "corpus/programming/py-logging-zh.md",
+    "tier": "high",
+    "domain": "programming",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "k8s-svc-zh": {
+    "doc_id": "b63c4206-b264-4a2d-92bb-306d6d158e2a",
+    "collection": "ragbench_all",
+    "title": "k8s-svc-zh.md",
+    "path": "corpus/cloud-native/k8s-svc-zh.md",
+    "tier": "high",
+    "domain": "cloud-native",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "k8s-overview-zh": {
+    "doc_id": "5bc8782e-a3c6-433b-a190-c999ea2b5275",
+    "collection": "ragbench_all",
+    "title": "k8s-overview-zh.md",
+    "path": "corpus/cloud-native/k8s-overview-zh.md",
+    "tier": "mid",
+    "domain": "cloud-native",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "k8s-hpa-zh": {
+    "doc_id": "81d07b10-66b9-4258-8916-c9d1c85e68ad",
+    "collection": "ragbench_all",
+    "title": "k8s-hpa-zh.md",
+    "path": "corpus/cloud-native/k8s-hpa-zh.md",
+    "tier": "high",
+    "domain": "cloud-native",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "k8s-pv-zh": {
+    "doc_id": "3169e13c-860f-4a55-858a-fa72acd92285",
+    "collection": "ragbench_all",
+    "title": "k8s-pv-zh.md",
+    "path": "corpus/cloud-native/k8s-pv-zh.md",
+    "tier": "high",
+    "domain": "cloud-native",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "k8s-rbac-zh": {
+    "doc_id": "a84a9540-4a3f-4a86-bd78-a5a9d3861a8d",
+    "collection": "ragbench_all",
+    "title": "k8s-rbac-zh.md",
+    "path": "corpus/cloud-native/k8s-rbac-zh.md",
+    "tier": "high",
+    "domain": "cloud-native",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "k8s-cni-zh": {
+    "doc_id": "ab30a7c7-ce74-404f-b86e-d238ae8cdc4d",
+    "collection": "ragbench_all",
+    "title": "k8s-cni-zh.md",
+    "path": "corpus/cloud-native/k8s-cni-zh.md",
+    "tier": "mid",
+    "domain": "cloud-native",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "k8s-config-zh": {
+    "doc_id": "1fea9ac3-b841-40aa-9965-cd69caa08edf",
+    "collection": "ragbench_all",
+    "title": "k8s-config-zh.md",
+    "path": "corpus/cloud-native/k8s-config-zh.md",
+    "tier": "mid",
+    "domain": "cloud-native",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "k8s-liveness-zh": {
+    "doc_id": "6b5d6c87-2838-463d-b93b-a60d6f537a69",
+    "collection": "ragbench_all",
+    "title": "k8s-liveness-zh.md",
+    "path": "corpus/cloud-native/k8s-liveness-zh.md",
+    "tier": "mid",
+    "domain": "cloud-native",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "k8s-sched-en": {
+    "doc_id": "684cadef-3817-48ea-9843-121267c0f1ee",
+    "collection": "ragbench_all",
+    "title": "k8s-sched-en.md",
+    "path": "corpus/cloud-native/k8s-sched-en.md",
+    "tier": "mid",
+    "domain": "cloud-native",
+    "lang": "en",
+    "reconciled": true
+  },
+  "k8s-netpol-en": {
+    "doc_id": "9e0655d8-868b-4fac-a760-dfc3d6bc67bf",
+    "collection": "ragbench_all",
+    "title": "k8s-netpol-en.md",
+    "path": "corpus/cloud-native/k8s-netpol-en.md",
+    "tier": "high",
+    "domain": "cloud-native",
+    "lang": "en",
+    "reconciled": true
+  },
+  "mdn-ws-zh": {
+    "doc_id": "2c8d3d3c-7ae9-44b2-824c-04cdd07881eb",
+    "collection": "ragbench_all",
+    "title": "mdn-ws-zh.md",
+    "path": "corpus/web-docs/mdn-ws-zh.md",
+    "tier": "mid",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "mdn-promise-zh": {
+    "doc_id": "983b9c26-b216-4e9f-99b5-f093b4ef3463",
+    "collection": "ragbench_all",
+    "title": "mdn-promise-zh.md",
+    "path": "corpus/web-docs/mdn-promise-zh.md",
+    "tier": "high",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "mdn-cookies-zh": {
+    "doc_id": "b579eec3-07ed-425e-85f4-a71936207632",
+    "collection": "ragbench_all",
+    "title": "mdn-cookies-zh.md",
+    "path": "corpus/web-docs/mdn-cookies-zh.md",
+    "tier": "high",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "mdn-perm-zh": {
+    "doc_id": "17aaeb8d-24ed-45de-aa80-7b9df1ed4822",
+    "collection": "ragbench_all",
+    "title": "mdn-perm-zh.md",
+    "path": "corpus/web-docs/mdn-perm-zh.md",
+    "tier": "mid",
+    "domain": "web-docs",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "who-cancer-zh": {
+    "doc_id": "f8fe2431-5a50-411d-a82e-c262d1bf8cb8",
+    "collection": "ragbench_all",
+    "title": "who-cancer-zh.md",
+    "path": "corpus/public-health/who-cancer-zh.md",
+    "tier": "mid",
+    "domain": "public-health",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "who-nutrition-zh": {
+    "doc_id": "300db33d-b2a0-440a-a78b-028595e3344a",
+    "collection": "ragbench_all",
+    "title": "who-nutrition-zh.md",
+    "path": "corpus/public-health/who-nutrition-zh.md",
+    "tier": "mid",
+    "domain": "public-health",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "go-effective": {
+    "doc_id": "500fe3f1-d3ec-4f0e-adf1-dfb66e2f2644",
+    "collection": "ragbench_all",
+    "title": "go-effective.md",
+    "path": "corpus/programming/go-effective.md",
+    "tier": "high",
+    "domain": "programming",
+    "lang": "en",
+    "reconciled": true
+  },
+  "iana-protos": {
+    "doc_id": "a055c12d-3fc3-4723-8af2-ebd329d9c9e9",
+    "collection": "ragbench_all",
+    "title": "iana-protos.md",
+    "path": "corpus/protocol/iana-protos.md",
+    "tier": "high",
+    "domain": "protocol",
+    "lang": "en",
+    "reconciled": true
+  },
+  "iana-ports": {
+    "doc_id": "4e4e2caa-8f7e-4223-bdaa-d46f516f7463",
+    "collection": "ragbench_all",
+    "title": "iana-ports.md",
+    "path": "corpus/protocol/iana-ports.md",
+    "tier": "high",
+    "domain": "protocol",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pg-insert": {
+    "doc_id": "066fa75c-a1b2-424b-8441-e891607dc65b",
+    "collection": "ragbench_all",
+    "title": "pg-insert.md",
+    "path": "corpus/databases/pg-insert.md",
+    "tier": "high",
+    "domain": "databases",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pg-tutorial": {
+    "doc_id": "37e91987-83dc-42a0-a338-40bd6932c333",
+    "collection": "ragbench_all",
+    "title": "pg-tutorial.md",
+    "path": "corpus/databases/pg-tutorial.md",
+    "tier": "low",
+    "domain": "databases",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pg-transactions": {
+    "doc_id": "5fd686ae-20d2-4908-8470-fcc67350994f",
+    "collection": "ragbench_all",
+    "title": "pg-transactions.md",
+    "path": "corpus/databases/pg-transactions.md",
+    "tier": "high",
+    "domain": "databases",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pg-indexes": {
+    "doc_id": "b3cd97c9-95b6-4e7c-8649-5f25d976adcf",
+    "collection": "ragbench_all",
+    "title": "pg-indexes.md",
+    "path": "corpus/databases/pg-indexes.md",
+    "tier": "low",
+    "domain": "databases",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pg-planner": {
+    "doc_id": "78f9ea33-edbc-4c7e-9345-99d445f7966f",
+    "collection": "ragbench_all",
+    "title": "pg-planner.md",
+    "path": "corpus/databases/pg-planner.md",
+    "tier": "high",
+    "domain": "databases",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pg-mvcc": {
+    "doc_id": "ea4964c4-e5ce-4f7e-8fef-680ef87fbb64",
+    "collection": "ragbench_all",
+    "title": "pg-mvcc.md",
+    "path": "corpus/databases/pg-mvcc.md",
+    "tier": "low",
+    "domain": "databases",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pg-backup": {
+    "doc_id": "ed125604-e0cb-4ed2-a9d9-02814cdb1eb1",
+    "collection": "ragbench_all",
+    "title": "pg-backup.md",
+    "path": "corpus/databases/pg-backup.md",
+    "tier": "high",
+    "domain": "databases",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pg-fulltext": {
+    "doc_id": "4098e74a-3edd-44ec-a8cc-c98a1077ae95",
+    "collection": "ragbench_all",
+    "title": "pg-fulltext.md",
+    "path": "corpus/databases/pg-fulltext.md",
+    "tier": "low",
+    "domain": "databases",
+    "lang": "en",
+    "reconciled": true
+  },
+  "who-tb-zh": {
+    "doc_id": "6d719cce-99ee-4f99-a7b2-fa01f20579e4",
+    "collection": "ragbench_all",
+    "title": "who-tb-zh.md",
+    "path": "corpus/public-health/who-tb-zh.md",
+    "tier": "mid",
+    "domain": "public-health",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "who-malaria-zh": {
+    "doc_id": "ce126bfd-b4fa-4954-916a-6ce25c1fb614",
+    "collection": "ragbench_all",
+    "title": "who-malaria-zh.md",
+    "path": "corpus/public-health/who-malaria-zh.md",
+    "tier": "mid",
+    "domain": "public-health",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "who-diabetes-zh": {
+    "doc_id": "223707fe-6650-41ae-9441-a23531fa0d52",
+    "collection": "ragbench_all",
+    "title": "who-diabetes-zh.md",
+    "path": "corpus/public-health/who-diabetes-zh.md",
+    "tier": "mid",
+    "domain": "public-health",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "who-depression-zh": {
+    "doc_id": "342af55a-c0ab-48be-887e-9705c222bea5",
+    "collection": "ragbench_all",
+    "title": "who-depression-zh.md",
+    "path": "corpus/public-health/who-depression-zh.md",
+    "tier": "mid",
+    "domain": "public-health",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "who-hivaids-zh": {
+    "doc_id": "0a046978-9695-4d6a-aa27-c9d842b0157e",
+    "collection": "ragbench_all",
+    "title": "who-hivaids-zh.md",
+    "path": "corpus/public-health/who-hivaids-zh.md",
+    "tier": "mid",
+    "domain": "public-health",
+    "lang": "zh",
+    "reconciled": true
+  },
+  "py-gil-en": {
+    "doc_id": "7e73a5f0-8123-48ef-b090-4835318c8bd7",
+    "collection": "ragbench_all",
+    "title": "py-gil-en.md",
+    "path": "corpus/programming/py-gil-en.md",
+    "tier": "high",
+    "domain": "programming",
+    "lang": "en",
+    "reconciled": true
+  },
+  "py-isort-en": {
+    "doc_id": "d9f0b3f1-1364-4408-8db6-5edf9e18ee8a",
+    "collection": "ragbench_all",
+    "title": "py-isort-en.md",
+    "path": "corpus/programming/py-isort-en.md",
+    "tier": "low",
+    "domain": "programming",
+    "lang": "en",
+    "reconciled": true
+  },
+  "k8s-drain-en": {
+    "doc_id": "3a60a23c-5996-4319-a17d-52eb6705e085",
+    "collection": "ragbench_all",
+    "title": "k8s-drain-en.md",
+    "path": "corpus/cloud-native/k8s-drain-en.md",
+    "tier": "high",
+    "domain": "cloud-native",
+    "lang": "en",
+    "reconciled": true
+  },
+  "w3c-wcag-en": {
+    "doc_id": "c1f46172-cf20-4320-9f8c-94f3dade951d",
+    "collection": "ragbench_all",
+    "title": "w3c-wcag-en.md",
+    "path": "corpus/web-standards/w3c-wcag-en.md",
+    "tier": "mid",
+    "domain": "web-standards",
+    "lang": "en",
+    "reconciled": true
+  },
+  "w3c-aria-apg-en": {
+    "doc_id": "a34f81eb-b3be-42e8-8c68-4a6e104957d6",
+    "collection": "ragbench_all",
+    "title": "w3c-aria-apg-en.md",
+    "path": "corpus/web-standards/w3c-aria-apg-en.md",
+    "tier": "mid",
+    "domain": "web-standards",
+    "lang": "en",
+    "reconciled": true
+  },
+  "w3c-aria-en": {
+    "doc_id": "6d70ddba-bee9-4571-aa28-04646bac523d",
+    "collection": "ragbench_all",
+    "title": "w3c-aria-en.md",
+    "path": "corpus/web-standards/w3c-aria-en.md",
+    "tier": "high",
+    "domain": "web-standards",
+    "lang": "en",
+    "reconciled": true
+  },
+  "nist-63b-en": {
+    "doc_id": "a3b45726-0a3c-4e11-8eef-7492cad4dcfd",
+    "collection": "ragbench_all",
+    "title": "nist-63b-en.md",
+    "path": "corpus/security/nist-63b-en.md",
+    "tier": "high",
+    "domain": "security",
+    "lang": "en",
+    "reconciled": true
+  },
+  "nist-63a-en": {
+    "doc_id": "4c17e8e5-192a-40ba-aed2-b60e68489976",
+    "collection": "ragbench_all",
+    "title": "nist-63a-en.md",
+    "path": "corpus/security/nist-63a-en.md",
+    "tier": "high",
+    "domain": "security",
+    "lang": "en",
+    "reconciled": true
+  },
+  "nist-63c-en": {
+    "doc_id": "d7a056a4-a299-4a4f-b57d-95a65eb5186f",
+    "collection": "ragbench_all",
+    "title": "nist-63c-en.md",
+    "path": "corpus/security/nist-63c-en.md",
+    "tier": "high",
+    "domain": "security",
+    "lang": "en",
+    "reconciled": true
+  },
+  "mdn-fetch-en": {
+    "doc_id": "c0de0556-c8ad-4f76-894f-03bc1f635e65",
+    "collection": "ragbench_all",
+    "title": "mdn-fetch-en.md",
+    "path": "corpus/web-docs/mdn-fetch-en.md",
+    "tier": "mid",
+    "domain": "web-docs",
+    "lang": "en",
+    "reconciled": true
+  },
+  "mdn-serviceworker-en": {
+    "doc_id": "013eef62-5727-4cd2-a0e5-bd7a6b9b5fff",
+    "collection": "ragbench_all",
+    "title": "mdn-serviceworker-en.md",
+    "path": "corpus/web-docs/mdn-serviceworker-en.md",
+    "tier": "high",
+    "domain": "web-docs",
+    "lang": "en",
+    "reconciled": true
+  },
+  "gutenberg-frankenstein": {
+    "doc_id": "731aa019-8747-4d27-af96-396e4a5f5625",
+    "collection": "ragbench_all",
+    "title": "gutenberg-frankenstein.md",
+    "path": "corpus/literature/gutenberg-frankenstein.md",
+    "tier": "mid",
+    "domain": "literature",
+    "lang": "en",
+    "reconciled": true
+  },
+  "gutenberg-pride": {
+    "doc_id": "ebaf40ac-2fc3-406b-8d9f-799874c28d3d",
+    "collection": "ragbench_all",
+    "title": "gutenberg-pride.md",
+    "path": "corpus/literature/gutenberg-pride.md",
+    "tier": "mid",
+    "domain": "literature",
+    "lang": "en",
+    "reconciled": true
+  },
+  "gutenberg-mobydick": {
+    "doc_id": "3e3fb093-bffb-4d30-8391-c1ac5dd60949",
+    "collection": "ragbench_all",
+    "title": "gutenberg-mobydick.md",
+    "path": "corpus/literature/gutenberg-mobydick.md",
+    "tier": "mid",
+    "domain": "literature",
+    "lang": "en",
+    "reconciled": true
+  },
+  "gutenberg-holmes": {
+    "doc_id": "9d3d8c91-9007-4f55-89db-294061e95b27",
+    "collection": "ragbench_all",
+    "title": "gutenberg-holmes.md",
+    "path": "corpus/literature/gutenberg-holmes.md",
+    "tier": "mid",
+    "domain": "literature",
+    "lang": "en",
+    "reconciled": true
+  },
+  "gutenberg-tomsoyer": {
+    "doc_id": "6e569646-60a1-4a59-890b-7908de2fe36c",
+    "collection": "ragbench_all",
+    "title": "gutenberg-tomsoyer.md",
+    "path": "corpus/literature/gutenberg-tomsoyer.md",
+    "tier": "high",
+    "domain": "literature",
+    "lang": "en",
+    "reconciled": true
+  },
+  "gutenberg-tale2cities": {
+    "doc_id": "b2f99d93-3bc3-4599-8bf5-aa47770f8760",
+    "collection": "ragbench_all",
+    "title": "gutenberg-tale2cities.md",
+    "path": "corpus/literature/gutenberg-tale2cities.md",
+    "tier": "mid",
+    "domain": "literature",
+    "lang": "en",
+    "reconciled": true
+  },
+  "gutenberg-grimms": {
+    "doc_id": "6c0d8b2b-7142-4c85-9c61-62df61bbe136",
+    "collection": "ragbench_all",
+    "title": "gutenberg-grimms.md",
+    "path": "corpus/literature/gutenberg-grimms.md",
+    "tier": "mid",
+    "domain": "literature",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pmc-obesity": {
+    "doc_id": "01d14c93-786e-42ff-9f81-0a4b9f983972",
+    "collection": "ragbench_all",
+    "title": "pmc-obesity.md",
+    "path": "corpus/biomed/pmc-obesity.md",
+    "tier": "low",
+    "domain": "biomed",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pmc-gutmicro": {
+    "doc_id": "d7e56b69-6b5d-4d01-9e3f-4d150edd0bc4",
+    "collection": "ragbench_all",
+    "title": "pmc-gutmicro.md",
+    "path": "corpus/biomed/pmc-gutmicro.md",
+    "tier": "high",
+    "domain": "biomed",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pmc-als": {
+    "doc_id": "97686ab0-7e91-4ec1-bd9c-64379768480e",
+    "collection": "ragbench_all",
+    "title": "pmc-als.md",
+    "path": "corpus/biomed/pmc-als.md",
+    "tier": "high",
+    "domain": "biomed",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pmc-lifestyle": {
+    "doc_id": "3258274a-0903-49ab-a386-c5a28b6f40d2",
+    "collection": "ragbench_all",
+    "title": "pmc-lifestyle.md",
+    "path": "corpus/biomed/pmc-lifestyle.md",
+    "tier": "high",
+    "domain": "biomed",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pmc-breastca": {
+    "doc_id": "f9644375-1445-45c1-849d-b7a297d7c084",
+    "collection": "ragbench_all",
+    "title": "pmc-breastca.md",
+    "path": "corpus/biomed/pmc-breastca.md",
+    "tier": "high",
+    "domain": "biomed",
+    "lang": "en",
+    "reconciled": true
+  },
+  "pmc-telemed": {
+    "doc_id": "e5655267-0214-4402-9095-9494a98b95d9",
+    "collection": "ragbench_all",
+    "title": "pmc-telemed.md",
+    "path": "corpus/biomed/pmc-telemed.md",
+    "tier": "high",
+    "domain": "biomed",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38155v1": {
+    "doc_id": "d9cb8090-8898-4ef8-b4f6-cfac1a824699",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38155v1.md",
+    "path": "corpus/research/arxiv-2609-38155v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38099v1": {
+    "doc_id": "a3ef014c-c78f-45fa-9ce9-447f609fc661",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38099v1.md",
+    "path": "corpus/research/arxiv-2609-38099v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38021v1": {
+    "doc_id": "f086763d-d138-4aff-90dd-1397f384322e",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38021v1.md",
+    "path": "corpus/research/arxiv-2609-38021v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38125v1": {
+    "doc_id": "ea8cc6a5-39ad-4a69-a460-9d27106aa898",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38125v1.md",
+    "path": "corpus/research/arxiv-2609-38125v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38071v1": {
+    "doc_id": "cb53badb-6211-4d7a-a555-ae1a6704e26f",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38071v1.md",
+    "path": "corpus/research/arxiv-2609-38071v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38033v1": {
+    "doc_id": "23fac26e-0371-4b13-8a64-b1bae4d96196",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38033v1.md",
+    "path": "corpus/research/arxiv-2609-38033v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38081v1": {
+    "doc_id": "698b92e9-209d-4493-8fbe-aa8bdc310fca",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38081v1.md",
+    "path": "corpus/research/arxiv-2609-38081v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-37991v1": {
+    "doc_id": "294b2992-24a1-433f-ae45-963004bb4eea",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-37991v1.md",
+    "path": "corpus/research/arxiv-2609-37991v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-37642v1": {
+    "doc_id": "d8b52c54-d664-495a-adea-f2047fbe90cd",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-37642v1.md",
+    "path": "corpus/research/arxiv-2609-37642v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-37412v1": {
+    "doc_id": "8565f6d0-6cd7-4708-840e-bb0a13d3025b",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-37412v1.md",
+    "path": "corpus/research/arxiv-2609-37412v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-37168v1": {
+    "doc_id": "e7134e51-8909-4229-9309-b9982049be72",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-37168v1.md",
+    "path": "corpus/research/arxiv-2609-37168v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-36824v1": {
+    "doc_id": "78a2a42f-938b-4b3b-b5d0-f856e203a1d5",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-36824v1.md",
+    "path": "corpus/research/arxiv-2609-36824v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-36176v1": {
+    "doc_id": "c7e8a9bb-e264-43d4-bd89-0d04741bc0e5",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-36176v1.md",
+    "path": "corpus/research/arxiv-2609-36176v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-36175v1": {
+    "doc_id": "4239d99f-d1da-43ee-b2fc-1c531306b3e2",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-36175v1.md",
+    "path": "corpus/research/arxiv-2609-36175v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-35334v1": {
+    "doc_id": "05da2b32-9f20-4eea-bd62-f20f34ce002e",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-35334v1.md",
+    "path": "corpus/research/arxiv-2609-35334v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38128v1": {
+    "doc_id": "f9b3c841-64a4-4d82-8083-449228b4538c",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38128v1.md",
+    "path": "corpus/research/arxiv-2609-38128v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38063v1": {
+    "doc_id": "a551d114-3c59-4f95-9e81-9e4018487a1e",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38063v1.md",
+    "path": "corpus/research/arxiv-2609-38063v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-36381v1": {
+    "doc_id": "45006f9a-e6ec-499f-92dd-bb9aca60e65b",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-36381v1.md",
+    "path": "corpus/research/arxiv-2609-36381v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38175v1": {
+    "doc_id": "8d11745c-aab9-4a35-8286-4fadc9bbbc1c",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38175v1.md",
+    "path": "corpus/research/arxiv-2609-38175v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38158v1": {
+    "doc_id": "40bf69b9-0c61-4e59-9c35-6786b4e0fd27",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38158v1.md",
+    "path": "corpus/research/arxiv-2609-38158v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "arxiv-2609-38141v1": {
+    "doc_id": "2e242a6c-4b95-4935-8581-603da8f4470c",
+    "collection": "ragbench_all",
+    "title": "arxiv-2609-38141v1.md",
+    "path": "corpus/research/arxiv-2609-38141v1.md",
+    "tier": "mid",
+    "domain": "research",
+    "lang": "en",
+    "reconciled": true
+  },
+  "noise-table-only-rfc9110": {
+    "doc_id": "ecd20afa-c4b7-4823-b521-4f80ed1ccfad",
+    "collection": "ragbench_all",
+    "title": "noise-table-only-rfc9110.md",
+    "path": "corpus/noisy/noise-table-only-rfc9110.md",
+    "tier": "mid",
+    "domain": "noisy",
+    "lang": "en",
+    "reconciled": true
+  },
+  "noise-table-only-rfc854": {
+    "doc_id": "2e429899-48e7-4775-a7e7-0533f6b0c3d5",
+    "collection": "ragbench_all",
+    "title": "noise-table-only-rfc854.md",
+    "path": "corpus/noisy/noise-table-only-rfc854.md",
+    "tier": "low",
+    "domain": "noisy",
+    "lang": "en",
+    "reconciled": true
+  },
+  "noise-truncated-300-rfc9112": {
+    "doc_id": "c9fcc64b-7fcd-4446-8c87-0b7298cbd0d7",
+    "collection": "ragbench_all",
+    "title": "noise-truncated-300-rfc9112.md",
+    "path": "corpus/noisy/noise-truncated-300-rfc9112.md",
+    "tier": "low",
+    "domain": "noisy",
+    "lang": "en",
+    "reconciled": true
+  },
+  "noise-truncated-300-rfc1149": {
+    "doc_id": "10eef8c5-254f-4378-a16b-db080f778b17",
+    "collection": "ragbench_all",
+    "title": "noise-truncated-300-rfc1149.md",
+    "path": "corpus/noisy/noise-truncated-300-rfc1149.md",
+    "tier": "low",
+    "domain": "noisy",
+    "lang": "en",
+    "reconciled": true
+  },
+  "noise-ocr-confusion-rfc8446": {
+    "doc_id": "f1907f05-5160-4346-8b59-9a465f44809b",
+    "collection": "ragbench_all",
+    "title": "noise-ocr-confusion-rfc8446.md",
+    "path": "corpus/noisy/noise-ocr-confusion-rfc8446.md",
+    "tier": "mid",
+    "domain": "noisy",
+    "lang": "en",
+    "reconciled": true
+  },
+  "noise-ocr-confusion-rfc3514": {
+    "doc_id": "f6b1f86e-a1c0-44f7-9307-60c723b2c533",
+    "collection": "ragbench_all",
+    "title": "noise-ocr-confusion-rfc3514.md",
+    "path": "corpus/noisy/noise-ocr-confusion-rfc3514.md",
+    "tier": "mid",
+    "domain": "noisy",
+    "lang": "en",
+    "reconciled": true
+  },
+  "noise-boilerplate-shell-rfc6749": {
+    "doc_id": "26214448-203b-426a-a732-f45944fd055c",
+    "collection": "ragbench_all",
+    "title": "noise-boilerplate-shell-rfc6749.md",
+    "path": "corpus/noisy/noise-boilerplate-shell-rfc6749.md",
+    "tier": "low",
+    "domain": "noisy",
+    "lang": "en",
+    "reconciled": true
+  },
+  "noise-boilerplate-shell-mdn-http-zh": {
+    "doc_id": "98b10cee-ebb3-4c9d-b343-9f9df48bfdac",
+    "collection": "ragbench_all",
+    "title": "noise-boilerplate-shell-mdn-http-zh.md",
+    "path": "corpus/noisy/noise-boilerplate-shell-mdn-http-zh.md",
+    "tier": "low",
+    "domain": "noisy",
+    "lang": "en",
+    "reconciled": true
+  }
+}
