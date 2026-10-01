@@ -1,6 +1,6 @@
 [project]
 name = "backend"
-version = "0.1.0"
+version = "0.3.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -46,7 +46,18 @@ dependencies = [
     "sqlalchemy>=2.0.41",
     "tiktoken>=0.9.0",
     "transformers>=4.57.6",
-    "unstructured>=0.17.2",
+    # extras 与 LOADER_MAPPING 的每一项一一对应，这是实测出来的：
+    #   epub/odt -> pypandoc-binary（缺它时 .epub 直接 ImportError，实测）
+    #   xlsx     -> openpyxl + msoffcrypto-tool（原先两包都不在 uv.lock 里，只在某台机器的
+    #               venv 中被手工装过 —— `uv sync` 一跑，.xlsx 上传就回归解析失败，
+    #               而且失败点离声明很远，看起来像代码坏了）
+    # 故意**不写**的 extras：pdf（见下一行注释）、md（Markdown 走 TextLoader，
+    #   走 unstructured 的 md 分支会在运行时联网下载 spaCy 句子模型）。
+    "unstructured[csv,doc,docx,epub,odt,ppt,pptx,tsv,xlsx]>=0.17.2",
+    # 下界写 1.0.2 是**故意压低**的：unstructured 0.22.x 的 PDF 分支要求 >=1.6.10，
+    # 但满足它会把 torch 从 2.5.1 顶到 2.14 并拖进整套 CUDA 13（实测 dry-run），
+    # 而 vllm 0.7.2 硬锁 torch==2.5.1 —— 为了 PDF 牺牲整个推理栈不值得。
+    # 代价是 PDF 解析在此环境不可用，运行时会明确回 501 并说明缺什么（见 loader.ParserUnavailable）。
     "unstructured-inference>=1.0.2",
     # 后端只是 xinference 的**调用方**（只用 xinference.client），
     # 原先写的是 `xinference[all]==2.10` —— 那会把整个服务端 + vllm 0.7.2 装进应用环境，

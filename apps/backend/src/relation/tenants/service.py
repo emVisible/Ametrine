@@ -12,6 +12,7 @@ from src.models import (
     UserDatabasePermission,
 )
 from ..databases.service import DatabaseService, get_database_service
+from src.user.quota import is_unlimited, usage_by_user
 
 
 class TenantService:
@@ -99,12 +100,15 @@ class TenantService:
                 User.tenant_id,
                 User.last_login_at,
                 User.daily_token_limit,
-                User.daily_token_used,
                 User.monthly_token_limit,
-                User.monthly_token_used,
-                User.total_token_used,
             ).order_by(User.name)
         )
+        # 用量三列原来直接从 `user.*_token_used` 里读，而全仓没有任何地方写它们 ——
+        # 于是管理员看到的用量对每个人都恰好是 0，而 `/api/current` 那边是现算的真值。
+        # 现在两边共用同一份聚合口径，且整张表只发两条查询（不是每人一条）。
+        daily_usage = await usage_by_user(self.relation_db, "day")
+        monthly_usage = await usage_by_user(self.relation_db, "month")
+        total_usage = await usage_by_user(self.relation_db, "all")
 
         collection_counts: dict[int, int] = {
             db_id: n for db_id, n in collections_rows.all() if db_id is not None
@@ -211,10 +215,14 @@ class TenantService:
                 "tenant_id": user_tenant_id,
                 "last_login_at": last_login.isoformat() if last_login else None,
                 "daily_token_limit": daily_limit,
-                "daily_token_used": daily_used or 0,
+                "daily_token_used": daily_usage.get(uid, 0),
                 "monthly_token_limit": monthly_limit,
-                "monthly_token_used": monthly_used or 0,
-                "total_token_used": total_used or 0,
+                "monthly_token_used": monthly_usage.get(uid, 0),
+                "total_token_used": total_usage.get(uid, 0),
+                # 与 /api/current 同一份语义：让界面自己判 limit<=0 会长出第二套口径
+                # （那边已经这么做了，所以成员页与设置页对「无限制」的说法才会一致）。
+                "daily_unlimited": is_unlimited(daily_limit),
+                "monthly_unlimited": is_unlimited(monthly_limit),
             }
             for (
                 uid,
@@ -225,10 +233,7 @@ class TenantService:
                 user_tenant_id,
                 last_login,
                 daily_limit,
-                daily_used,
                 monthly_limit,
-                monthly_used,
-                total_used,
             ) in users_rows.all()
         ]
 

@@ -59,6 +59,25 @@ _USAGE_SQL = text(
 )
 
 
+_USAGE_ALL_SQL = text(
+    """
+    SELECT COALESCE(SUM(
+        ceil(
+            (length(m.content)
+             - length(regexp_replace(m.content, :cjk, '', 'g'))) / 1.5
+        ) +
+        ceil(
+            length(regexp_replace(m.content, :cjk, '', 'g')) / 4.0
+        )
+    ), 0)::bigint
+    FROM message m
+    JOIN conversation c ON c.id = m.conversation_id
+    WHERE c.user_id = :user_id
+      AND m.role = 'assistant'
+    """
+)
+
+
 def is_unlimited(limit) -> bool:
     """None 与 0 都表示「无使用上限」。
 
@@ -69,10 +88,50 @@ def is_unlimited(limit) -> bool:
 
 
 async def period_usage(db: AsyncSession, user_id: int, part: str) -> int:
+    """某个用户在窗口内的用量。part='all' 表示不限时间。
+
+    `date_trunc('all', now())` 会直接报错，所以总量走另一条没有日期条件的 SQL。
+    """
+    stmt = _USAGE_ALL_SQL if part == "all" else _USAGE_SQL
     result = await db.execute(
-        _USAGE_SQL, {"cjk": _CJK_CLASS, "user_id": user_id, "part": part}
+        stmt, {"cjk": _CJK_CLASS, "user_id": user_id, **({} if part == "all" else {"part": part})}
     )
     return int(result.scalar_one_or_none() or 0)
+
+
+_USAGE_BY_USER_SQL = text(
+    """
+    SELECT c.user_id, COALESCE(SUM(
+        ceil(
+            (length(m.content)
+             - length(regexp_replace(m.content, :cjk, '', 'g'))) / 1.5
+        ) +
+        ceil(
+            length(regexp_replace(m.content, :cjk, '', 'g')) / 4.0
+        )
+    ), 0)::bigint AS used
+    FROM message m
+    JOIN conversation c ON c.id = m.conversation_id
+    WHERE m.role = 'assistant'
+      -- part='all' 是不限时间的那一档（管理员要看的「总量」）。
+      -- date_trunc('all', …) 会直接报错，所以用 CASE 短路，别让它被求值。
+      AND (CASE WHEN :part = 'all' THEN TRUE
+                ELSE m.created_at >= date_trunc(:part, now()) END)
+    GROUP BY c.user_id
+    """
+)
+
+
+async def usage_by_user(db: AsyncSession, part: str = "day") -> dict[int, int]:
+    """一次聚合拿到**所有**用户在该窗口内的用量。
+
+    管理员视角原先读的是 `user.daily/monthly/total_token_used` 三列 —— 全仓零写入，
+    所以它对每个人都显示 0，而同一个数字在 `/api/current` 那边是现算的真值。
+    这里是那份真值的批量版本：口径与 `period_usage()` 完全一致（同一段字符类与系数），
+    区别只是别为每个用户各发一条查询。
+    """
+    result = await db.execute(_USAGE_BY_USER_SQL, {"cjk": _CJK_CLASS, "part": part})
+    return {int(row[0]): int(row[1] or 0) for row in result.all()}
 
 
 async def usage_snapshot(db: AsyncSession, user) -> dict:

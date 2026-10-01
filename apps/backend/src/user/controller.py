@@ -48,7 +48,8 @@ async def user_get_by_id(
     user = await user_service.get_user_by_id(user_id=user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户未注册")
-    return UserRead.model_validate(user)
+    # 用量三项由服务端现算后填进来；直接 model_validate 会把三个死列的 0 发给界面
+    return await user_service.read_model(user)
 
 
 @route_base.patch("/{user_id}", response_model=UserRead)

@@ -1,32 +1,59 @@
 #!/bin/bash
-# 等待指定模型进入 ready。
+# 等待**当前绑定的**模型进入 ready。
 #
-# 关键修正：旧版只 grep 模型名是否出现在 /v1/models 里。而 Xinference 会把
+# 关键修正一（旧版就错在这）：以前只 grep 模型名是否出现在 /v1/models 里。而 Xinference 会把
 # 加载失败的模型也列在同一个接口里（state=error / terminated），
 # 于是 dev.sh 的「等模型就绪」在模型根本没起来的情况下也会放行，
 # 后端接着启动、/api/chat 500 —— 看起来像后端坏了，其实是等待条件写错了。
+#
+# 关键修正二（2026-09-30）：**等谁**改由绑定表现问，不再由调用方从 .env 抄进来。
+# 管理台能换模型之后，.env 里那份 id 就成了旧口径 —— 界面已经换好、脚本还在等旧名字，
+# 那就是「终端卡在等待里而系统其实已经指向别处」。读绑定表和读 /api/system/ready 是同一份事实。
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BACKEND_DIR="$ROOT/apps/backend"
 source "$ROOT/scripts/inference_env.sh"
 
 ENDPOINTS=()
+EXPLICIT=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --endpoint) ENDPOINTS+=("$2"); shift 2 ;;
-        --) shift; break ;;
+        --) shift
+            # 后面剩下的都是显式目标（保留给临时手测：`wait_for_models.sh -- foo bar`）
+            while [[ $# -gt 0 ]]; do EXPLICIT+=("$1"); shift; done
+            break ;;
         *) echo "未知参数: $1"; exit 1 ;;
     esac
 done
 
 if [ ${#ENDPOINTS[@]} -eq 0 ]; then
-    ENDPOINTS=("http://${XINFERENCE_ENDPOINT}:${XINFERENCE_PORT}/v1/models")
+    ENDPOINTS=("$AMETRINE_XINFER_URL/v1/models")
 fi
 
-TARGET_MODELS=("$@")
-if [ ${#TARGET_MODELS[@]} -eq 0 ]; then
-    echo "未指定目标模型"
-    exit 1
+# ── 目标清单：显式参数 > 绑定表 ────────────────────────────────────────────
+# 数据库可能比这个脚本先起来一点点而已（docker compose 与后端窗口是并行开的），
+# 所以这里重试而不是立刻失败；一直读不到就**明确报错**，
+# 不静默回落到 .env —— 悄悄用旧清单等下去，正是这条修改要消除的缺陷。
+TARGET_MODELS=()
+if [ ${#EXPLICIT[@]} -gt 0 ]; then
+    TARGET_MODELS=("${EXPLICIT[@]}")
+else
+    PY="$BACKEND_DIR/.venv/bin/python"
+    [ -x "$PY" ] || PY="python3"
+    for attempt in 1 2 3 4 5 6; do
+        mapfile -t TARGET_MODELS < <("$PY" "$ROOT/scripts/bound_models.py" 2>/dev/null)
+        [ ${#TARGET_MODELS[@]} -gt 0 ] && break
+        sleep 5
+    done
+    if [ ${#TARGET_MODELS[@]} -eq 0 ]; then
+        echo "✗ 读不到角色绑定（数据库没起来？）。" >&2
+        echo "  这一步不猜目标该等谁 —— 静默用 .env 里的旧 id 等下去，等到的可能是个不存在的模型。" >&2
+        echo "  手动指定：bash $0 -- <uid> [<uid>...]；或先跑 apps/backend/.venv/bin/python scripts/bound_models.py 看为什么失败。" >&2
+        exit 1
+    fi
+    echo "目标来自绑定表: ${TARGET_MODELS[*]}"
 fi
 
 MAX_WAIT="${MODEL_WAIT_TIMEOUT:-900}"   # 首次加载要下权重，600s 经常不够

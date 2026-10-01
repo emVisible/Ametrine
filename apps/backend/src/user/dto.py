@@ -33,6 +33,11 @@ class UserRead(BaseModel):
     tenant_id: Optional[int] = None
     preferences: Optional[dict] = None
     system_prompt: Optional[str] = None
+    # 这三个数字**不再是 ORM 列的值**。那三列（daily/monthly/total_token_used）全仓没有
+    # 任何写入方，直接 model_validate 出来对每个人都恒为 0，而设置页与个人主页的用量条
+    # 读的就是它们 —— 于是界面显示「已用 0」。现在由 UserService 用 quota.py 的同一份
+    # 现算口径填进来（与 /api/current、租户总览完全一致）。列本身留着不删是毁数据的迁移，
+    # 等你决定；关键是**再没有人从它们读数**。
     daily_token_used: int = 0
     daily_token_limit: int = 100000
     monthly_token_used: int = 0

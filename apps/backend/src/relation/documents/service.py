@@ -163,12 +163,70 @@ class DocumentService:
         )
         return result.scalar_one_or_none()
 
+    async def embedding_models_for_databases(
+        self, database_names: list[str]
+    ) -> dict[str, list[str]]:
+        """这些库实际用过哪些 embedding 模型（从文档 meta 里取，不新增任何列）。
+
+        跨库检索的前置判断：L2 距离只在**同一个模型**产生的向量之间有可比意义。
+        模型不一致时两路结果混排出来的次序是随机的，而它看起来完全正常 ——
+        这是最难发现的一类质量塌陷，所以宁可拒绝。
+        """
+        if not database_names:
+            return {}
+        result = await self.relation_db.execute(
+            select(
+                Database.name,
+                Document.meta["embedding_model"].as_string().label("model"),
+            )
+            .join(Collection, Collection.database_id == Database.id)
+            .join(Document, Document.collection_id == Collection.id)
+            .where(Database.name.in_(database_names))
+        )
+        models: dict[str, set[str]] = {}
+        for name, model in result.all():
+            if model:
+                models.setdefault(name, set()).add(model)
+        return {key: sorted(values) for key, values in models.items()}
+
+    async def document_locations(self, doc_ids: list[str]) -> dict[str, dict]:
+        """这批文档归属哪个库 / 哪个集合。跨库检索的引用必须带来源，
+        否则两个库里同名的文档在界面上就是一条东西。"""
+        if not doc_ids:
+            return {}
+        result = await self.relation_db.execute(
+            select(
+                Document.id,
+                Document.title,
+                Collection.name.label("collection_name"),
+                Database.name.label("database_name"),
+            )
+            .join(Collection, Collection.id == Document.collection_id)
+            .join(Database, Database.id == Collection.database_id)
+            .where(Document.id.in_([UUID(str(doc_id)) for doc_id in doc_ids]))
+        )
+        return {
+            str(row.id): {
+                "title": row.title,
+                "collection_name": row.collection_name,
+                "database_name": row.database_name,
+            }
+            for row in result.all()
+        }
+
     async def document_describe_service(self, document_id: str):
         result = await self.relation_db.execute(
             select(Document).where(Document.id == document_id)
         )
         document = result.scalar_one_or_none()
+        if document is None:
+            # 唯一调用方（引用装配）本来就按「可能没有」写，但这里以前直接访问属性：
+            # 引用一篇已被删掉的文档 = AttributeError = 裸 500，而「这条引用没了」是正常情况。
+            return None
         return {
+            # `id` 必须回出去：引用面板要能核对「这条证据来自哪篇」，
+            # 而只给 title/source 时任何核对都得靠文件名猜（基准那一层就是这么被迫做的）。
+            "id": str(document.id),
             "title": document.title,
             "uploader": document.uploader,
             "source": document.meta["source"],

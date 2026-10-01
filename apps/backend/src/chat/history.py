@@ -4,6 +4,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from src.client import get_relation_db
+from src.conversation.service import derive_message_status
 from src.models import Conversation, Message, ToolCall
 
 
@@ -52,15 +53,18 @@ class ChatHistoryService:
         conversation_id: UUID,
         role: str,
         content: str,
-        status: str = "done",
+        status: str | None = None,
         model: str | None = None,
         meta: dict | None = None,
     ) -> Message:
+        # 只有「调用方确实知道失败」时才用它传的值，其余一律服务端推导 ——
+        # 判据只有一份（conversation.service.derive_message_status），
+        # 否则 HTTP 路径与 /api/chat 路径会各写一套状态语义，又是两个事实源。
         message = Message(
             conversation_id=conversation_id,
             role=role,
             content=content,
-            status=status,
+            status=status or derive_message_status(role, content, meta),
             model=model,
             meta=meta,
         )

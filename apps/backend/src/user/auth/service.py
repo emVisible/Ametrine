@@ -36,7 +36,13 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme), user_service=Depends(get_user_service)
 ):
     try:
-        payload = jwt.decode(token=token, key=secret_key, algorithms=algorithm)
+        # algorithms 必须是 list：传字符串时 python-jose 会把它按字符拆开比对，
+        # 于是 "HS256" 实际允许 "H"/"S"/"2"/"5"/"6" 这些「算法名子串」。
+        # 实测 9 种伪造全被拒（alg:none 三种写法、错密钥、HS512、子串算法），
+        # 所以这条不是漏洞修复，是把安全性从「第二层恰好失败」换回「第一层就钉死」。
+        payload = jwt.decode(
+            token=token, key=secret_key, algorithms=[algorithm]
+        )
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials"
@@ -52,6 +58,22 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="user not found",
+        )
+    # 停用要真的能停用。此前 `user.is_active` 在鉴权路径上**一次都没被读过**：
+    # 管理台里那个「停用」开关关掉之后，账号既照样能登录，旧令牌也照样能打满有效期。
+    # 判 `is False` 而不是 `not`：这列可空且没有 DB 默认值（实测本机 8 个账号全是 True，
+    # 但用 SQL 建过的行可能是 NULL），NULL 当作「没被明确停用」，否则这次改动会锁死旧数据。
+    if user.is_active is False:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="账号已停用，请联系管理员"
+        )
+    # 会话吊销：令牌里的 `tv` 必须和库里当前的一致。改角色 / 停用 / 改密 / 换租户都会自增它，
+    # 于是「把这个人请出去」不再依赖轮换 SECRET_KEY（那会连带登出所有人）。
+    # 旧令牌没有 `tv`（值为 None）一律判失效 —— 不给「没有声明」留兼容通道，
+    # 否则这次迁移就成了把无版本令牌永久免检的借口。
+    if payload.get("tv") != user.token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="会话已失效，请重新登录"
         )
     return user
 

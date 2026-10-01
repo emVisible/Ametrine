@@ -1,7 +1,16 @@
 #!/bin/bash
-# 加载 Xinference 模型。
+# **一次性**把 Xinference 的模型装上（bootstrap），不是每次开机都要跑的动作。
 #
-# 三个必须记住的坑（都是历史上「模型死活装不上去」的直接原因，按影响从大到小）：
+# 定位变了（2026-09-30）：模型该跑什么现在是应用里的一个可改状态 ——
+# 管理台「模型推理」页 + `inference_role_binding` 表。开机流程里重放一遍 launch
+# 等于让脚本和界面各持一份「应该跑什么」，两边不一致时以前是脚本赢，
+# 于是「界面显示已换、实际还在跑旧模型」。现在：
+#     · 装什么、卸什么 → 管理台
+#     · 重启后自己回来 → xinference 的 autostart 登记表（页面上那个开关就是它）
+#     · 第一次把 .env 里的三个旧 id 搬过去 → 这个脚本
+# 用法：AMETRINE_REGISTER_AUTOSTART=1 bash scripts/load_models.sh apps/backend
+#
+# 四个必须记住的坑（都是历史上「模型死活装不上去」的直接原因，按影响从大到小）：
 #  1) 代理污染下载与索引。环境里的 HTTP(S)_PROXY 会让清华源返回 403、
 #     让 pypi.org TLS 断流；权重下载同样会失败。scripts/inference_env.sh 把
 #     索引域名写进 NO_PROXY，这里必须 source 它。
@@ -13,6 +22,12 @@
 #     报的是「Model not found in the model list」——看着像模型不存在，其实是引擎不匹配。
 #  3) set -e 连坐。以前 LLM 一失败整脚本退出，embedding / rerank 根本没机会加载。
 #     这里逐个尝试、逐个汇报，绝不因为一个失败就丢掉后面的。
+#  4) 鉴权。xinference 3.x **默认开启**鉴权（文档：默认启用，`XINFERENCE_AUTH_ADVANCED` 控制），
+#     本机实测 `GET /v1/models` → 401。而 API key 的 scope 被限死在 models:read/models:list
+#     （`api/oauth2/advanced/auth_service.py:551`），**不能 launch** —— 官方文档里
+#     「--api-key 也能 launch」这句在 3.5.0 上不成立。所以必须先 `xinference login`
+#     （见 inference_env.sh 的 xinference_ensure_login），否则三个模型全报
+#     "Cannot find access token, please login first!"。
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -54,7 +69,15 @@ else
     echo "  建议先跑一次：bash scripts/setup_inference_env.sh" >&2
 fi
 
-BASE_URL="http://${XINFERENCE_ENDPOINT}:${XINFERENCE_PORT}"
+BASE_URL="$AMETRINE_XINFER_URL"
+
+# 服务器开鉴权时先把登录做了（官方 `xinference login`，token 落在 ~/.xinference/auth/<sha256(endpoint)>）。
+# 不做这一步的表征是三个模型全部失败在
+#   RuntimeError: Cannot find access token, please login first!
+# —— 长得像模型/权重问题，其实是没凭据。失败就直接退出，别连撞三次同样的墙。
+if ! xinference_ensure_login "$BASE_URL" XINV; then
+    exit 1
+fi
 
 # xinference 3.x 的服务器强制鉴权，而实测 API key 没有 launch 权限
 # （POST /v1/models 会回 403 "API keys can only access model query and inference endpoints"），
@@ -92,6 +115,57 @@ for m in data:
 
 failed=()
 skipped=()
+registered=()
+not_registered=()
+
+# register_autostart <标签> <model_uid>
+# 把刚加载成功的模型登记进 xinference 的 autostart 表，重启后它自己回来。
+#
+# 参数**一律取服务器自己的 launch 记录**，不在这里重拼一遍：
+# 自己拼就得猜引擎/量化/上下文长度，猜错了的后果是「下次启动按错参数加载」，
+# 而那要到重启之后才会暴露。管理台里那个开关走的是同一份记录（controller._launch_history）。
+register_autostart() {
+    local label="$1" uid="$2" entry
+    entry=$(curl -s --noproxy '*' -m 10 ${CURL_AUTH[@]+"${CURL_AUTH[@]}"} \
+        "$BASE_URL/v1/launch_history" 2>/dev/null | python3 -c '
+import json, sys
+uid = sys.argv[1]
+raw = sys.stdin.read()
+try:
+    d = json.loads(raw)
+except Exception:
+    sys.exit(0)
+rows = d.get("data") or d.get("items") or (d if isinstance(d, list) else [])
+best = None
+for r in rows:
+    if r.get("model_uid") == uid or r.get("model_name") == uid:
+        best = r            # 取最后一条 = 最近一次真正用过的参数
+if not best or not best.get("data"):
+    sys.exit(0)
+print(json.dumps({"enabled": True, "launch": best["data"]}, ensure_ascii=False))
+' "$uid")
+    if [ -z "$entry" ]; then
+        echo "  ! $label 没有 launch 历史记录，autostart 未登记 —— 重启后它不会自己回来。" >&2
+        not_registered+=("$label")
+        return 0
+    fi
+    if ! curl -s --noproxy '*' -m 10 -X POST ${CURL_AUTH[@]+"${CURL_AUTH[@]}"} \
+        -H 'Content-Type: application/json' -d "$entry" \
+        "$BASE_URL/v1/autostart/models" -o /dev/null -w '%{http_code}' | grep -q '^2'; then
+        echo "  ! $label 登记 autostart 失败（服务器没回 2xx）。" >&2
+        not_registered+=("$label")
+        return 0
+    fi
+    # 登记完读回来核对：写了不等于存了
+    if curl -s --noproxy '*' -m 10 ${CURL_AUTH[@]+"${CURL_AUTH[@]}"} \
+        "$BASE_URL/v1/autostart/models" 2>/dev/null | grep -q -- "\"$uid\""; then
+        echo "  ✓ $label 已登记为随服务器启动"
+        registered+=("$label")
+    else
+        echo "  ! $label 登记请求成功了，但读回来里没有它。" >&2
+        not_registered+=("$label")
+    fi
+}
 
 # launch <标签> <模型名> <xinference launch 参数...>
 launch() {
@@ -103,6 +177,9 @@ launch() {
     if [ "$state" = "running" ]; then
         echo "= $label 已在运行，跳过"
         skipped+=("$label")
+        if [ "${AMETRINE_REGISTER_AUTOSTART:-0}" = "1" ]; then
+            register_autostart "$label" "$model"
+        fi
         return 0
     fi
 
@@ -110,6 +187,9 @@ launch() {
     local out
     if out=$("${XINV[@]}" launch --address "$BASE_URL" ${AUTH_ARGS[@]+"${AUTH_ARGS[@]}"} "$@" 2>&1); then
         echo "✓ $label 已提交"
+        if [ "${AMETRINE_REGISTER_AUTOSTART:-0}" = "1" ]; then
+            register_autostart "$label" "$model"
+        fi
     else
         echo "✗ $label 失败：" >&2
         echo "$out" | sed 's/^/    /' >&2
@@ -124,6 +204,13 @@ launch() {
             echo "  ↪ 凭证类型不对：签发的 API key 不能 launch 模型。" >&2
             echo "    请在 .env 配 XINFERENCE_ADMIN_USER / XINFERENCE_ADMIN_PASSWORD，" >&2
             echo "    本脚本会自动 POST /token 换 JWT 再提交加载。" >&2
+        fi
+        # 另一种：服务器要凭据而 CLI 既没有 --api-key 也没有存储的登录令牌
+        if echo "$out" | grep -qi 'Cannot find access token'; then
+            echo "  ↪ 没登录。官方写法（token 会被存进 ~/.xinference/auth/，之后自动复用）：" >&2
+            echo "      ${XINV[*]} login -e $BASE_URL --username <用户名> --password <口令>" >&2
+            echo "    或在 apps/backend/.env 配 XINFERENCE_ADMIN_USER / XINFERENCE_ADMIN_PASSWORD。" >&2
+            echo "    账号是谁：sqlite3 ~/.xinference/auth/auth.db 'select username from users'" >&2
         fi
         failed+=("$label")
     fi
@@ -186,4 +273,14 @@ if [ ${#failed[@]} -gt 0 ]; then
     exit 1
 fi
 
+if [ ${#registered[@]} -gt 0 ]; then
+    echo "已登记随服务器启动: ${registered[*]}"
+fi
+if [ ${#not_registered[@]} -gt 0 ]; then
+    echo "以下模型没能登记 autostart（重启后不会自己回来）: ${not_registered[*]}" >&2
+fi
+if [ "${AMETRINE_REGISTER_AUTOSTART:-0}" != "1" ] && [ ${#failed[@]} -eq 0 ]; then
+    echo "（没有登记 autostart。要让服务器重启后自己把模型拉回来：AMETRINE_REGISTER_AUTOSTART=1 bash $0，"
+    echo "  或直接在管理台「模型推理」页把那个开关打开 —— 那里读的是同一份 launch 记录。）"
+fi
 echo "所有已配置的模型都已提交加载"

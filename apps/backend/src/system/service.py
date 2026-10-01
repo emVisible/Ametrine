@@ -23,13 +23,8 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.client import get_milvus_service, get_redis, get_relation_db
-from src.config import (
-    xinference_addr,
-    xinference_api_key,
-    xinference_embedding_model_id,
-    xinference_llm_model_id,
-    xinference_rerank_model_id,
-)
+from src.config import xinference_addr, xinference_api_key
+from src.inference import bindings as inference_bindings
 from src.models import (
     Collection,
     Database,
@@ -324,17 +319,30 @@ class SystemService:
         那是个假绿发生器：应用取模型用的是 get_model(model_uid=...)，
         而 Xinference 的 uid 和 model_name 是两回事（启动时可以显式指定 uid）。
         于是只要 uid 不等于名字，读数说「已加载」、真实调用却报 Model not found。
-        现在直接跑一遍 get_model —— 它成功，模型才真的可用。
-        """
-        from xinference_client import RESTfulClient
 
-        base = (xinference_addr or "").rstrip("/")
-        client = RESTfulClient(base_url=base, api_key=xinference_api_key or None)
+        上一版为了修它改成在这里 `RESTfulClient(base_url, api_key=…)` 自己建一个客户端 ——
+        那等于又开了第二个事实源，而且**是最糟的一种**：`XINFERENCE_API_KEY` 现在按设计
+        是空的（凭据是一把用户级 JWT，由 `auth.set_shared_token` 注进共享句柄），
+        所以这个自带客户端不带任何凭据 ⇒ 服务器开鉴权时三个模型全部判成缺失，
+        概览写着「模型没加载」而聊天其实是好的。现在走 `get_model_handle`：
+        同一个共享句柄、同一份凭据、同一个 401 判定。
+        """
+        from src.client import get_model_handle
+
         out = {}
         for role, mid in want.items():
+            if not mid:
+                out[role] = {"ok": False, "name": "", "reason": "not_bound"}
+                continue
             try:
-                desc = client.get_model(model_uid=mid)
-                out[role] = {"ok": True, "name": getattr(desc, "model_name", mid)}
+                desc = get_model_handle(mid)
+                # 服务器的描述既可能是 dict 也可能带属性：两种都见过，判空不能靠猜
+                name = (
+                    desc.get("model_name")
+                    if isinstance(desc, dict)
+                    else getattr(desc, "model_name", None)
+                )
+                out[role] = {"ok": True, "name": name or mid}
             except Exception as exc:  # noqa: BLE001
                 out[role] = {"ok": False, "name": mid, "reason": type(exc).__name__}
         return out
@@ -342,14 +350,17 @@ class SystemService:
     async def _models(self, detailed: bool):
         """问服务器「配置里这三个模型现在能不能取到」。
 
-        这一步不是可选项：对话没反应最常见的原因就是 .env 里的模型 id
+        这一步不是可选项：对话没反应最常见的原因就是「系统以为在用」的模型
         与服务器上真正加载的模型对不上，而这在界面上原本完全不可见。
+
+        读的是一份 `bindings`（角色 → model_uid），不再直接读 .env ——
+        否则管理台换了绑定、概览却还在按旧配置判就绪，两处各说一套。
         """
-        want = {
-            "llm": xinference_llm_model_id,
-            "embedding": xinference_embedding_model_id,
-            "rerank": xinference_rerank_model_id,
-        }
+        roles = {r["role"]: r for r in inference_bindings.snapshot()["roles"]}
+        want = {role: (roles.get(role) or {}).get("model_uid", "") for role in ("llm", "embedding", "rerank")}
+        # from_settings 要一路带到界面：还在吃 .env 兜底就说明这台机器没在管理台配过，
+        # 那正是「改了 .env 才生效、要重启」的老路，值得提示一下。
+        from_settings = [role for role, r in roles.items() if r.get("from_settings")]
         base = (xinference_addr or "").rstrip("/")
         if not base:
             return {
@@ -358,6 +369,7 @@ class SystemService:
                 "reason": "not_configured",
                 "expected": want,
                 "missing": list(want),
+                "from_settings": from_settings,
                 "loaded": [],
             }
         try:
@@ -369,6 +381,7 @@ class SystemService:
                 "reason": type(exc).__name__,
                 "expected": want,
                 "missing": list(want),
+                "from_settings": from_settings,
                 "loaded": [],
             }
             if detailed:
@@ -381,6 +394,7 @@ class SystemService:
             "reachable": True,
             "expected": want,
             "missing": missing,
+            "from_settings": from_settings,
             "loaded": [
                 {
                     "name": r.get("name"),

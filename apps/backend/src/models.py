@@ -46,6 +46,14 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("role.id"), default=1)
     role = relationship("Role", back_populates="members")
 
+    # 会话吊销用的代号，随「身份相关字段」变更而自增。
+    # 为什么需要它：JWT 是无状态的，改角色/停用账号在令牌有效期内**不会**把任何人踢下线，
+    # 而在此之前唯一的吊销手段是轮换 SECRET_KEY —— 那会把所有账号一起登出。
+    # 令牌里带 `tv`，校验时和库里的值比一次，就等于把「吊销」变成一个每次请求都会看的判断。
+    # server_default 必须有：这个列要出现在既有账号的行上，而 lifespan 的 create_all
+    # 不会给已存在的表补列（补列靠迁移），没有默认值的 NULL 会让每次校验都要特判。
+    token_version = Column(Integer, nullable=False, server_default="0", default=0)
+
     tenant_id = Column(Integer, ForeignKey("tenant.id"), nullable=True, index=True)
     tenant = relationship("Tenant", back_populates="users")
 
@@ -178,6 +186,34 @@ class Message(Base):
     conversation = relationship("Conversation", back_populates="messages")
 
 
+class MessageFeedback(Base):
+    """一条消息最多一条反馈：差评是「未解决」的主视图，光靠 status 分不出答对答错。
+
+    刻意不往 message 上加 `feedback_score` 之类的汇总列 —— 那正是
+    `user.*_token_used` 的成因：有人读、没人写。这里只有这一张表是事实源。
+
+    级联走**数据库**（`ondelete="CASCADE"`）：`message_conversation_id_fkey` 实测是
+    NO ACTION，删会话是靠 ORM 关系上的 cascade 完成的，而这张表没有 ORM 关系，
+    所以必须由 FK 自己带走，否则删一条带反馈的消息会被外键当场挡死。
+    """
+
+    __tablename__ = "message_feedback"
+
+    message_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("message.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id = Column(
+        Integer, ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # 'up' | 'down'。没有中间值：反馈的价值在于能筛，不在于打分刻度。
+    verdict = Column(String, nullable=False)
+    # 「错在哪」比「错了」值钱，所以留正文；但可以空。
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class MemoryItem(Base):
     __tablename__ = "memory_item"
 
@@ -270,3 +306,28 @@ class TenantMember(Base):
     user = relationship("User", backref="tenant_memberships")
 
     __table_args__ = (UniqueConstraint("tenant_id", "user_id"),)
+
+
+class InferenceRoleBinding(Base):
+    """本系统用哪个模型充当 llm / embedding / rerank。
+
+    这是**唯一**一张属于 Ametrine 的推理配置表。刻意只存指向关系：
+    模型清单、运行状态、显存、launch 参数、维度全部由 xinference 的 API 现算
+    （`/v1/models`、`/status`、`/v1/autostart/models`、`/v1/models/{type}/{name}/versions`），
+    抄一份进库就是第二个事实源 —— `user.*_token_used` 那三个「有人读、没人写」的死列
+    就是这么来的。
+
+    主键就是 role：一个角色只能有一个当前模型，这条约束由数据库保证，
+    而不是靠代码记得先去重。
+    """
+
+    __tablename__ = "inference_role_binding"
+
+    role = Column(String(16), primary_key=True)
+    model_uid = Column(String(128), nullable=False)
+    # 只为界面显示与审计；真相仍以 model_uid 在服务端查到的为准。
+    model_name = Column(String(128), nullable=False, default="")
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    updated_by = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True)

@@ -20,13 +20,6 @@ class CollectionService:
         self.milvus_service = milvus_service
 
     @use_vector_database()
-    async def collection_call(self, collection_name: str, fn: Callable):
-        self.milvus_service.load_collection(collection_name=collection_name)
-        fn()
-        self.milvus_service.release_collection(collection_name=collection_name)
-        return True
-
-    @use_vector_database()
     async def collection_get_all_service(self, database_name: str):
         return self.milvus_service.list_collections()
 

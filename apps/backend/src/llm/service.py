@@ -11,6 +11,7 @@ from src.client import (
 )
 from src.config import k, max_model_len, min_relevance_score, p
 from src.relation.service import RelationService, get_relation_service
+from src.llm.streaming import aiter_sync
 from transformers import Qwen2Tokenizer
 
 from .dto.rearank import RerankResult
@@ -33,7 +34,9 @@ class LLMService:
         self.tokenizer = tokenizer
 
     async def stream_by_token(self, res):
-        for chunk in res:
+        # aiter_sync 而不是 `for chunk in res`：res 是**同步**生成器，直接在协程里迭代
+        # 会把整个事件循环占住（实测两路并发 1.20 s 而非 0.60 s）。见 streaming.aiter_sync。
+        async for chunk in aiter_sync(res):
             choices = chunk.get("choices") or [{}]
             first = choices[0]
             # OpenAI 兼容流里第一个 delta 常常只有 {"role":"assistant"}、工具调用帧整帧没有 content，
@@ -137,6 +140,24 @@ class LLMService:
         part_res = await self.rerank_loop(document=document, question=question)
         return self.unify_filter(data=[part_res], question=question)
 
+    async def rerank_items(self, question: str, items: list[dict]) -> list[dict]:
+        """对**已经有正文**的候选整批重排。
+
+        多路召回融合（RRF）之后候选是「跨库的名次序」，正文已经补好了；
+        这时要的就是让重排模型重新给一次 0..1 的相关性分，
+        并复用 `unify_filter` 的阈值与截断 —— 与单库重排路径同一份语义，
+        不开第二套排序规则。
+        """
+        document = [
+            {"text": item["text"], "doc_id": item["doc_id"], "chunk_id": item["chunk_id"]}
+            for item in items
+            if item.get("text")
+        ]
+        if not document:
+            return []
+        part_res = await self.rerank_loop(document=document, question=question)
+        return self.unify_filter(data=[part_res], question=question)
+
     async def rerank_loop(self, document: list[dict], question: str):
         """整批交给重排模型，按**下标**回填元信息。
 
@@ -219,6 +240,11 @@ class LLMService:
             if document:
                 document["relevance_score"] = item.get("relevance_score", 0)
                 document["chunk_id"] = item.get("chunk_id")
+                # 跨库检索时必须告诉客户端这条引用来自哪个库 ——
+                # 两个库里同名的文档否则在界面上就是一条东西，链接也跳不对地方。
+                if item.get("database_name"):
+                    document["database_name"] = item["database_name"]
+                    document["collection_name"] = item.get("collection_name")
                 references.append(document)
         return references
 

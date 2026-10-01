@@ -2,13 +2,12 @@ import inspect
 from datetime import datetime, timezone
 from functools import wraps
 from logging import DEBUG, FileHandler, Formatter, INFO, StreamHandler, basicConfig, getLogger
-from os.path import abspath, join
 
 from colorlog import ColoredFormatter
 from pydantic import BaseModel
 
 from .tags import LoggerTag
-from ..config import settings
+from ..config import LOG_FILE, ENV_FILE, settings
 
 # ─── 日志格式 ───
 formatter = ColoredFormatter(
@@ -35,12 +34,12 @@ config_logger.addHandler(console_handler)
 config_logger.propagate = False
 
 basicConfig(
-    filename="ametrine.log",
+    filename=LOG_FILE,
     level=INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
-_file_handler = FileHandler("ametrine.log", encoding="utf-8")
+_file_handler = FileHandler(LOG_FILE, encoding="utf-8")
 _file_handler.setLevel(INFO)
 _file_handler.setFormatter(
     Formatter("%(asctime)s - %(levelname)-8s - %(message)s")
@@ -73,7 +72,10 @@ _TAG_CONFIG_MAP = {
         "MILVUS_METRIC_TYPE",
         "MILVUS_INDEX_TYPE",
         "MILVUS_INDEX_NLIST",
-        "DB_ADDR",
+        "REDIS_HOST",
+        "REDIS_PORT",
+        "REDIS_DB",
+        "REDIS_PASSWORD",
         "DOC_ADDR",
         "K",
         "P",
@@ -105,26 +107,47 @@ _TAG_CONFIG_MAP = {
 
 
 # ─── 请求日志装饰器 ───
+# DTO 字段名里出现这些词就打成 ****：pydantic 模型不该决定日志的泄密面。
+_SENSITIVE_ARG_KEYS = {
+    "password",
+    "passwd",
+    "secret",
+    "secret_key",
+    "token",
+    "access_token",
+    "api_key",
+    "authorization",
+    "postgre_addr",
+}
+# 单个参数的上限。正文长是合理的，无限长不是 —— 一条 40 万字的 prompt 会把日志文件吃掉。
+_LOG_ARG_MAX = 1500
+
+
 def log(text: str, log_args: bool = True):
     def decorator(f):
         is_async = inspect.iscoroutinefunction(f)
 
         def format_arg_value(arg) -> str:
+            """参数只打「请求 DTO」，其余一律只留类型名。
+
+            原来这里对任何带 `__dict__` 的参数都做 `vars()` 展开，而路由的参数里
+            除了 DTO 还有 **ORM 行、Redis 客户端、AsyncSession、模型句柄**。
+            实测后果写在 `ametrine.log` 里：**4 条真实的 bcrypt 口令哈希**（`$2b$12$…`）
+            和 63 处 Redis `ConnectionPool` 内部结构 —— 只要任何一次请求失败，
+            `@log` 就会把当前用户的整行 ORM 一起打出来。口令哈希进了日志文件，
+            和明文写进去只差一次离线破解。
+            """
             if arg is None:
                 return "None"
-            if hasattr(arg, "__dict__") and not isinstance(
-                arg, (str, int, float, bool)
-            ):
-                if isinstance(arg, BaseModel):
-                    return f"{type(arg).__name__}({arg.model_dump()})"
-                else:
-                    attrs = {
-                        k: v
-                        for k, v in vars(arg).items()
-                        if not k.startswith("_") and not callable(v)
-                    }
-                    return f"{type(arg).__name__}({attrs})"
-            return repr(arg)
+            if isinstance(arg, BaseModel):
+                data = {
+                    k: "****" if str(k).lower() in _SENSITIVE_ARG_KEYS else v
+                    for k, v in arg.model_dump().items()
+                }
+                return f"{type(arg).__name__}({data})"[:_LOG_ARG_MAX]
+            if isinstance(arg, (str, int, float, bool)):
+                return repr(arg)[:_LOG_ARG_MAX]
+            return f"<{type(arg).__name__}>"
 
         def format_args(args: tuple, kwargs: dict) -> str:
             try:
@@ -190,10 +213,30 @@ def log(text: str, log_args: bool = True):
     return decorator
 
 
+def _mask_url_credentials(value: str) -> str:
+    """把连接串里的口令换成 ****，保留用户与主机端口便于诊断。
+
+    原来的写法是 `value.replace("://", "://****@")`，实测启动日志里打出来的是
+    `postgresql+asyncpg://****@postgres:preview@localhost:5432/ametrine` ——
+    星号只是插在了 scheme 后面，真口令 `preview` 一个字都没遮，
+    而这条日志会落进 ametrine.log（OWASP Logging Cheat Sheet 明确禁止记口令）。
+    """
+    if "://" not in value:
+        return value
+    scheme, _, remainder = value.partition("://")
+    credentials, has_at, host = remainder.rpartition("@")
+    if not has_at:
+        return value
+    user, _, _password = credentials.partition(":")
+    return f"{scheme}://{user}:****@{host}"
+
+
 # ─── 启动配置打印 ───
 def log_config():
     """从 Settings 实例自动读取所有配置并分组打印"""
-    env_path = join(abspath("./"), ".env")
+    # 绝对路径：这一行原来打的是 `abspath("./")/.env`，于是「日志里说它读了哪个 .env」
+    # 会随启动目录变化，排查时反而误导（本机曾因此在前端目录里看到一份 .env 字样）。
+    env_path = ENV_FILE
     config_logger.critical(f"[{LoggerTag.project.value}]-[ENV_PATH]: {env_path}")
 
     # Settings 字段名 → alias 的映射
@@ -206,13 +249,11 @@ def log_config():
             # 从 settings 取值
             value = getattr(settings, alias.lower(), None)
             # 敏感信息脱敏
-            if alias in ("SECRET_KEY",):
+            if alias in ("SECRET_KEY", "REDIS_PASSWORD"):
                 display_value = f"{str(value)[:4]}****" if value else "None"
-            elif alias in ("POSTGRE_ADDR", "DB_ADDR"):
+            elif alias == "POSTGRE_ADDR":
                 # 数据库连接串隐藏密码
-                display_value = (
-                    str(value).replace("://", "://****@") if value else "None"
-                )
+                display_value = _mask_url_credentials(str(value)) if value else "None"
             else:
                 display_value = value
             config_logger.critical(f"[{tag.value}]-[{alias}]: {display_value}")
