@@ -100,6 +100,17 @@ def gate_hard_cap() -> None:
           all(len(c) <= 512 for c in chunks) and bool(chunks),
           f"最长 {max(len(c) for c in chunks)}")
 
+    # 这条钉住一个真实出现过的越界：定长切分若带 keep_separator，留下的标点会加在片段上，
+    # 实测同一篇 24,958 字的文档重传后最大块正好是 513 字。承诺是「上限」，
+    # 超一个字符也算没做到 —— 所以这里用没有空白可退的长串压它硬切。
+    blob = "甲" * 1300
+    hard = build(semantic=True, pieces=[blob], chunk_size=512)
+    pieces = hard.split_text(blob)
+    check("无空白可退的超长串也确实夹到上限（513 那个真实越界）",
+          bool(pieces) and all(len(p) <= 512 for p in pieces)
+          and sum(len(p) for p in pieces) >= 1296,
+          f"最长 {max(len(p) for p in pieces)}，共 {len(pieces)} 块")
+
 
 def gate_cost() -> None:
     print("\n── 2. 结构正常的文档一次 embedding 都不发")
@@ -175,6 +186,14 @@ def gate_overlap_and_headings() -> None:
     check("相邻块之间确实共享一段尾部内容（overlap 生效）", shared >= 20, f"最大共享 {shared} 字")
     check("带 overlap 之后仍然不破上限",
           all(len(c) <= 512 for c in chunks), f"最长 {max(len(c) for c in chunks)}")
+
+    # 真实越界是这么来的：块 448 字 + overlap 64 字 + 中间那个换行 = 513。
+    # 上面那条用自然文档，长度不落在边界上，量不到这一格。
+    edge = "\n\n".join(["甲" * 448] * 20)
+    edge_chunks = build(semantic=False, chunk_size=512, chunk_overlap=64).split_text(edge)
+    check("恰好卡在边界上的那一篇也不破上限（448+64+1=513 那个真实越界）",
+          bool(edge_chunks) and all(len(c) <= 512 for c in edge_chunks),
+          f"最长 {max(len(c) for c in edge_chunks)} 字 / {len(edge_chunks)} 块")
 
     # 正样本：overlap=0 时不该有共享（否则上面那条可能是恒真）
     flat = build(semantic=False, chunk_size=512, chunk_overlap=0).split_text(text)

@@ -28,7 +28,6 @@ import re
 from typing import Callable, List, Optional
 
 from langchain.docstore.document import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # 断句要认中文标点：默认那套 `(?<=[.?!])\s+` 要求标点后跟空白，
 # 中文「。」后面没有空格 ⇒ 整篇文档被当成 1 个句子原样返回（一篇 = 一块 = 一条向量）。
@@ -99,12 +98,6 @@ class BoundedChunker:
         self._semantic_factory = semantic_factory
         self._on_skip = on_skip
         self._semantic_splitter = None
-        self._fallback = RecursiveCharacterTextSplitter(
-            chunk_size=self.chunk_size,
-            chunk_overlap=min(self.chunk_overlap, self.chunk_size // 10),
-            separators=["\n\n", "\n", "。", "？", "！", "；", ".", "?", "!", ";", " ", ""],
-            keep_separator=True,
-        )
 
     # ── 对外形状与 langchain 的分块器一致（loader.py 只调这两个方法）──
     def split_documents(self, documents: List[Document]) -> List[Document]:
@@ -185,7 +178,7 @@ class BoundedChunker:
                     out.append(buf)
                     buf = ""
                 # 连一句都超上限（无标点的长串、代码块）：只剩定长这一条路
-                out.extend(self._fallback.split_text(sentence))
+                out.extend(self._hard_cut(sentence))
                 continue
             if buf and len(buf) + len(sentence) + 1 > budget:
                 out.append(buf)
@@ -203,7 +196,28 @@ class BoundedChunker:
             if len(piece) <= self.chunk_size:
                 out.append(piece)
             else:
-                out.extend(self._fallback.split_text(piece))
+                out.extend(self._hard_cut(piece))
+        return out
+
+    def _hard_cut(self, piece: str) -> list[str]:
+        """定长切分，并且**长度真的等于上限**。
+
+        不能直接把 `RecursiveCharacterTextSplitter` 的输出当作最终答案：它带
+        `keep_separator=True`，被留下的标点会加在片段上 —— 实测于是切出 513 字的块，
+        而 `CHUNK_SIZE=512`。既然这一节的承诺是「上限」，超一个字符也算没做到。
+        """
+        out: list[str] = []
+        rest = piece
+        while len(rest) > self.chunk_size:
+            # 在预算内尽量退到最近的空白/句末，退不动才硬切
+            window = rest[: self.chunk_size]
+            cut = max(window.rfind(" "), window.rfind("\n"), window.rfind("。"), window.rfind("."))
+            if cut <= 0:
+                cut = self.chunk_size
+            out.append(rest[:cut].strip() or rest[:cut])
+            rest = rest[cut:].lstrip()
+        if rest:
+            out.append(rest)
         return out
 
     def _apply_overlap(self, chunks: list[str]) -> list[str]:
@@ -212,8 +226,9 @@ class BoundedChunker:
         out = [chunks[0]]
         for prev, cur in zip(chunks, chunks[1:]):
             tail = _tail_at_sentence(prev, self.chunk_overlap)
-            # 已经重复了就不硬塞；塞进去会顶破上限时也不塞
-            if tail and not cur.startswith(tail) and len(tail) + len(cur) <= self.chunk_size:
+            # 已经重复了就不硬塞；中间那个 "\n" 也要算进预算 ——
+            # 少算这一个字符时实测整批块里会冒出 513 字的块（上限明明是 512）。
+            if tail and not cur.startswith(tail) and len(tail) + 1 + len(cur) <= self.chunk_size:
                 out.append(f"{tail}\n{cur}")
             else:
                 out.append(cur)
