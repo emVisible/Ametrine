@@ -3,6 +3,8 @@
 版本号只有一个来源：`apps/backend/src/version.py` 的 `APP_VERSION`；
 `pyproject.toml`、`uv.lock` 里 backend 那条、`apps/frontend/package.json` 与 git tag
 必须与它一致（`scripts/doctor.py` 会检查这一点）。
+侧边栏那个版本角标也不再写死：它由 `vite.config.ts` 从 `package.json` 注入
+`import.meta.env.VITE_APP_VERSION`（此前是源码里的 `"0.1.0"`，发布之后界面还在说上一个版本）。
 提交信息是中文的，所以这份记录也是；面向用户的说明在 `README.md`（英文默认）与 `README_zh.md`。
 
 ## v0.3.0 — 2026-10-01

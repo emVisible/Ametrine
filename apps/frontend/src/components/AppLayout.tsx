@@ -33,7 +33,8 @@ import {
   UserIcon,
 } from "./icons";
 
-const APP_VERSION = "0.1.0";
+// 编译期由 vite 从 package.json 注入（见 vite.config.ts 的 define 与 src/version.d.ts）
+const APP_VERSION = import.meta.env.VITE_APP_VERSION;
 type Mode = "llm" | "rag";
 const MODE_ROUTE: Record<Mode, string> = { llm: "chat", rag: "rag" };
 
