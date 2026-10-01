@@ -26,6 +26,16 @@ docs/*
 *.log
 env_rag
 
+# RAG 基准：抓下来的语料与运行产物都是数据，不是代码（脚本本身要跟踪）
+rag-bench/corpus/
+rag-bench/corpus-original/
+rag-bench/formats/
+rag-bench/formats-candidates.json
+rag-bench/*.out
+rag-bench/__pycache__/
+rag-bench/ACCOUNT
+rag-bench/.tmp-*
+
 
 # database
 apps/database/volumes/*
@@ -52,3 +62,6 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+# 基准的跑动日志与失败清单是临时产物，别进版本库
+rag-bench/*.out
+rag-bench/*_fails.json
