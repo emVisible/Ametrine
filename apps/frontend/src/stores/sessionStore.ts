@@ -12,13 +12,20 @@ export interface HistoryMessage {
   role: 'user' | 'assistant'
   content: string
   date?: string
+  /** 服务端 message 表的 id。反馈与状态都要挂在它身上，
+   *  没有它就等于界面上任何「给这条回答打分」的动作只能写在浏览器里。 */
+  serverId?: string
+  /** 服务端推导的回答状态：done / no_reference / failed */
+  status?: string
 }
 
 export interface Session {
   id: string
   /** 空字符串 = 还没命名，展示层用 i18n 的「新对话」文案补 */
   title: string
-  mode: 'llm' | 'rag' | 'agent'
+  /** 与后端 ChatRequest.mode 一一对应：'agent' 已删 —— 后端没有 agent 运行时，
+   *  带它请求会 422，界面上也就没有任何入口能产出这种会话。 */
+  mode: 'llm' | 'rag'
   messages: HistoryMessage[]
   createdAt: string
   updatedAt: string
@@ -28,7 +35,7 @@ interface SessionState {
   sessions: Session[]
   currentSessionId: string | null
 
-  createSession: (mode?: 'llm' | 'rag' | 'agent') => Promise<string>
+  createSession: (mode?: 'llm' | 'rag') => Promise<string>
   // 切换会话；null 表示「当前没有会话」—— 裸 /chat、/rag 就是这个状态，
   // 会话要等到首次发送时才建，而不是访问路由就写库
   switchSession: (id: string | null) => void

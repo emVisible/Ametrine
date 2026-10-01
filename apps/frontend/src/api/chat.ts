@@ -1,8 +1,7 @@
 // src/api/chat.ts
 import useAuthStore from "../stores/useAuthStore";
 import { t } from "../i18n";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000/api";
+import { API_BASE } from "./base";
 
 export interface StreamMessage {
   role: "user" | "assistant";
@@ -20,6 +19,9 @@ export interface RAGRequest extends ChatRequest {
   /** 后端 DTO 已有这两个字段，开关才不再是装饰 */
   rerank?: boolean;
   top_k?: number;
+  /** 跨知识库检索：给了多项就按多路召回 + RRF 融合走，
+   *  缺省或只有一项时后端退回上面那两个标量字段。 */
+  sources?: { database_name: string; collection_name: string }[];
 }
 
 /**
@@ -58,8 +60,11 @@ function onUnauthorized(): never {
   throw new Error(t("errors.unauthorized"));
 }
 
+/** 后端在流里报的错（上游模型中断、块间空闲超时）是 `{"error": "…"}` 这样一行。 */
+type StreamEvent = { kind: "token"; text: string } | { kind: "error"; message: string };
+
 /** 后端可能以 SSE 帧（`data: {...}`）或 NDJSON 行返回，两种都要能解。 */
-function parseDataLine(line: string): string | null {
+export function parseDataLine(line: string): StreamEvent | null {
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith(":")) return null;
   const payload = trimmed.startsWith("data:")
@@ -68,20 +73,32 @@ function parseDataLine(line: string): string | null {
   if (!payload || payload === "[DONE]") return null;
   try {
     const parsed = JSON.parse(payload);
-    if (typeof parsed === "string") return parsed;
+    if (typeof parsed === "string") return parsed ? { kind: "token", text: parsed } : null;
     if (parsed && typeof parsed === "object") {
-      if (typeof parsed.content === "string") return parsed.content;
-      if (typeof parsed.token === "string") return parsed.token;
-      if (typeof parsed.delta === "string") return parsed.delta;
+      // 这一支必须排在 content 之前：错误行没有 content，过去它被当成「没内容的行」
+      // 静默丢掉，于是模型中途死掉时界面留下的是一条看起来正常的空白气泡。
+      if (typeof parsed.error === "string" && parsed.error) {
+        return { kind: "error", message: parsed.error };
+      }
+      if (typeof parsed.content === "string") return { kind: "token", text: parsed.content };
+      if (typeof parsed.token === "string") return { kind: "token", text: parsed.token };
+      if (typeof parsed.delta === "string") return { kind: "token", text: parsed.delta };
     }
     return null;
   } catch {
     // 不是 JSON 的行按纯文本 token 处理，避免流被静默丢弃
-    return payload;
+    return payload ? { kind: "token", text: payload } : null;
   }
 }
 
-async function readStream(
+/**
+ * 读一路推理流。三种结局，各归其一：
+ * · 有内容且流正常结束 → onComplete
+ * · 流里出现 error 行 → onError（把服务端那句可行动的解释原样带上）
+ * · 流结束却一个 token 都没有 → onError。这不是理论分支：上游 worker 进入
+ *   sticky CUDA 错误之后，后端就是这么「200 + 空体」结束的。
+ */
+export async function readStream(
   response: Response,
   onToken: (token: string) => void,
   onComplete: () => void,
@@ -95,6 +112,21 @@ async function readStream(
 
   const decoder = new TextDecoder();
   let buffer = "";
+  let sawToken = false;
+  let streamError: string | null = null;
+
+  const consume = (line: string): void => {
+    const event = parseDataLine(line);
+    if (!event) return;
+    if (event.kind === "error") {
+      streamError = event.message;
+      return;
+    }
+    if (event.text) {
+      sawToken = true;
+      onToken(event.text);
+    }
+  };
 
   try {
     for (;;) {
@@ -103,21 +135,27 @@ async function readStream(
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        const token = parseDataLine(line);
-        if (token) onToken(token);
-      }
+      for (const line of lines) consume(line);
     }
-    const tail = parseDataLine(buffer);
-    if (tail) onToken(tail);
-    onComplete();
+    consume(buffer);
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       onComplete();
       return;
     }
     onError(error instanceof Error ? error : new Error(t("errors.readFailed")));
+    return;
   }
+
+  if (streamError) {
+    onError(new Error(streamError));
+    return;
+  }
+  if (!sawToken) {
+    onError(new Error(t("errors.emptyStream")));
+    return;
+  }
+  onComplete();
 }
 
 export async function streamChat(
@@ -150,10 +188,30 @@ export async function streamChat(
   await readStream(response, onToken, onComplete, onError);
 }
 
+/**
+ * 跨库检索的来源清单：把「这个用户可读的库 × 它们的集合」摊平成 sources。
+ *
+ * 只有一路可选时返回 `undefined` —— 后端因此走原来的标量路径，
+ * 界面上也不会出现一个开了没反应的开关。这是纯函数，所以它能被单测钉住，
+ * 不必靠隐藏标签页里的视口尺寸去猜。
+ */
+export function buildCrossBaseSources(
+  databases: { id: number; name: string }[],
+  collectionsByDb: Map<number, { name: string }[]>,
+): { database_name: string; collection_name: string }[] | undefined {
+  const list: { database_name: string; collection_name: string }[] = [];
+  for (const db of databases) {
+    for (const col of collectionsByDb.get(db.id) ?? []) {
+      list.push({ database_name: db.name, collection_name: col.name });
+    }
+  }
+  return list.length > 1 ? list : undefined;
+}
+
 export async function streamRAG(
   dto: RAGRequest,
   onToken: (token: string) => void,
-  onComplete: (references?: unknown[]) => void,
+  onComplete: (references?: unknown[], retrievalSession?: string) => void,
   onError: (error: Error) => void,
   signal?: AbortSignal,
 ): Promise<void> {
@@ -172,10 +230,17 @@ export async function streamRAG(
   }
 
   if (response.status === 401) onUnauthorized();
-  if (response.status === 403) {
+  // 403（没权限）与 409（这些库的 embedding 模型不一致，跨库混排没有意义）
+  // 都是后端**刻意为之**的拒绝，它的 message 就是给人看的可执行说明，
+  // 所以直接把服务端文案透出，而不是套一层通用错误。
+  if (response.status === 403 || response.status === 409) {
     const detail = await response.json().catch(() => ({ message: "" }));
     onError(
-      new Error(detail.message || detail.detail || t("errors.forbidden")),
+      new Error(
+        detail.message ||
+          detail.detail ||
+          (response.status === 403 ? t("errors.forbidden") : t("errors.conflict")),
+      ),
     );
     return;
   }
@@ -200,5 +265,10 @@ export async function streamRAG(
     }
   }
 
-  await readStream(response, onToken, () => onComplete(references), onError);
+  await readStream(
+    response,
+    onToken,
+    () => onComplete(references, sessionId || undefined),
+    onError,
+  );
 }

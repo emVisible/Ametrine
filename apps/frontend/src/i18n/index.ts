@@ -23,6 +23,29 @@ export const DEFAULT_LANG: Lang = "zh-CN";
 
 type Dict = typeof zh;
 
+/**
+ * 全部合法文案键（点号叶子路径），由 `zh` 的实际形状推导。
+ *
+ * 存在的原因是一次真实缺陷（交接文档 §3.10 缺陷 1）：租户子页面把裸键
+ * `admin.access.grantManage` 显示给了管理员 —— 那个键在两份字典里都不存在，
+ * 而 `translate()` 的兜底是「原样返回键名」。
+ *
+ * 静态扫描（keys.test.ts）修不了这一类：它只能匹配字面量，而键是**先存进查表常量、
+ * 再传给 t()** 的，常量声明成 `Record<string, string>` 时扫描与 tsc 都不知道它是文案键。
+ * 真正的根因是 `t(path: string)` 这条签名 —— 文案键在类型层面和普通字符串没有区别。
+ * 所以这里把键收窄成联合类型：写错的**字面量**在 tsc 阶段就红，
+ * 而动态拼键必须落到一张标注了 `MsgKey` 的表上（于是它既可编译检查、也可 grep）。
+ */
+export type MsgKey = LeafKeys<Dict>;
+
+type LeafKeys<T> = {
+  [K in keyof T & string]: T[K] extends string
+    ? K
+    : T[K] extends object
+      ? `${K}.${LeafKeys<T[K]>}`
+      : never;
+}[keyof T & string];
+
 const DICTS: Record<Lang, Dict> = { "zh-CN": zh, en };
 
 function readStoredLang(): Lang | null {
@@ -86,9 +109,29 @@ function lookup(dict: unknown, path: string): string | undefined {
 
 export type TVars = Record<string, string | number>;
 
-export function translate(lang: Lang, path: string, vars?: TVars): string {
+/**
+ * 缺键上报：同一个键只吼一次。
+ *
+ * 键缺失是缺陷而不是文案差异，以前它唯一的表征是界面上多出一截裸键名 ——
+ * 静默、且不告诉你是谁写错的。类型收窄之后仍然可能有漏网的（动态拼出来的键、
+ * 或显式 `as MsgKey`），所以运行时这一道保留。
+ */
+const reportedMissing = new Set<string>();
+
+function reportMissing(path: string): void {
+  if (reportedMissing.has(path)) return;
+  reportedMissing.add(path);
+  console.error(
+    `[i18n] 缺失文案键 "${path}"：中英文字典里都没有，界面将显示裸键名`,
+  );
+}
+
+export function translate(lang: Lang, path: MsgKey, vars?: TVars): string {
   let text = lookup(DICTS[lang], path) ?? lookup(DICTS[DEFAULT_LANG], path);
-  if (text === undefined) return path;
+  if (text === undefined) {
+    reportMissing(path);
+    return path;
+  }
   if (vars) {
     for (const [k, v] of Object.entries(vars)) {
       text = text.replaceAll(`{${k}}`, String(v));
@@ -98,7 +141,7 @@ export function translate(lang: Lang, path: string, vars?: TVars): string {
 }
 
 /** 非组件环境用（api 层、title）。组件内一律用 useI18n().t。 */
-export function t(path: string, vars?: TVars): string {
+export function t(path: MsgKey, vars?: TVars): string {
   return translate(currentLang, path, vars);
 }
 

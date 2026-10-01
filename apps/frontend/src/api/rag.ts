@@ -3,6 +3,7 @@
 import useAuthStore from "../stores/useAuthStore";
 import { t } from "../i18n";
 import { apiClient } from "./client";
+import { API_BASE } from "./base";
 import type {
   KbChunk,
   KbChunkStats,
@@ -10,8 +11,6 @@ import type {
   KbDatabase,
   KbDocument,
 } from "../types/knowledge";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3000/api";
 
 export interface RecallHit {
   doc_id: string;

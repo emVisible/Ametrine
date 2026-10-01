@@ -8,6 +8,7 @@ import {
   setLang as persistLang,
   translate,
   type Lang,
+  type MsgKey,
   type TVars,
 } from "./index";
 import { I18nCtx, useI18n } from "./context";
@@ -21,7 +22,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   const t = useCallback(
-    (path: string, vars?: TVars) => translate(lang, path, vars),
+    (path: MsgKey, vars?: TVars) => translate(lang, path, vars),
     [lang],
   );
 

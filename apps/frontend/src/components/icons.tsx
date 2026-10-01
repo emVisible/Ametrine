@@ -160,6 +160,26 @@ export const ArrowLeftIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const ArrowUpRightIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 17 17 7M9 7h8v8" />
+  </Svg>
+);
+
+export const ThumbsUpIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 21V9l4.6-5.5.9.4A3 3 0 0 1 14 8.5L13.4 11H18a2.4 2.4 0 0 1 2.3 3l-1.3 4.6A2.4 2.4 0 0 1 16.7 21H7Z" />
+    <path d="M7 9H4.4A1.4 1.4 0 0 0 3 10.4v9.2A1.4 1.4 0 0 0 4.4 21H7" />
+  </Svg>
+);
+
+export const ThumbsDownIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M17 3v12l-4.6 5.5-.9-.4A3 3 0 0 1 10 15.5l.6-2.5H6a2.4 2.4 0 0 1-2.3-3l1.3-4.6A2.4 2.4 0 0 1 7.3 3H17Z" />
+    <path d="M17 15h2.6a1.4 1.4 0 0 0 1.4-1.4V4.4A1.4 1.4 0 0 0 19.6 3H17" />
+  </Svg>
+);
+
 export const CheckIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m5 12.5 4.5 4.5L19 7.5" />

@@ -10,6 +10,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useRovingTabs } from "../hooks/useRovingTabs";
 import { useI18n } from "../i18n/context";
 import { LangSwitcher } from "../i18n/I18nProvider";
+import type { MsgKey } from "../i18n";
 import { applyDocumentTitle, pageTitleForPath } from "../utils/pageTitles";
 import { pageLoaders, preloadRoute } from "../pageLoaders";
 import CommandPalette from "./CommandPalette";
@@ -18,6 +19,7 @@ import {
   ChevronDownIcon,
   CloseIcon,
   GaugeIcon,
+  LayersIcon,
   LibraryIcon,
   LogoutIcon,
   MenuIcon,
@@ -26,6 +28,7 @@ import {
   SearchIcon,
   SettingsIcon,
   ShieldIcon,
+  WarningIcon,
   SunIcon,
   UserIcon,
 } from "./icons";
@@ -37,7 +40,7 @@ const MODE_ROUTE: Record<Mode, string> = { llm: "chat", rag: "rag" };
 interface NavEntry {
   to: string;
   /** 存文案键而不是文案：切语言时不必重建这张表 */
-  labelKey: string;
+  labelKey: MsgKey;
   Icon: typeof ChatIcon;
   adminOnly?: boolean;
   /** NavLink 默认对后代路径也判 active，叶子路由必须 end，否则 /admin 会在 /admin/xxx 上同时高亮 */
@@ -47,6 +50,16 @@ interface NavEntry {
 const NAV: NavEntry[] = [
   { to: "/dashboard", labelKey: "page.dashboard", Icon: GaugeIcon, exact: true },
   { to: "/admin/vector", labelKey: "page.vector", Icon: LibraryIcon },
+  // 回答质量队列是管理员的日常入口：先看哪些回答不值得信，再回知识库修它
+  { to: "/admin/queue", labelKey: "page.queue", Icon: WarningIcon, exact: true, adminOnly: true },
+  // 模型推理排在知识库之后：它决定「答得好不好」的上限，但不是每天都进的地方
+  {
+    to: "/admin/inference",
+    labelKey: "page.inference",
+    Icon: LayersIcon,
+    exact: true,
+    adminOnly: true,
+  },
   { to: "/admin/access", labelKey: "page.access", Icon: ShieldIcon, exact: true, adminOnly: true },
   { to: "/settings", labelKey: "page.settings", Icon: SettingsIcon, exact: true },
 ];

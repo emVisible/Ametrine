@@ -32,12 +32,17 @@ export interface KbDocument {
   uploader?: string | null;
   collection_id?: number;
   created_at?: string;
+  /** 原文还在不在盘上。服务端每次现算，不是存出来的列。
+   *  false 意味着这篇永远无法重新切分或换 embedding 模型重索引。 */
+  source_available?: boolean;
   meta?: {
     index_status?: IndexStatus;
     chunk_count?: number;
-    index_error?: string;
+    /** 服务端只给异常类型名，细节留在 ametrine.log —— 所以这里不可能再出现连接串或绝对路径 */
+    index_error_type?: string;
     sha256?: string;
     stored_path?: string;
+    size_bytes?: number;
     embedding_model?: string;
   } | null;
 }

@@ -141,6 +141,7 @@ export function Disclosure({
   meta,
   actions,
   children,
+  overlay,
   level = 0,
 }: {
   open: boolean;
@@ -151,6 +152,17 @@ export function Disclosure({
   /** 头行最右的常驻操作（不被折叠吞掉的那几个） */
   actions?: ReactNode;
   children: ReactNode;
+  /**
+   * **常驻操作要打开的弹层，放这里，不要放 children。**
+   *
+   * children 在折叠时整体不渲染（这是刻意的：收起的库不该去拉集合与文档）。
+   * 于是把 `<Modal>` 写在 children 里会出现一种必然失效的组合：
+   * 触发它的按钮在 `actions` 槽（常驻、看得见、点得动），而它要打开的弹层在被卸载的子树里。
+   * 用户看到的就是「按钮点了没任何反应」—— `/admin/vector` 的「新建集合」在折叠行上就是这样，
+   * 由一次浏览器实测抓到（展开的行能开、折叠的行不能开）。
+   * 光把那一处挪走只修了一个实例；这个槽的存在才是让同类写法写不出来的地方。
+   */
+  overlay?: ReactNode;
   /** 嵌套层级：子级用 1，靠缩进而不是再画一个边框来表明归属 */
   level?: 0 | 1;
 }) {
@@ -169,7 +181,9 @@ export function Disclosure({
         <button
           type="button"
           aria-expanded={open}
-          aria-controls={panelId}
+          // 收起时那块面板根本不在 DOM 里（这是刻意的：收起的库不该去拉集合与文档）。
+          // 还指着它的 id 就等于给读屏一个不存在的关系 —— 只在真的挂着时指。
+          aria-controls={open ? panelId : undefined}
           onClick={onToggle}
           className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
         >
@@ -200,6 +214,10 @@ export function Disclosure({
           {children}
         </div>
       )}
+
+      {/* 在 `{open && …}` 守卫**之外**、外层常驻 div **之内**：
+          折叠时这里依然挂载，弹层（自带 portal 到 body）才可能被打开。 */}
+      {overlay}
     </div>
   );
 }
@@ -450,18 +468,37 @@ export function DataTable<T>({
 export function TextInput({
   label,
   hint,
+  error,
   optional,
   required,
+  className,
   id: idProp,
   ...rest
 }: React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
   hint?: string;
+  /**
+   * 字段自己的拒绝理由。有它时 `hint` 不再显示 —— 同一行既解释「可选」又宣布「不合法」，
+   * 等于两个声音讲一件事；而且 `aria-invalid` 必须和屏幕上那句话是同一件事，
+   * 读屏才不会在「这里错了」之后又念一句无关的说明。
+   */
+  error?: string;
   optional?: string;
 }) {
   const auto = useId();
   const id = idProp ?? auto;
-  const body = <input id={id} className="a-input" required={required} {...rest} />;
+  const noteId = `${id}-note`;
+  const note = error ?? hint;
+  const body = (
+    <input
+      id={id}
+      className={className ? `a-input ${className}` : "a-input"}
+      required={required}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={label && note ? noteId : undefined}
+      {...rest}
+    />
+  );
   if (!label) return body;
   return (
     <div>
@@ -472,7 +509,14 @@ export function TextInput({
         )}
       </label>
       {body}
-      {hint && <p className="mt-1 text-[11px] text-ink-subtle">{hint}</p>}
+      {note && (
+        <p
+          id={noteId}
+          className={`mt-1 text-[11px] ${error ? "text-danger" : "text-ink-subtle"}`}
+        >
+          {note}
+        </p>
+      )}
     </div>
   );
 }
@@ -480,23 +524,51 @@ export function TextInput({
 export function TextArea({
   label,
   hint,
+  error,
+  className,
   id: idProp,
   ...rest
 }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
   label?: string;
   hint?: string;
+  /** 同 TextInput：拒绝理由优先于提示，且与 `aria-invalid` 同源。 */
+  error?: string;
 }) {
   const auto = useId();
   const id = idProp ?? auto;
-  const body = <textarea id={id} className="a-input" {...rest} />;
-  if (!label) return body;
+  const noteId = `${id}-note`;
+  const note = error ?? hint;
+  const body = (
+    <textarea
+      id={id}
+      className={className ? `a-input ${className}` : "a-input"}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={note ? noteId : undefined}
+      {...rest}
+    />
+  );
+  if (!label)
+    return note ? (
+      <>
+        {body}
+        <p id={noteId} className={`mt-1 text-[11px] ${error ? "text-danger" : "text-ink-subtle"}`}>
+          {note}
+        </p>
+      </>
+    ) : (
+      body
+    );
   return (
     <div>
       <label htmlFor={id} className="a-label">
         {label}
       </label>
       {body}
-      {hint && <p className="mt-1 text-[11px] text-ink-subtle">{hint}</p>}
+      {note && (
+        <p id={noteId} className={`mt-1 text-[11px] ${error ? "text-danger" : "text-ink-subtle"}`}>
+          {note}
+        </p>
+      )}
     </div>
   );
 }
@@ -571,6 +643,18 @@ export function Select({
  *  2. 触发器宽度按**最长 option** 撑开，检索范围那两个选择器会把输入工具行顶得很宽。
  * 这里把宽度交给调用方（`className`），面板用应用自己的卡片样式并限高滚动。
  */
+/** 下拉面板的定位尺寸（fixed，挂到 body 上，见 Picker 的注释）。 */
+interface PanelPos {
+  left: number;
+  minWidth: number;
+  top?: number;
+  bottom?: number;
+  maxHeight: number;
+}
+const PANEL_MAX_H = 224; // 与原来的 max-h-56 一致
+const EDGE = 8; // 距视口边缘的最小留白
+const FLIP_MIN = 120; // 下方少于此高度且上方更宽裕时，面板朝上开
+
 export function Picker<T extends string | number>({
   label,
   value,
@@ -597,33 +681,78 @@ export function Picker<T extends string | number>({
   const fallbackPlaceholder = placeholder ?? t("ui.pick");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const [pos, setPos] = useState<PanelPos | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLUListElement>(null);
   const listId = useId();
   const selected = options.find((o) => o.value === value);
 
+  /**
+   * 面板挂到 body 上，而不是摆在触发器旁边。
+   *
+   * 起因是实测到的：`Panel` 是 `.a-card overflow-hidden`（圆角不被表格行背景戳破），
+   * 于是它内部任何 `absolute` 的下拉都会被卡片底边裁掉 —— 用户看到的就是
+   * 「类型下拉只露出第一项，其余不见了」。裁切来自祖先，
+   * 给某一张卡片单独去掉 overflow-hidden 只能修好那一处，
+   * 下一张卡片里再加一个下拉就复发。所以修机制，不修调用点。
+   */
+  const place = useCallback(() => {
+    const el = trigger.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const w = panel.current?.offsetWidth || r.width;
+    const below = window.innerHeight - r.bottom - EDGE;
+    const above = r.top - EDGE;
+    // 下面放不下、上面放得下才翻转：两处都放不下时留在下面（面板自己能滚）
+    const flip = below < FLIP_MIN && above > below;
+    const maxH = Math.floor(Math.min(PANEL_MAX_H, Math.max(below, above, 120)));
+    setPos({
+      left: Math.max(EDGE, Math.min(r.left, Math.max(EDGE, window.innerWidth - w - EDGE))),
+      minWidth: r.width,
+      top: flip ? undefined : r.bottom + 4,
+      bottom: flip ? window.innerHeight - r.top + 4 : undefined,
+      maxHeight: maxH,
+    });
+  }, []);
+
   // 高亮初始值在「打开」这个动作里算，而不是放在 effect 里同步 state。
-  // effect 只负责点外面收起。
+  // 位置也在这一刻算：等 effect 再算会先画出一帧没有定位的面板。
   const openPanel = () => {
     const i = options.findIndex((o) => o.value === value);
     setActive(i < 0 ? 0 : i);
+    place();
     setOpen(true);
   };
 
   useEffect(() => {
     if (!open) return;
+    place(); // 面板已挂载，用它的真实宽度再校一次水平夹取
     const onDoc = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // 面板现在挂在 body 上，不在 root 里：不把 panel 算作「里面」，
+      // mousedown 会先把它卸载，选项的 click 就永远打不到 ——
+      // 表现是「下拉能打开，但点不动任何一项」。
+      if (root.current?.contains(target) || panel.current?.contains(target)) return;
+      setOpen(false);
     };
+    const onMove = () => place();
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [open, place]);
 
   const commit = (i: number) => {
     const o = options[i];
     if (!o) return;
     onChange(o.value);
     setOpen(false);
-    root.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    trigger.current?.focus();
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -660,6 +789,7 @@ export function Picker<T extends string | number>({
     <div ref={root} className={`relative min-w-0 ${className}`} onKeyDown={onKeyDown}>
       <button
         id={id}
+        ref={trigger}
         type="button"
         disabled={disabled}
         aria-haspopup="listbox"
@@ -685,37 +815,51 @@ export function Picker<T extends string | number>({
         />
       </button>
 
-      {open && (
-        <ul
-          id={listId}
-          role="listbox"
-          aria-label={label}
-          tabIndex={-1}
-          className={`a-card anim-pop absolute top-full z-30 mt-1 max-h-56 overflow-y-auto py-1 shadow-pop ${panelClassName}`}
-        >
-          {options.length === 0 ? (
-            <li className="px-3 py-2 text-[11px] text-ink-subtle">{t("ui.noOptions")}</li>
-          ) : (
-            options.map((o, i) => (
-              <li key={o.value} role="option" aria-selected={o.value === value}>
-                <button
-                  type="button"
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => commit(i)}
-                  className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition-ui ${
-                    i === active ? "bg-surface-hover text-ink" : "text-ink-muted"
-                  }`}
-                >
-                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                  {o.value === value && (
-                    <CheckIcon className="h-3.5 w-3.5 shrink-0 text-accent-ink" />
-                  )}
-                </button>
+      {open &&
+        pos &&
+        createPortal(
+          <ul
+            ref={panel}
+            id={listId}
+            role="listbox"
+            aria-label={label}
+            tabIndex={-1}
+            style={{
+              position: "fixed",
+              left: pos.left,
+              top: pos.top,
+              bottom: pos.bottom,
+              minWidth: pos.minWidth,
+              maxHeight: pos.maxHeight,
+            }}
+            className={`a-card anim-pop z-50 overflow-y-auto py-1 shadow-pop ${panelClassName}`}
+          >
+            {options.length === 0 ? (
+              <li className="px-3 py-2 text-[11px] text-ink-subtle">
+                {t("ui.noOptions")}
               </li>
-            ))
-          )}
-        </ul>
-      )}
+            ) : (
+              options.map((o, i) => (
+                <li key={o.value} role="option" aria-selected={o.value === value}>
+                  <button
+                    type="button"
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => commit(i)}
+                    className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition-ui ${
+                      i === active ? "bg-surface-hover text-ink" : "text-ink-muted"
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                    {o.value === value && (
+                      <CheckIcon className="h-3.5 w-3.5 shrink-0 text-accent-ink" />
+                    )}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -822,22 +966,26 @@ export function Toggle({
   checked,
   onChange,
   label,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
+  /** 提交中要挡的是**这一行**的开关，而不是整列（调用点负责只挡自己那个） */
+  disabled?: boolean;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2">
+    <label className={`flex items-center gap-2 ${disabled ? "cursor-wait" : "cursor-pointer"}`}>
       <span className="text-[11px] text-ink-subtle">{label}</span>
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
         className="peer sr-only"
         aria-label={label}
       />
-      <span className="relative h-[18px] w-8 rounded-full bg-line-strong transition-colors after:absolute after:top-[2px] after:left-[2px] after:h-[14px] after:w-[14px] after:rounded-full after:bg-surface after:shadow-card after:transition-transform peer-checked:bg-accent peer-checked:after:translate-x-[14px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--c-focus)]" />
+      <span className="relative h-[18px] w-8 rounded-full bg-line-strong transition-colors after:absolute after:top-[2px] after:left-[2px] after:h-[14px] after:w-[14px] after:rounded-full after:bg-surface after:shadow-card after:transition-transform peer-checked:bg-accent peer-checked:after:translate-x-[14px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--c-focus)] peer-disabled:opacity-50" />
     </label>
   );
 }

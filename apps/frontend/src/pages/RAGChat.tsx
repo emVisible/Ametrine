@@ -1,6 +1,6 @@
 // src/pages/RAGChat.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { streamRAG } from "../api/chat";
+import { buildCrossBaseSources, streamRAG } from "../api/chat";
 import { conversationAPI, type StoredMessage } from "../api/converstion";
 import { type HistoryMessage } from "../stores/sessionStore";
 import useSessionStore from "../stores/sessionStore";
@@ -40,6 +40,9 @@ interface Reference {
   created_at?: string;
   relevance_score?: number;
   chunk_id?: number;
+  /** 跨库检索时后端给的来源知识库 —— 两个库里同名的文档必须分得开 */
+  database_name?: string;
+  collection_name?: string;
 }
 
 interface RagMessage extends HistoryMessage {
@@ -109,6 +112,7 @@ function ReferencePanel({ refs }: { refs: Reference[] }) {
                     <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-ink-subtle">
                       <FileIcon className="h-3 w-3 shrink-0" aria-hidden />
                       <span className="min-w-0 truncate" title={ref.source}>
+                        {ref.database_name ? `${ref.database_name} · ` : ""}
                         {ref.source}
                       </span>
                     </p>
@@ -204,6 +208,17 @@ export default function RAGChatPage() {
           (c: KbCollection) => c.id === selectedColId,
         );
 
+  // 跨库检索：一次提问打到「这个用户可读的全部 (库, 集合)」。
+  // 刻意只做这一键选项，没做权重滑杆 —— 多路 + RRF 之后再加权重就是第三个可调参数，
+  // 而用户真正的问题是「我不必先猜这答案在哪个库」。
+  const [crossBase, setCrossBase] = useState(false);
+  const activeSources = useMemo(
+    () => buildCrossBaseSources(databases ?? [], collectionsByDb),
+    [databases, collectionsByDb],
+  );
+  // 只有一路可选时这个开关没有意义（后端会退回标量路径），就别在界面上摆一个假控件
+  const crossBaseAvailable = activeSources !== undefined;
+
   const { data: remoteMessages } = useQuery({
     queryKey: ["messages", sessionId],
     queryFn: () => conversationAPI.getMessages(sessionId!),
@@ -264,11 +279,13 @@ export default function RAGChatPage() {
         chat_history: history,
         database_name: selectedDb.name,
         collection_name: selectedCol.name,
+        // 跨库时后端按 sources 走多路召回；没勾选就是 undefined → 走原来的单库标量路径
+        sources: crossBase ? activeSources : undefined,
         rerank: enableRerank,
         top_k: topK,
       },
       (token) => useSessionStore.getState().appendToken(id, token),
-      (refs) => {
+      (refs, retrievalSession) => {
         const references = (refs as Reference[]) || [];
         useSessionStore.getState().patchLast(id, { references });
         const last = useSessionStore
@@ -278,11 +295,24 @@ export default function RAGChatPage() {
         if (last?.role === "assistant" && last.content) {
           // 引用写进 message.meta：答案的可核对部分从此跟着消息走，
           // 不再受 Redis TTL 与浏览器缓存的摆布。
+          // 服务端会据此推导 status（引用为空数组 = no_reference），
+          // 这里把返回的 message id 留在本地消息上，反馈才有落脚的地方。
           conversationAPI
-            .addMessage(id, "assistant", last.content, {
-              references,
-              database_name: selectedDb.name,
-              collection_name: selectedCol.name,
+            .addMessage(
+              id,
+              "assistant",
+              last.content,
+              {
+                references,
+                database_name: selectedDb.name,
+                collection_name: selectedCol.name,
+              },
+              retrievalSession,
+            )
+            .then((saved) => {
+              if (saved?.id) {
+                useSessionStore.getState().patchLast(id, { serverId: saved.id });
+              }
             })
             .catch(() => {});
         }
@@ -290,6 +320,17 @@ export default function RAGChatPage() {
       },
       (err) => {
         useSessionStore.getState().discardEmptyTurn(id);
+        // 失败也要留痕：原来这条路径失败后服务器上什么都没有，
+        // 于是「这个库答不上来」这件事连事后的证据都不存在（R2）。
+        // 正文为空 + meta.error 会让服务端把它记成 status='failed'。
+        conversationAPI
+          .addMessage(id, "assistant", "", {
+            error: err?.name || "StreamError",
+            references: [],
+            database_name: selectedDb.name,
+            collection_name: selectedCol.name,
+          })
+          .catch(() => {});
         failStream(id, err.message);
       },
       controller.signal,
@@ -299,12 +340,19 @@ export default function RAGChatPage() {
     streaming,
     selectedDb,
     selectedCol,
+    activeSources,
     ensureSession,
     clearError,
     // 漏了这两个的话：切了重排开关、改了召回条数，下一次仍会按上一次的值发请求
     // （useCallback 没重建，body 里封的是旧闭包），而界面上看着已经改过了。
     enableRerank,
     topK,
+    // crossBase 同一条道理，而且后果更坏：它是这条链路上唯一「界面已经改了、请求没改」的开关。
+    // 可达序列是 先打完问题 → 再勾跨库 → 直接回车：回车前没有任何依赖变过，useCallback 不重建，
+    // body 里封的还是 crossBase=false，于是发出去的是单库请求，而界面上那个开关明明是开着的。
+    // A/B 实测（交接文档 §11.3）：带上这行 → 请求体 sources 有 2 条；撤掉这行 → 同一序列下
+    // 请求体里根本没有 sources 字段，而复选框 checked=true。
+    crossBase,
   ]);
 
   const view: ChatMessage[] = messages.map((m, i) => {
@@ -382,6 +430,14 @@ export default function RAGChatPage() {
               }}
             />
             <span className="hidden items-center gap-2 xl:flex">
+              {/* 开关的可见性由「有没有第二路可选」决定：只有一路时它是装饰，而装饰就是谎话 */}
+              {crossBaseAvailable && (
+                <Toggle
+                  checked={crossBase}
+                  onChange={setCrossBase}
+                  label={t("chat.crossBase")}
+                />
+              )}
               <Toggle
                 checked={enableRerank}
                 onChange={setEnableRerank}

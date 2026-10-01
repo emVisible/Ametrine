@@ -5,15 +5,17 @@
  * 把这两个纯函数放在 adminAccessShared.tsx 里会让那个文件失去 fast refresh。
  */
 
+import type { MsgKey } from "../i18n";
+
 /** 存文案键而不是文案：模块级常量存译文的话，切语言后仍然是旧语言 */
-const ROLE_KEYS: Record<number, string> = {
+const ROLE_KEYS: Record<number, MsgKey> = {
   1: "common.roleUser",
   2: "common.roleManager",
   3: "common.roleAdmin",
 };
 
-/** 索引访问的类型是 string | undefined，统一在这里兜到「未知」的文案键 */
-export function roleKeyOf(roleId: number) {
+/** 未知角色 id 由这里统一兜到「未知」文案，调用方不必各自再写一遍 */
+export function roleKeyOf(roleId: number): MsgKey {
   return ROLE_KEYS[roleId] ?? "common.unknown";
 }
 

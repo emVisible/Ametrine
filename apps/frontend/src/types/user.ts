@@ -9,6 +9,9 @@ export interface User {
   tenant_id: number | null
   preferences: Record<string, unknown> | null
   system_prompt: string | null
+  // 用量三项由服务端**现算**后填进响应（与 /api/current 同一口径）。
+  // 以前它们读的是 user 表上三列「有人读、没人写」的死字段，
+  // 所以设置页与个人主页的用量条对谁都是 0。
   daily_token_used: number
   daily_token_limit: number
   monthly_token_used: number

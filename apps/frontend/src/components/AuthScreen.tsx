@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import brandIcon from "../assets/icon.png";
 import { LangSwitcher } from "../i18n/I18nProvider";
 import { useI18n } from "../i18n/context";
+import type { MsgKey } from "../i18n";
 import { useTheme } from "../hooks/useTheme";
 import { applyDocumentTitle } from "../utils/pageTitles";
 import { ArrowLeftIcon, MoonIcon, Spinner, SunIcon, WarningIcon } from "./icons";
@@ -17,10 +18,10 @@ export function AuthScreen({
   error,
 }: {
   /** 文案键而不是成品文字：语言切换后要能整体重渲染 */
-  titleKey: string;
-  taglineKey: string;
+  titleKey: MsgKey;
+  taglineKey: MsgKey;
   /** 被守卫拦下来时，登录后会去的那个页面的文案键 */
-  returnToKey?: string | null;
+  returnToKey?: MsgKey | null;
   children: ReactNode;
   footer?: ReactNode;
   error?: string | null;

@@ -20,7 +20,6 @@ import useStreamStore from "../stores/streamStore";
 const MODE_ROUTE: Record<Session["mode"], string> = {
   llm: "chat",
   rag: "rag",
-  agent: "chat",
 };
 
 export function useSessionMessages<T extends HistoryMessage = HistoryMessage>(

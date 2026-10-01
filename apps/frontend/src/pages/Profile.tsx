@@ -5,6 +5,7 @@ import { useCurrentUser } from "../hooks/useAuth";
 import { apiClient } from "../api/client";
 import useAuthStore from "../stores/useAuthStore";
 import { intlLocale } from "../i18n";
+import { roleKeyOf } from "../utils/roles";
 import {
   InfoRow,
   Loading,
@@ -17,13 +18,6 @@ import {
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n/context";
 import type { User } from "../types/user";
-
-/** 存文案键而不是文案：模块级常量在切语言后仍然是旧的译文 */
-const ROLE_KEYS: Record<number, string> = {
-  1: "common.roleUser",
-  2: "common.roleManager",
-  3: "common.roleAdmin",
-};
 
 function UsageMeter({
   label,
@@ -69,11 +63,9 @@ function UsageMeter({
 export default function ProfilePage() {
   const { data: currentUser } = useCurrentUser();
   const { t } = useI18n();
-  // 索引访问拿到的是 string | undefined，所以查键后兜一层文案键
-  const roleLabel = (roleId?: number) => {
-    const key = ROLE_KEYS[roleId ?? 1];
-    return key ? t(key) : t("common.unknown");
-  };
+  // 角色文案表在 utils/roles 里只有一份：这里曾经复制过一个 Record<number, string>，
+  // 两份表会各自漂移，而漂移的表征是界面上出现裸键名。
+  const roleLabel = (roleId?: number) => t(roleKeyOf(roleId ?? 1));
   const storedUser = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   const queryClient = useQueryClient();

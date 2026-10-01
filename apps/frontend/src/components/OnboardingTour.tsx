@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { Modal } from "./ui";
 import { useI18n } from "../i18n/context";
+import type { MsgKey } from "../i18n";
 import {
   ArrowLeftIcon,
   BookIcon,
@@ -18,10 +19,10 @@ import {
  * 步骤表只存文案键：模块级常量存译文的话，切语言后仍然是旧语言。
  */
 interface Step {
-  titleKey: string;
-  descKey: string;
+  titleKey: MsgKey;
+  descKey: MsgKey;
   Icon: typeof BookIcon;
-  action?: { to: string; labelKey: string };
+  action?: { to: string; labelKey: MsgKey };
 }
 
 const steps: Step[] = [

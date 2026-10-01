@@ -9,7 +9,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n/context";
 import { LangSwitcher } from "../i18n/I18nProvider";
-import { intlLocale } from "../i18n";
+import { intlLocale, type MsgKey } from "../i18n";
 import { Select, Tabs } from "../components/ui";
 import { CheckIcon, InfoIcon, MoonIcon, SunIcon, WarningIcon } from "../components/icons";
 import type { User } from "../types/user";
@@ -17,7 +17,7 @@ import type { User } from "../types/user";
 type Tab = "general" | "quota";
 
 /** 存文案键而不是文案：切语言时不必重建这张表 */
-const TABS: { key: Tab; labelKey: string }[] = [
+const TABS: { key: Tab; labelKey: MsgKey }[] = [
   { key: "general", labelKey: "settings.tabGeneral" },
   { key: "quota", labelKey: "settings.tabQuota" },
 ];

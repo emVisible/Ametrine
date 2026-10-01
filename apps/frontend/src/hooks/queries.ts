@@ -8,9 +8,22 @@ import {
 } from "@tanstack/react-query";
 import { collectionAPI, databaseAPI, documentAPI } from "../api/rag";
 import { apiClient } from "../api/client";
+import { conversationAPI, type UnresolvedRow } from "../api/converstion";
 import { systemAPI, type SystemOverview } from "../api/system";
+import {
+  inferenceAPI,
+  type InferenceOverview,
+  type InferenceRole,
+  type LaunchBody,
+  type LaunchProgress,
+} from "../api/inference";
+import {
+  isTerminalProgress,
+  movingLaunches,
+} from "../utils/inferenceFormat";
 import { tenantAPI } from "../api/tenant";
 import { useI18n } from "../i18n/context";
+import type { MsgKey } from "../i18n";
 import { useToast } from "./useToast";
 import type { KbCollection, KbDocument } from "../types/knowledge";
 
@@ -25,7 +38,44 @@ export const qk = {
   chunkStats: (colId: number) => ["knowledge", "chunk-stats", colId] as const,
   tenants: ["access", "tenants"] as const,
   tenantOverview: ["access", "tenant-overview"] as const,
+  unresolved: ["conversation", "unresolved"] as const,
+  inferenceOverview: ["inference", "overview"] as const,
+  // 前缀键：一次加载/卸载会让**所有型号**的目录缓存变旧（权重从「要下载」变成「已在盘上」），
+  // 而 staleTime 是 5/10 分钟 —— 没有这两个前缀，界面会在几分钟里对新卸下的模型说「需下载」。
+  inferenceCatalogAll: ["inference", "catalog"] as const,
+  inferenceRegistrationsAll: ["inference", "registrations"] as const,
+  inferenceCatalog: (type: string, name: string) =>
+    ["inference", "catalog", type, name] as const,
+  inferenceRegistrations: (type: string) =>
+    ["inference", "registrations", type] as const,
+  launchProgress: (uid: string) => ["inference", "progress", uid] as const,
 };
+
+/** 管理台的「未解决 / 差评」队列。它是工单列表，不是仪表盘，所以不做长缓存。 */
+export function useUnresolved() {
+  return useQuery<UnresolvedRow[]>({
+    queryKey: qk.unresolved,
+    queryFn: () => conversationAPI.getUnresolved(),
+    staleTime: 15_000,
+  });
+}
+
+/** 反馈只改一行，且改完队列就该重排（差评消失或出现）。 */
+export function useSetMessageFeedback() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { t } = useI18n();
+  return useMutation({
+    mutationFn: (args: { messageId: string; verdict: "up" | "down"; note?: string }) =>
+      conversationAPI.setFeedback(args.messageId, args.verdict, args.note),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.unresolved });
+      toast(t("queue.feedbackSaved"), "success");
+    },
+    onError: (error: Error) =>
+      toast(t("queue.feedbackFailed", { msg: error.message }), "error"),
+  });
+}
 
 /**
  * 概览页的聚合读数。
@@ -169,8 +219,8 @@ function useResourceMutation<TVars, TRes>(options: {
   mutationFn: (vars: TVars) => Promise<TRes>;
   invalidate: () => void;
   /** 存文案键而不是文案：切语言不需要重建这些 hook */
-  successKey?: string;
-  errorKey: string;
+  successKey?: MsgKey;
+  errorKey: MsgKey;
 }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -265,8 +315,8 @@ export function useUploadDocument(
  */
 function useChunkMutation<TVars>(options: {
   mutationFn: (vars: TVars) => Promise<unknown>;
-  successKey: string;
-  errorKey: string;
+  successKey: MsgKey;
+  errorKey: MsgKey;
 }) {
   const queryClient = useQueryClient();
   return useResourceMutation({
@@ -320,8 +370,8 @@ export function useDeleteChunk() {
 /** 租户/成员/授权/角色配额的所有变更都收敛在这里：一处失效，避免改完不刷新。 */
 function useAccessMutation<TVars>(options: {
   mutationFn: (vars: TVars) => Promise<unknown>;
-  successKey?: string;
-  errorKey: string;
+  successKey?: MsgKey;
+  errorKey: MsgKey;
   /** 除总览之外还要额外失效的键 */
   also?: readonly (readonly string[])[];
 }) {
@@ -381,7 +431,6 @@ export function useToggleMember() {
  * 实际却一次给了读写。现在级别由调用方显式传，撤销则删整行。
  */
 export type GrantLevel = "read" | "write" | "manage";
-
 const GRANT_FLAGS: Record<GrantLevel, { can_read: boolean; can_write: boolean; can_manage: boolean }> = {
   read: { can_read: true, can_write: false, can_manage: false },
   write: { can_read: true, can_write: true, can_manage: false },
@@ -414,5 +463,162 @@ export function usePatchUser(userId: number) {
       apiClient(`/user/${userId}`, { method: "PATCH", body }),
     also: [["currentUser"]],
     errorKey: "common.updateFailed",
+  });
+}
+
+/* ───────────────────────── 推理管理（/admin/inference） ───────────────────────── */
+
+/**
+ * 推理面板总览。
+ *
+ * `launchedUids` 是页面自己记的「我提交过加载」的 uid 列表 —— 为什么要把这个状态交给调用方：
+ * 服务器在模型**加载完成之前不会把它列进 /v1/models**（实测约 54 秒后才出现），
+ * 所以「还有哪些没落定」只有发起方知道自己提交过什么。
+ * 但「落定了没有」是服务器说了算，所以在 `refetchInterval` 的函数形态里就着最新读数算：
+ * 页面不必把结论复制进 state（那需要一个 effect 纠偏），也没有纠偏前那一帧的旧结论。
+ * 没有在途加载时完全不轮询 —— 这页不是仪表盘，安静待着比每两秒打一次上游好。
+ */
+export function useInferenceOverview(launchedUids: string[]) {
+  return useQuery<InferenceOverview>({
+    queryKey: qk.inferenceOverview,
+    queryFn: () => inferenceAPI.overview(),
+    staleTime: 4_000,
+    refetchInterval: (q) =>
+      movingLaunches(launchedUids, q.state.data).length ? 2_500 : false,
+  });
+}
+
+/**
+ * 单个模型的加载进度。终态就停。
+ *
+ * 判据来自 `isTerminalProgress`：未知 stage 一律继续轮。
+ * 早停一次，界面就会永远停在一个假的「还在加载」上。
+ */
+export function useLaunchProgress(uid: string | null, enabled: boolean) {
+  return useQuery<LaunchProgress>({
+    queryKey: qk.launchProgress(uid ?? "-"),
+    queryFn: () => inferenceAPI.progress(uid as string),
+    enabled: enabled && !!uid,
+    refetchInterval: (q) =>
+      isTerminalProgress(q.state.data) ? false : 2_000,
+  });
+}
+
+/** 目录：某个型号能用哪些引擎、有哪些版本（含维度）。按需查，不预取。 */
+export function useInferenceCatalog(modelType: string, modelName: string) {
+  const trimmed = modelName.trim();
+  return useQuery({
+    queryKey: qk.inferenceCatalog(modelType, trimmed),
+    queryFn: () => inferenceAPI.catalog(modelType, trimmed),
+    enabled: trimmed.length >= 2,
+    staleTime: 300_000,
+  });
+}
+
+/**
+ * 目录的第一层：这个类型下服务器认识哪些型号。
+ *
+ * 换类型才重新取一次（一次 46–166 条名字，很轻），所以缓存给到 10 分钟。
+ * 这条存在的理由是「界面上要能挑」：以前必须先知道型号名再搜索，
+ * 而空态写的是「在下方目录里选一个加载」—— 没有清单可选，那句话就是假话。
+ */
+export function useInferenceRegistrations(modelType: string) {
+  return useQuery({
+    queryKey: qk.inferenceRegistrations(modelType),
+    queryFn: () => inferenceAPI.registrations(modelType),
+    staleTime: 600_000,
+  });
+}
+
+/** 推理面的变更共同点：成功后总览与概览都要重取（概览里那格就绪度读同一批事实）。 */
+function useInferenceMutation<TVars>(options: {
+  mutationFn: (vars: TVars) => Promise<unknown>;
+  successKey?: MsgKey;
+  errorKey: MsgKey;
+}) {
+  const queryClient = useQueryClient();
+  const { t } = useI18n();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: options.mutationFn,
+    onSuccess: (data: unknown) => {
+      queryClient.invalidateQueries({ queryKey: qk.inferenceOverview });
+      queryClient.invalidateQueries({ queryKey: qk.systemOverview });
+      // 加载/卸载会改变「权重在不在盘上」和「本机能不能跑起来」这两批事实，
+      // 它们各自有 5/10 分钟的 staleTime —— 不在这儿失效，目录就会在几分钟里对新卸下的
+      // 模型继续说「权重已在盘上」（反之亦然）。按前缀一次清掉，不靠调用点记得枚举型号。
+      queryClient.invalidateQueries({ queryKey: qk.inferenceCatalogAll });
+      queryClient.invalidateQueries({ queryKey: qk.inferenceRegistrationsAll });
+      if (options.successKey) toast(t(options.successKey), "success");
+      // 后端把「其实失败了」写在 message 里（例如卸载时服务器报错但模型确实没了）
+      const note = (data as { note?: string } | undefined)?.note;
+      if (note) toast(note, "success");
+    },
+    onError: (error: Error) =>
+      toast(t(options.errorKey, { msg: error.message }), "error"),
+  });
+}
+
+export function useLaunchModel() {
+  // 这里原来会在提交瞬间 `setQueryData(progress, {progress: 0, stage: "pending"})`，
+  // 好让界面立刻有东西显示。但那是一个**我们自己编出来的读数**：服务器还没答话，
+  // 页面已经在说「0% · pending」。在途那一行本来就由提交记录驱动（一定会出现），
+  // 所以伪造的数据没有换来任何东西，只换来一条可能不是真的百分比。
+  return useInferenceMutation({
+    mutationFn: (body: LaunchBody) => inferenceAPI.launch(body),
+    successKey: "admin.inference.launched",
+    errorKey: "admin.inference.launchFailed",
+  });
+}
+
+export function useTerminateModel() {
+  return useInferenceMutation({
+    mutationFn: (uid: string) => inferenceAPI.terminate(uid),
+    successKey: "admin.inference.terminated",
+    errorKey: "admin.inference.terminateFailed",
+  });
+}
+
+export function useBindModel() {
+  return useInferenceMutation({
+    mutationFn: (args: { role: InferenceRole; uid: string; name: string }) =>
+      inferenceAPI.bind(args.role, args.uid, args.name),
+    successKey: "admin.inference.bound",
+    // 换 embedding 被拦时，后端给的是成句的解释（维度、影响面、该怎么办）—— 原样透出
+    errorKey: "admin.inference.bindFailed",
+  });
+}
+
+export function useSetAutostart() {
+  return useInferenceMutation({
+    mutationFn: (args: { uid: string; enabled: boolean }) =>
+      inferenceAPI.setAutostart(args.uid, args.enabled),
+    errorKey: "admin.inference.autostartFailed",
+  });
+}
+
+export function useInferenceRelogin() {
+  // TVars = void：这条不需要参数，写成默认推断会变成 unknown，
+  // 于是 `mutate()` 报「Expected 1-2 arguments, but got 0」。
+  return useInferenceMutation<void>({
+    mutationFn: () => inferenceAPI.relogin(),
+    successKey: "admin.inference.relogged",
+    errorKey: "admin.inference.reloginFailed",
+  });
+}
+
+/**
+ * 推理活性探测。刻意**不**走 `useInferenceMutation`：那条会清掉总览/目录/注册表的查询缓存，
+ * 而探测本身一个状态都不改 —— 按一次就重取十几条目录，界面变成「我点了什么来着」的转圈。
+ * 结果由调用方按数据渲染，失败也在这里原样透出（后端永远回 200，所以走不通的那些角色
+ * 是 `probes[i].ok === false`，不是异常）。
+ */
+export function useInferenceLiveness() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: () => inferenceAPI.liveness(),
+    onError: (error: Error) =>
+      toast(t("admin.inference.probeFailed", { msg: error.message }), "error"),
   });
 }

@@ -7,7 +7,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useI18n } from "../i18n/context";
-import { intlLocale } from "../i18n";
+import { intlLocale, type MsgKey } from "../i18n";
 import { useIsAdmin } from "../hooks/useAuth";
 import { useConfirm } from "../hooks/useConfirm";
 import { resolveDrilldown } from "../utils/drilldown";
@@ -82,7 +82,12 @@ function IndexStatusBadge({ doc }: { doc: KbDocument }) {
       <StatusBadge
         tone="danger"
         dot
-        title={doc.meta?.index_error || t("admin.vector.indexFailed")}
+        // 服务端只给类型名，完整堆栈在 ametrine.log —— 界面上不假装能显示细节
+        title={
+          doc.meta?.index_error_type
+            ? t("admin.vector.indexFailedType", { type: doc.meta.index_error_type })
+            : t("admin.vector.indexFailed")
+        }
       >
         {t("admin.vector.indexFailed")}
       </StatusBadge>
@@ -159,10 +164,72 @@ function DatabaseRow({
       .sort((a, b) => a.name.localeCompare(b.name, intlLocale()));
   }, [collections, query]);
 
+  /* 折叠行上的「新建集合」曾经是个点了没反应的按钮：按钮在常驻的 actions 槽里，
+     而它要打开的 Modal 写在 children 里 —— children 在折叠时整体不渲染。
+     所以弹层必须走 Disclosure 的 overlay 槽（渲染在折叠守卫之外）。 */
+  const createModal = (
+    <Modal
+      open={creating}
+      onClose={() => setCreating(false)}
+      title={t("admin.vector.newCol")}
+      description={t("admin.vector.newColDesc", { name: database.name })}
+      footer={
+        <>
+          <button
+            type="button"
+            className="a-btn a-btn-ghost"
+            onClick={() => setCreating(false)}
+          >
+            {t("common.cancel")}
+          </button>
+          <button
+            type="button"
+            className="a-btn a-btn-primary"
+            disabled={create.isPending || !form.name.trim()}
+            onClick={() =>
+              create.mutate(
+                {
+                  name: form.name.trim(),
+                  description: form.description.trim(),
+                },
+                {
+                  onSuccess: () => {
+                    setCreating(false);
+                    setForm({ name: "", description: "" });
+                  },
+                },
+              )
+            }
+          >
+            {create.isPending ? t("common.creating") : t("common.create")}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3.5">
+        <TextInput
+          label={t("common.name")}
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          placeholder={t("admin.vector.colNameExample")}
+          autoFocus
+          hint={t("admin.vector.colNameHint")}
+        />
+        <TextInput
+          label={t("common.description")}
+          optional={t("auth.optionalField")}
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+        />
+      </div>
+    </Modal>
+  );
+
   return (
     <Disclosure
       open={expanded}
       onToggle={expanded ? onClose : onOpen}
+      overlay={createModal}
       title={
         <span className="flex min-w-0 items-center gap-2.5">
           <DatabaseIcon className="h-4 w-4 shrink-0 text-ink-subtle" />
@@ -292,62 +359,6 @@ function DatabaseRow({
           })}
         </ul>
       )}
-
-      <Modal
-        open={creating}
-        onClose={() => setCreating(false)}
-        title={t("admin.vector.newCol")}
-        description={t("admin.vector.newColDesc", { name: database.name })}
-        footer={
-          <>
-            <button
-              type="button"
-              className="a-btn a-btn-ghost"
-              onClick={() => setCreating(false)}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="button"
-              className="a-btn a-btn-primary"
-              disabled={create.isPending || !form.name.trim()}
-              onClick={() =>
-                create.mutate(
-                  {
-                    name: form.name.trim(),
-                    description: form.description.trim(),
-                  },
-                  {
-                    onSuccess: () => {
-                      setCreating(false);
-                      setForm({ name: "", description: "" });
-                    },
-                  },
-                )
-              }
-            >
-              {create.isPending ? t("common.creating") : t("common.create")}
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-3.5">
-          <TextInput
-            label={t("common.name")}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder={t("admin.vector.colNameExample")}
-            autoFocus
-            hint={t("admin.vector.colNameHint")}
-          />
-          <TextInput
-            label={t("common.description")}
-            optional={t("auth.optionalField")}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
-        </div>
-      </Modal>
     </Disclosure>
   );
 }
@@ -951,6 +962,16 @@ function DocumentList({
                 ? t("admin.vector.uploader", { name: doc.uploader })
                 : t("admin.vector.uploaderUnknown")}
             </p>
+            {/* 原文丢了 = 这篇永远只能以现在的切分存在。不写出来，用户就会以为
+                「重建索引」是个随时可点的按钮。 */}
+            {doc.source_available === false && (
+              <p
+                className="text-[11px] text-warning"
+                title={t("admin.vector.sourceLostHint")}
+              >
+                {t("admin.vector.sourceLost")}
+              </p>
+            )}
           </div>
         </div>
       ),
@@ -1095,7 +1116,11 @@ function DocumentList({
             ref={inputRef}
             type="file"
             hidden
-            accept=".pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx,.ppt,.pptx,.html,.epub,.eml,.png,.jpg,.jpeg"
+            // 与后端白名单（LOADER_MAPPING）逐一对应：以前这里写着 .png/.jpg 却没有 OCR，
+            // 用户挑得到、后端必然回 415 —— accept 属性不是装饰，它是承诺。
+            // .xls 也已从两侧一起删掉：unstructured 0.22.x 里没有 partition.xls，
+            // 旧版 Excel 是结构性不可用，不是"再装一个包"能修的。
+            accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.ppt,.pptx,.html,.epub,.eml,.odt"
             onChange={(e) => {
               submitFiles(e.target.files);
               e.target.value = "";
@@ -1185,7 +1210,15 @@ function DocumentList({
 // resolveDrilldown 会把一个合法深链判成「这个知识库不存在」——假报错。
 // 只剩两种骨架：集合已经并入知识库列表的展开带，不再是独立的一页。
 // 表头存文案键：模块级常量存译文的话，切语言后骨架仍然是旧语言。
-const SKELETON_LEVELS = {
+// 类型标注让 `headerKey` 在 tsc 阶段就必须是真实存在的键（原来 `as const` 推成 string 表，
+// 写错一个字母只会在界面上长出裸键名）。
+type SkeletonColumn = {
+  readonly key: string;
+  readonly headerKey: MsgKey;
+  readonly width?: string;
+  readonly align?: "right";
+};
+const SKELETON_LEVELS: Record<"list" | "documents", readonly SkeletonColumn[]> = {
   list: [
     { key: "name", headerKey: "common.database" },
     { key: "tenant", headerKey: "common.tenant", width: "12rem" },
@@ -1197,7 +1230,7 @@ const SKELETON_LEVELS = {
     { key: "chunks", headerKey: "common.chunks", width: "5rem", align: "right" },
     { key: "created", headerKey: "admin.vector.uploadedAt", width: "9rem", align: "right" },
   ],
-} as const;
+};
 
 function ConsoleSkeleton({ depth }: { depth: 0 | 2 }) {
   const { t } = useI18n();

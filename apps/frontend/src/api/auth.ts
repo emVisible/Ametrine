@@ -2,7 +2,7 @@
 import type { CurrentUser } from '../types/user'
 import { t } from '../i18n'
 import { apiClient } from './client'
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api'
+import { API_BASE } from './base'
 
 interface LoginRequest {
   username: string

@@ -1,16 +1,16 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port 8000",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "tsc -b --pretty false && eslint . && vitest run",
+    "check": "tsc -b --pretty false && eslint . --max-warnings=0 && vitest run",
     "preview": "vite preview"
   },
   "dependencies": {

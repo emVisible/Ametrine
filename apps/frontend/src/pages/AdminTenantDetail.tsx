@@ -11,6 +11,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useConfirm } from "../hooks/useConfirm";
 import { useI18n } from "../i18n/context";
+import type { MsgKey } from "../i18n";
 import { useIsAdmin } from "../hooks/useAuth";
 import {
   useKnowledgeIndex,
@@ -44,7 +45,7 @@ import type { TenantOverview, TenantOverviewUser } from "../types/knowledge";
 import { QuotaEditor } from "./adminAccessShared";
 import { roleKeyOf, roleTone } from "../utils/roles";
 
-const LEVEL_LABELS: Record<string, string> = {
+const LEVEL_LABELS: Record<"read" | "write" | "manage", MsgKey> = {
   read: "admin.access.grantReadOnly",
   write: "admin.access.grantReadWrite",
   manage: "admin.access.grantManage",
