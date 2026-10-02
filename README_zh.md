@@ -4,17 +4,15 @@
 
 # Ametrine
 
-> 一套自托管的 RAG 工作空间：文档是你的，模型是你的，数据库也是你的，中间没有别人。
-
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
 ![Runtime](https://img.shields.io/badge/runtime-self--hosted-blue)
 
 [English](README.md) · **简体中文**
 
-Ametrine 是一个本地优先的知识库系统，核心是检索增强生成（RAG）。它接收真实文档、按语义切分、
-向量化进 Milvus，然后带着来源文档、分块编号与相关性分数一起给出答案。多租户、知识库级权限、Token 配额与分块级治理
-是产品的一部分，不是外挂的补丁。
+Ametrine 是本地优先的 RAG 知识库系统
+
+支持切档经语义切分、向量化存入 Milvus，答案附带来源、分块编号与相关性分数；支持多租户、知识库级权限、Token 配额与分块级治理。
 
 </div>
 
@@ -232,7 +230,5 @@ Postgres、Redis、Milvus 的端口都发布在所有网卡上，Redis 与 Milvu
 `Copyright 2026 emVisible`。
 
 ## 致谢
-
-基于 FastAPI、LangChain、Milvus、Xinference、PostgreSQL 与 React 构建。
 
 *致我们终将逝去的青春。* 🌙
