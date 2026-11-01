@@ -4,6 +4,7 @@ type   = "web"
 start  = "./arborist-start.sh"
 url    = "http://127.0.0.1:8000"
 ready  = "http:/api/arbor/status"
+start_timeout_ms = 180000
 branch = "main"
 icon   = "apps/frontend/public/favicon.png"
 notes  = "本地优先 RAG 知识库。数据层缺席时 /api/arbor/status 回 degraded 并点名是谁"
