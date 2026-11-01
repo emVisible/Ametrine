@@ -11,6 +11,7 @@ class ControllerTag(Enum):
     relation_db = "Relation Database"
     init = "Initialization"
     agent = "Agent"
+    arbor = "Arborist"
 
 
 class LoggerTag(Enum):

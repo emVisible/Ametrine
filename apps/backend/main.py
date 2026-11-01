@@ -51,6 +51,7 @@ from src.middleware.logger import config_logger, log_config
 from src.middleware.response import IResponse
 from src.models import Base
 from src.relation.controller import route_relation
+from src.system.arbor import route_arbor
 from src.system.controller import route_system
 from src.user.auth.controller import route_auth
 from src.user.controller import route_base
@@ -172,6 +173,8 @@ app.include_router(route_user_permission, prefix="/api")
 app.include_router(route_system, prefix=route_prefix)
 # 推理管理面：整面只允许管理员（闸门挂在 router 的 dependencies 上，新加路由不会漏判）
 app.include_router(route_inference, prefix=route_prefix)
+# 中控台（Arborist）状态契约：不鉴权、裸 JSON，形状要求见 src/system/arbor.py
+app.include_router(route_arbor, prefix=route_prefix)
 
 
 app.add_middleware(
