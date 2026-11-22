@@ -398,3 +398,24 @@ InferenceProvider
 5. 一条真实问题的回答：带 `ev-*` 引用，引用可点开。
 6. 记录切片数据：导入耗时、survey 耗时、chat 首 token/总耗时。
 7. 切片通过后，再开 P2；不通过就停，不硬推。
+
+## 15. 执行记录
+
+### 2026-11-22 P1 垂直切片（分支 `personal`）
+
+已落：
+
+- `Tenant.mode / default_assistant`；迁移 `d1a7c3e9f2b4`。
+- `personal_ledger`（append-only、每租户一条链、payload 保存原始行）。
+- `src/personal/`：canonical、memory、service、DTO、`/api/personal/*`。
+- 导入脚本：`scripts/import_personal_ledger.py`；自检：`scripts/selfcheck_personal.py`。
+- 旧账本 307 行 + 54 条 legacy label 导入本地 Postgres；`ledger_ok`，361 行。
+- 记忆 survey 与 Isla 同口径：`barred 293 / labile 7 / stable 0 / dormant 7 / retired 0`，holding 7。
+- API 实测：`/api/personal/memory`、`/ledger`、`/ledger/verify`、`/ledger` 追加、重复导入拒绝。
+- 前端未改；`pnpm run check` 135 个测试通过。
+
+未落（P2/P3）：
+
+- 个人 context 与默认 Isla 回答；`/api/chat` 的 `assistant=isla`。
+- 个人前端路由与导航；文档 + 个人双 scope 检索。
+- 周期/指代/决定/ ontology 的 async 移植。
