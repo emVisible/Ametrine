@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from src.middleware.tags import ControllerTag
@@ -13,6 +13,8 @@ from .dto import (
     PersonalLedgerIn,
     PersonalLedgerOut,
     PersonalMemoryOut,
+    PersonalPeriodDetailOut,
+    PersonalPeriodOut,
     PersonalVerifyOut,
 )
 from .service import PersonalService, get_personal_service
@@ -72,6 +74,47 @@ async def ledger_export(
         lines(), media_type="application/x-ndjson",
         headers={"Content-Disposition": 'attachment; filename="personal-ledger.jsonl"'},
     )
+
+
+@route_personal.get("/search", response_model=list[PersonalLedgerOut])
+async def personal_search(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(30, ge=1, le=100),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.search(tenant_id, q, limit=limit)
+
+
+@route_personal.get("/periods", response_model=list[PersonalPeriodOut])
+async def personal_periods(
+    level: str = Query("week", pattern="^(week|month|quarter|year)$"),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.periods(tenant_id, level)
+
+
+@route_personal.get("/periods/{level}/{key}",
+                    response_model=PersonalPeriodDetailOut)
+async def personal_period(
+    level: str,
+    key: str,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    if level not in ("week", "month", "quarter", "year"):
+        raise HTTPException(status_code=422, detail="level 只能是 week/month/quarter/year")
+    tenant_id = await service.tenant_id(current_user)
+    try:
+        found = await service.period(tenant_id, level, key)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"周期键不合法：{exc}")
+    if found is None:
+        raise HTTPException(status_code=404, detail="这一周期没有原话")
+    return found
 
 
 @route_personal.get("/memory", response_model=PersonalMemoryOut)

@@ -419,9 +419,12 @@ InferenceProvider
 - 删除 `Tenant.default_assistant`（`e7c5b2a9d431`）；`/api/chat` 不设 `assistant` 参数，Isla 是系统身份。
 - personal 租户自动注入个人 context；knowledge 租户不注入；两边共用同一个 `/api/chat`。
 - 流式/非流式助手消息的 `meta` 记录 `personal_event_ids`，供引用回溯。
+- 个人原话检索：`GET /api/personal/search`，Postgres `pg_trgm` GIN 索引（`f2b8c6d0e514`）。
+- 个人周期：`GET /api/personal/periods?level=week|month|quarter|year` 与详情；周键按 ISO 周。
+- 个人页加入检索框与最近 8 周计数；账本列表默认隐藏 label/retract/expiry/day/diary/pref。
 
 未落（P2/P3）：
 
-- 个人引用在聊天 UI 的可点击渲染；指代/周期/决定/ontology 的 async 移植。
+- 个人引用在聊天 UI 的可点击渲染；指代/决定/ontology 的 async 移植。
 - 个人前端路由与导航；文档 + 个人双 scope 检索。
 - 周期/指代/决定/ ontology 的 async 移植。

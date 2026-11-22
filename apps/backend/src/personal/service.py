@@ -12,6 +12,7 @@ from src.models import PersonalLedger, Tenant, User
 
 from .canonical import FIELDS, GMT8, ZERO, iso, line_hash, to_gmt8
 from .context import compose
+from . import periods as period_mod
 from .dto import PersonalLedgerIn
 from .memory import survey
 
@@ -155,6 +156,45 @@ class PersonalService:
 
     async def memory(self, tenant_id: int, today: date | None = None) -> dict:
         return survey(await self.payloads(tenant_id), today=today)
+
+    async def search(self, tenant_id: int, query: str, limit: int = 30) -> list[dict]:
+        text = query.strip()
+        if not text:
+            return []
+        escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        result = await self.relation_db.execute(
+            select(PersonalLedger)
+            .where(PersonalLedger.tenant_id == tenant_id,
+                   PersonalLedger.kind.not_in(
+                       ("label", "retract", "expiry", "day", "diary", "pref")),
+                   PersonalLedger.text.ilike(f"%{escaped}%", escape="\\"))
+            .order_by(PersonalLedger.occurred_at.desc())
+            .limit(limit)
+        )
+        return [row.payload for row in result.scalars().all()]
+
+    async def _period_rows(self, tenant_id: int) -> list[dict]:
+        rows = await self.payloads(tenant_id, human_only=True)
+        return [{"id": row["id"], "seq": row["seq"],
+                 "occurred_at": to_gmt8(row["occurred_at"]),
+                 "actor": row["actor"], "kind": row["kind"],
+                 "text": row["text"], "provenance": row.get("provenance") or {}}
+                for row in rows]
+
+    async def periods(self, tenant_id: int, level: str) -> list[dict]:
+        return period_mod.list_periods(await self._period_rows(tenant_id), level)
+
+    async def period(self, tenant_id: int, level: str, key: str) -> dict | None:
+        start, end = period_mod.period_range(key, level)
+        rows = await self._period_rows(tenant_id)
+        items = period_mod.catalog(rows, start, end)
+        if not items:
+            return None
+        return {"level": level, "period_key": key, "start_date": start,
+                "end_date": end, "item_count": len(items),
+                "content_digest": period_mod.digest([item["id"] for item in items]),
+                "parent_keys": period_mod.parent_keys(key, level),
+                "catalog": items, "source_ids": [item["id"] for item in items]}
 
     async def context_for(self, user: User, today: date | None = None) -> dict:
         """Personal context is automatic; it is not a selectable assistant."""

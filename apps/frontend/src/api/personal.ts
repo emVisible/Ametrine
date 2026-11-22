@@ -20,6 +20,16 @@ export interface PersonalMemory {
   items: PersonalMemoryItem[];
 }
 
+export interface PersonalPeriod {
+  level: string;
+  period_key: string;
+  start_date: string;
+  end_date: string;
+  item_count: number;
+  content_digest: string;
+  parent_keys: string[];
+}
+
 export interface PersonalLedgerRow {
   seq: number;
   id: string;
@@ -35,4 +45,10 @@ export const personalAPI = {
   memory: () => apiClient<PersonalMemory>("/personal/memory"),
   ledger: (limit = 20) =>
     apiClient<PersonalLedgerRow[]>(`/personal/ledger?limit=${limit}`),
+  search: (q: string, limit = 20) =>
+    apiClient<PersonalLedgerRow[]>(
+      `/personal/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    ),
+  periods: (level = "week") =>
+    apiClient<PersonalPeriod[]>(`/personal/periods?level=${level}`),
 };

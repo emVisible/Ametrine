@@ -55,3 +55,18 @@ class PersonalMemoryOut(BaseModel):
     holding: int
     meter: dict
     items: list[PersonalMemoryItem]
+
+
+class PersonalPeriodOut(BaseModel):
+    level: str
+    period_key: str
+    start_date: str
+    end_date: str
+    item_count: int
+    content_digest: str
+    parent_keys: list[str]
+
+
+class PersonalPeriodDetailOut(PersonalPeriodOut):
+    catalog: list[dict]
+    source_ids: list[str]

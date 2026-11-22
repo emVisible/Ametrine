@@ -366,4 +366,6 @@ class PersonalLedger(Base):
         UniqueConstraint("tenant_id", "id", name="uq_personal_ledger_tenant_id"),
         Index("ix_personal_ledger_tenant_time", "tenant_id", "occurred_at"),
         Index("ix_personal_ledger_tenant_kind", "tenant_id", "kind"),
+        Index("ix_personal_ledger_text_trgm", "text",
+              postgresql_using="gin", postgresql_ops={"text": "gin_trgm_ops"}),
     )

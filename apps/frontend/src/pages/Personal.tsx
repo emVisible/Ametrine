@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { personalAPI } from "../api/personal";
 import { useCurrentUser } from "../hooks/useAuth";
@@ -8,6 +9,7 @@ import {
   Loading,
   PageHeader,
   Panel,
+  SearchInput,
   StatusBadge,
 } from "../components/ui";
 import { SparkIcon } from "../components/icons";
@@ -32,6 +34,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 export default function PersonalPage() {
   const { t } = useI18n();
   const { data: user } = useCurrentUser();
+  const [query, setQuery] = useState("");
   const personal = user?.tenant_mode === "personal";
   const memory = useQuery({
     queryKey: ["personal", "memory"],
@@ -41,6 +44,16 @@ export default function PersonalPage() {
   const ledger = useQuery({
     queryKey: ["personal", "ledger"],
     queryFn: () => personalAPI.ledger(12),
+    enabled: personal,
+  });
+  const search = useQuery({
+    queryKey: ["personal", "search", query],
+    queryFn: () => personalAPI.search(query, 20),
+    enabled: personal && query.trim().length > 0,
+  });
+  const weeks = useQuery({
+    queryKey: ["personal", "periods", "week"],
+    queryFn: () => personalAPI.periods("week"),
     enabled: personal,
   });
 
@@ -78,8 +91,42 @@ export default function PersonalPage() {
           </div>
 
           <div className="mt-4">
-            <Panel
-              title={t("personal.recent")}
+            <Panel title={t("personal.searchTitle")}
+              description={t("personal.searchDesc")}>
+              <div className="px-4 py-3">
+                <SearchInput
+                  value={query}
+                  onValueChange={setQuery}
+                  placeholder={t("personal.searchPlaceholder")}
+                />
+                {query.trim() && (
+                  <div className="mt-3">
+                    {search.isLoading ? (
+                      <Loading />
+                    ) : search.data?.length ? (
+                      <ul className="divide-y divide-line-subtle">
+                        {search.data.map((row) => (
+                          <li key={row.id} className="flex gap-3 py-2">
+                            <span className="w-20 shrink-0 font-mono text-[11px] text-ink-subtle">
+                              {row.id}
+                            </span>
+                            <span className="min-w-0 flex-1 text-[--text-sm] text-ink">
+                              {row.text}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <EmptyState title={t("personal.searchEmpty")} />
+                    )}
+                  </div>
+                )}
+              </div>
+            </Panel>
+          </div>
+
+          <div className="mt-4">
+            <Panel title={t("personal.recent")}
               description={t("personal.recentDesc", {
                 count: memory.data?.items.length ?? 0,
               })}
@@ -116,6 +163,29 @@ export default function PersonalPage() {
           </div>
         </>
       )}
+
+      <div className="mt-4">
+        <Panel title={t("personal.periods")} description={t("personal.periodsDesc")}>
+          {weeks.isLoading ? (
+            <Loading />
+          ) : weeks.isError ? (
+            <ErrorState error={weeks.error} onRetry={() => weeks.refetch()} />
+          ) : weeks.data?.length ? (
+            <ul className="grid grid-cols-2 gap-px bg-line-subtle sm:grid-cols-4">
+              {weeks.data.slice(-8).map((week) => (
+                <li key={week.period_key} className="bg-surface px-4 py-3">
+                  <p className="text-[11px] text-ink-subtle tnum">{week.period_key}</p>
+                  <p className="mt-0.5 text-[--text-lg] font-semibold text-ink tnum">
+                    {week.item_count}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState title={t("personal.empty")} />
+          )}
+        </Panel>
+      </div>
 
       <div className="mt-4">
         <Panel title={t("personal.ledger")} description={t("personal.ledgerDesc")}>
