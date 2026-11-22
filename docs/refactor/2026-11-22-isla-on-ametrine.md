@@ -411,8 +411,9 @@ InferenceProvider
 - 导入脚本：`scripts/import_personal_ledger.py`；自检：`scripts/selfcheck_personal.py`。
 - 旧账本 307 行 + 54 条 legacy label 导入本地 Postgres；`ledger_ok`，361 行。
 - 记忆 survey 与 Isla 同口径：`barred 293 / labile 7 / stable 0 / dormant 7 / retired 0`，holding 7。
-- API 实测：`/api/personal/memory`、`/ledger`、`/ledger/verify`、`/ledger` 追加、重复导入拒绝。
-- 前端未改；`pnpm run check` 135 个测试通过。
+- API 实测：`/api/personal/memory`、`/ledger`、`/ledger/verify`、`/ledger` 追加、`/ledger/export`、重复导入拒绝。
+- 前端新增 `/personal` 记忆页与 `personalOnly` 导航；`knowledge` 租户不显示该入口，B 端界面不变。
+- `/api/current` 增加 `tenant_mode` / `default_assistant`；136 个前端测试通过。
 
 未落（P2/P3）：
 
