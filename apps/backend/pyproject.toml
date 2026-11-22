@@ -64,4 +64,9 @@ dependencies = [
     # 而 vllm 0.7.2 硬锁 `torch==2.5.1`，连带 transformers 卡在 4.57.x、读不懂新模型架构。
     # 服务端由 apps/inference 独立提供（见 scripts/setup_inference_env.sh 与 dev.sh）。
     "xinference-client>=3.5,<4",
+    "greenlet>=3.5.1",
 ]
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
