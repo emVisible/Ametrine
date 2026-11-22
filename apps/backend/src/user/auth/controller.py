@@ -9,6 +9,7 @@ from src.client import get_relation_db
 from src.config import access_token_expire_minutes
 from src.middleware.logger import config_logger
 from src.middleware.tags import ControllerTag
+from src.models import Tenant
 from src.utils.security import hash as hash_password, verify
 from ..quota import usage_snapshot
 from ..service import UserService, get_user_service
@@ -107,10 +108,15 @@ async def current_user(
     # daily_token_used 以前直接回 ORM 上那个从不被写的列，所以永远是 0。
     # 现在回派生值，并带上 monthly 与两个 unlimited 标志 ——
     # 设置页要据此决定画进度条还是写「无限制」，不该自己再判一次 limit<=0。
+    tenant = (await quota_db.get(Tenant, current_user.tenant_id)
+              if current_user.tenant_id else None)
     return {
         "id": current_user.id,
         "name": current_user.name,
         "email": current_user.email,
+        "tenant_id": current_user.tenant_id,
+        "tenant_mode": tenant.mode if tenant else None,
+        "default_assistant": tenant.default_assistant if tenant else None,
         "permissions": permission_map(current_user.role_id),
         **(await usage_snapshot(quota_db, current_user)),
     }

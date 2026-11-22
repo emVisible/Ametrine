@@ -37,8 +37,8 @@ class PersonalService:
         return result.scalar_one_or_none()
 
     async def payloads(self, tenant_id: int, *, limit: int | None = None,
-                       before: int | None = None,
-                       newest: bool = False) -> list[dict]:
+                       before: int | None = None, newest: bool = False,
+                       human_only: bool = False) -> list[dict]:
         order = (PersonalLedger.seq.desc() if newest
                  else PersonalLedger.seq.asc())
         query = (select(PersonalLedger)
@@ -46,6 +46,9 @@ class PersonalService:
                  .order_by(order))
         if before is not None:
             query = query.where(PersonalLedger.seq < before)
+        if human_only:
+            query = query.where(PersonalLedger.kind.not_in(
+                ("label", "retract", "expiry", "day", "diary", "pref")))
         if limit is not None:
             query = query.limit(limit)
         result = await self.relation_db.execute(query)

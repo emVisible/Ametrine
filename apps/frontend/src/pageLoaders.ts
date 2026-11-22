@@ -11,6 +11,7 @@ import { lazy, type ComponentType } from "react";
  * 钻取子路由时页面不会被重建。
  */
 export const loadDashboard = () => import("./pages/Dashboard");
+export const loadPersonal = () => import("./pages/Personal");
 export const loadProfile = () => import("./pages/Profile");
 export const loadSettings = () => import("./pages/Settings");
 export const loadChat = () => import("./pages/Chat");
@@ -27,6 +28,7 @@ export type PageLoader = () => Promise<{ default: ComponentType }>;
 /** 登录后可达的全部页面：空闲时预取一遍，跳转就不再需要等网络 */
 export const pageLoaders: PageLoader[] = [
   loadDashboard,
+  loadPersonal,
   loadProfile,
   loadSettings,
   loadChat,

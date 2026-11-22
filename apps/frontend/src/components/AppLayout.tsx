@@ -28,6 +28,7 @@ import {
   SearchIcon,
   SettingsIcon,
   ShieldIcon,
+  SparkIcon,
   WarningIcon,
   SunIcon,
   UserIcon,
@@ -44,12 +45,14 @@ interface NavEntry {
   labelKey: MsgKey;
   Icon: typeof ChatIcon;
   adminOnly?: boolean;
+  personalOnly?: boolean;
   /** NavLink 默认对后代路径也判 active，叶子路由必须 end，否则 /admin 会在 /admin/xxx 上同时高亮 */
   exact?: boolean;
 }
 
 const NAV: NavEntry[] = [
   { to: "/dashboard", labelKey: "page.dashboard", Icon: GaugeIcon, exact: true },
+  { to: "/personal", labelKey: "page.personal", Icon: SparkIcon, exact: true, personalOnly: true },
   { to: "/admin/vector", labelKey: "page.vector", Icon: LibraryIcon },
   // 回答质量队列是管理员的日常入口：先看哪些回答不值得信，再回知识库修它
   { to: "/admin/queue", labelKey: "page.queue", Icon: WarningIcon, exact: true, adminOnly: true },
@@ -494,6 +497,7 @@ function UserMenu({ name, email }: { name: string; email: string }) {
 
 function SidebarBody({
   isAdmin,
+  isPersonal,
   mode,
   userName,
   userEmail,
@@ -501,6 +505,7 @@ function SidebarBody({
   onOpenPalette,
 }: {
   isAdmin: boolean;
+  isPersonal: boolean;
   mode: Mode;
   userName: string;
   userEmail: string;
@@ -531,7 +536,7 @@ function SidebarBody({
       </div>
 
       <nav aria-label={t("nav.main")} className="shrink-0 space-y-px px-2 py-2">
-        {NAV.filter((e) => !e.adminOnly || isAdmin).map(({ to, labelKey, Icon, exact }) => (
+        {NAV.filter((e) => (!e.adminOnly || isAdmin) && (!e.personalOnly || isPersonal)).map(({ to, labelKey, Icon, exact }) => (
           <NavLink
             key={to}
             to={to}
@@ -597,6 +602,7 @@ export default function AppLayout() {
   const activeMode: Mode = location.pathname.startsWith("/rag") ? "rag" : "llm";
   const routeRoot = `/${location.pathname.split("/")[1] ?? ""}`;
   const isAdmin = !!user?.permissions?.includes("admin");
+  const isPersonal = user?.tenant_mode === "personal";
   const userName = user?.name ?? t("nav.signedOut");
   const userEmail = user?.email ?? "";
 
@@ -651,6 +657,7 @@ export default function AppLayout() {
       <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
         <SidebarBody
           isAdmin={isAdmin}
+          isPersonal={isPersonal}
           mode={activeMode}
           userName={userName}
           userEmail={userEmail}
@@ -667,6 +674,7 @@ export default function AppLayout() {
           <aside className="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-line bg-surface shadow-modal md:hidden">
             <SidebarBody
               isAdmin={isAdmin}
+              isPersonal={isPersonal}
               mode={activeMode}
               userName={userName}
               userEmail={userEmail}

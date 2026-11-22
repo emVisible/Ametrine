@@ -10,6 +10,7 @@ import {
   loadChat,
   loadDashboard,
   loadForbidden,
+  loadPersonal,
   loadInferencePage,
   loadProfile,
   loadQueuePage,
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: "/dashboard", element: pageView(loadDashboard) },
+          { path: "/personal", element: pageView(loadPersonal) },
           { path: "/profile", element: pageView(loadProfile) },
           { path: "/settings", element: pageView(loadSettings) },
           { path: "/chat/:convId?", element: pageView(loadChat) },

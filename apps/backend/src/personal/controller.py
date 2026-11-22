@@ -38,12 +38,13 @@ async def ledger_append(
 async def ledger_list(
     limit: int = Query(100, ge=1, le=1000),
     before: int | None = Query(None, ge=1),
+    include_machine: bool = Query(False),
     current_user=Depends(get_current_user),
     service: PersonalService = Depends(get_personal_service),
 ):
     tenant_id = await service.tenant_id(current_user)
     return await service.payloads(tenant_id, limit=limit, before=before,
-                                      newest=True)
+                                      newest=True, human_only=not include_machine)
 
 
 @route_personal.get("/ledger/verify", response_model=PersonalVerifyOut)
