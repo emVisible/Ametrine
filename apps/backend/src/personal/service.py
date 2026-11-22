@@ -12,9 +12,11 @@ from src.models import PersonalLedger, Tenant, User
 
 from .canonical import FIELDS, GMT8, ZERO, iso, line_hash, to_gmt8
 from .context import compose
+from . import aliases as alias_mod
 from . import decisions as decision_mod
 from . import periods as period_mod
-from .dto import PersonalKeepIn, PersonalLedgerIn
+from . import resolve as resolve_mod
+from .dto import PersonalKeepIn, PersonalLedgerIn, PersonalResolveIn
 from .memory import corrections, survey
 
 
@@ -176,6 +178,19 @@ class PersonalService:
             source="isla", provenance={"pref_of": body.event_id,
                                        "why": body.why}))
         return {"kept": True, "trace": trace["id"], "event_id": body.event_id}
+
+    async def aliases(self, tenant_id: int) -> dict:
+        return alias_mod.extract(await self.payloads(tenant_id))
+
+    async def resolve(self, tenant_id: int, body: PersonalResolveIn) -> dict:
+        rows = await self.payloads(tenant_id)
+        if body.event_id:
+            return resolve_mod.resolve_event(rows, body.event_id, phrase=body.phrase)
+        if not body.text:
+            raise HTTPException(status_code=422, detail="给 event_id 或 text")
+        return resolve_mod.resolve_text(rows, body.text, actor=body.actor,
+                                        at=body.at.isoformat() if body.at else None,
+                                        session=body.session)
 
     async def decisions(self, tenant_id: int) -> list[dict]:
         rows = await self.payloads(tenant_id)

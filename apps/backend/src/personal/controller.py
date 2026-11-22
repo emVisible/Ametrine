@@ -12,6 +12,7 @@ from .canonical import canonical
 from .dto import (
     PersonalDecisionOut,
     PersonalKeepIn,
+    PersonalResolveIn,
     PersonalLedgerIn,
     PersonalLedgerOut,
     PersonalMemoryOut,
@@ -86,6 +87,25 @@ async def personal_keep(
 ):
     tenant_id = await service.tenant_id(current_user)
     return await service.keep(tenant_id, body, actor=current_user.name)
+
+
+@route_personal.get("/aliases")
+async def personal_aliases(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.aliases(tenant_id)
+
+
+@route_personal.post("/resolve")
+async def personal_resolve(
+    body: PersonalResolveIn,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.resolve(tenant_id, body)
 
 
 @route_personal.get("/decisions", response_model=list[PersonalDecisionOut])

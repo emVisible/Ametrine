@@ -85,3 +85,12 @@ class PersonalDecisionOut(BaseModel):
 class PersonalKeepIn(BaseModel):
     event_id: str = Field(..., min_length=1, max_length=32)
     why: str = Field(default="", max_length=200)
+
+
+class PersonalResolveIn(BaseModel):
+    event_id: str | None = Field(default=None, max_length=32)
+    text: str | None = Field(default=None, max_length=MAX_TEXT)
+    phrase: str | None = Field(default=None, max_length=40)
+    actor: str = Field(default="哥哥", max_length=64)
+    at: datetime | None = None
+    session: str | None = Field(default=None, max_length=80)

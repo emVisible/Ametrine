@@ -422,10 +422,13 @@ InferenceProvider
 - 个人原话检索：`GET /api/personal/search`，Postgres `pg_trgm` GIN 索引（`f2b8c6d0e514`）。
 - 个人周期：`GET /api/personal/periods?level=week|month|quarter|year` 与详情；周键按 ISO 周。
 - 个人页加入检索框与最近 8 周计数；账本列表默认隐藏 label/retract/expiry/day/diary/pref。
+- 别名：`GET /api/personal/aliases`，从「叫我/我是老二/我们是 A/B/C」里抽，不写死。
+- 指代：`POST /api/personal/resolve`，只解析账本登记过的日期、上次、人物与群体；没依据明确拒绝。
+- 个人页加入「指代」面板；说话人名字本身也作为可解析词（比旧实现多一步）。
 
 未落（P2/P3）：
 
-- 个人引用在聊天 UI 的可点击渲染；指代/决定/ontology 的 async 移植。
+- 个人引用在聊天 UI 的可点击渲染；ontology 的 async 移植（指代/决定已落）。
 - 个人前端路由与导航；文档 + 个人双 scope 检索。
 - 周期/指代/决定/ ontology 的 async 移植。
 

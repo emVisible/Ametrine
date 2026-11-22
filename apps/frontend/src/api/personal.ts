@@ -20,6 +20,42 @@ export interface PersonalMemory {
   items: PersonalMemoryItem[];
 }
 
+export interface PersonalAlias {
+  alias: string;
+  actor: string;
+  kind: string;
+  evidence_event: string;
+  quote: string;
+}
+
+export interface PersonalGroup {
+  name: string;
+  members: string[];
+  evidence_event: string;
+  quote: string;
+}
+
+export interface PersonalAliases {
+  aliases: PersonalAlias[];
+  groups: PersonalGroup[];
+  actors: string[];
+}
+
+export interface PersonalResolved {
+  status: "resolved" | "unresolved" | "scanned";
+  text?: string;
+  phrases: {
+    phrase: string;
+    status: string;
+    kind?: string;
+    labels?: string[];
+    reason?: string;
+    span?: { start: number; end: number };
+  }[];
+  resolved: number;
+  refused: number;
+}
+
 export interface PersonalDecision {
   event_id: string;
   seq: number;
@@ -62,6 +98,12 @@ export const personalAPI = {
   periods: (level = "week") =>
     apiClient<PersonalPeriod[]>(`/personal/periods?level=${level}`),
   decisions: () => apiClient<PersonalDecision[]>("/personal/decisions"),
+  aliases: () => apiClient<PersonalAliases>("/personal/aliases"),
+  resolve: (text: string) =>
+    apiClient<PersonalResolved>("/personal/resolve", {
+      method: "POST",
+      body: { text, actor: "哥哥" },
+    }),
   keep: (eventId: string) =>
     apiClient<{ kept: boolean; event_id: string; trace?: string }>(
       "/personal/keep",

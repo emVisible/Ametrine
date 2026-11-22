@@ -68,6 +68,15 @@ export default function PersonalPage() {
     queryFn: () => personalAPI.periods("week"),
     enabled: personal,
   });
+  const aliases = useQuery({
+    queryKey: ["personal", "aliases"],
+    queryFn: personalAPI.aliases,
+    enabled: personal,
+  });
+  const [refText, setRefText] = useState("");
+  const resolve = useMutation({
+    mutationFn: (text: string) => personalAPI.resolve(text),
+  });
   const decisions = useQuery({
     queryKey: ["personal", "decisions"],
     queryFn: personalAPI.decisions,
@@ -190,6 +199,66 @@ export default function PersonalPage() {
           </div>
         </>
       )}
+
+      <div className="mt-4">
+        <Panel title={t("personal.resolve")} description={t("personal.resolveDesc")}>
+          <div className="px-4 py-3">
+            <div className="flex gap-2">
+              <SearchInput
+                value={refText}
+                onValueChange={setRefText}
+                placeholder={t("personal.resolvePlaceholder")}
+                className="flex-1"
+              />
+              <button
+                type="button"
+                className="a-btn a-btn-primary"
+                disabled={!refText.trim() || resolve.isPending}
+                onClick={() => resolve.mutate(refText)}
+              >
+                {t("personal.resolveAction")}
+              </button>
+            </div>
+            {resolve.data && (
+              <ul className="mt-3 divide-y divide-line-subtle">
+                {resolve.data.phrases.length ? (
+                  resolve.data.phrases.map((item, index) => (
+                    <li key={`${item.phrase}-${index}`} className="py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[--text-sm] font-medium text-ink">
+                          {item.phrase}
+                        </span>
+                        <StatusBadge
+                          tone={item.status === "resolved" ? "success" : "warning"}
+                        >
+                          {item.status === "resolved"
+                            ? t("personal.resolved")
+                            : t("personal.unresolved")}
+                        </StatusBadge>
+                        <span className="ml-auto text-[11px] text-ink-subtle">
+                          {item.labels?.join(" / ")}
+                        </span>
+                      </div>
+                      {item.reason && (
+                        <p className="mt-1 text-[11px] text-ink-subtle">{item.reason}</p>
+                      )}
+                    </li>
+                  ))
+                ) : (
+                  <EmptyState title={t("personal.noReferences")} />
+                )}
+              </ul>
+            )}
+            {aliases.data?.groups.length ? (
+              <p className="mt-3 text-[11px] text-ink-subtle">
+                {t("personal.groups", {
+                  names: aliases.data.groups.map((g) => g.name).join("、"),
+                })}
+              </p>
+            ) : null}
+          </div>
+        </Panel>
+      </div>
 
       <div className="mt-4">
         <Panel title={t("personal.decisions")} description={t("personal.decisionsDesc")}>
