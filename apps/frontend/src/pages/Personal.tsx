@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { personalAPI } from "../api/personal";
 import { useCurrentUser } from "../hooks/useAuth";
+import { useToast } from "../hooks/useToast";
 import { useI18n } from "../i18n/context";
 import {
   EmptyState,
@@ -33,6 +34,8 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 export default function PersonalPage() {
   const { t } = useI18n();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
   const [query, setQuery] = useState("");
   const personal = user?.tenant_mode === "personal";
@@ -51,9 +54,23 @@ export default function PersonalPage() {
     queryFn: () => personalAPI.search(query, 20),
     enabled: personal && query.trim().length > 0,
   });
+  const keep = useMutation({
+    mutationFn: (eventId: string) => personalAPI.keep(eventId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personal"] });
+      toast(t("personal.kept"), "success");
+    },
+    onError: (error: Error) =>
+      toast(t("personal.keepFailed", { msg: error.message }), "error"),
+  });
   const weeks = useQuery({
     queryKey: ["personal", "periods", "week"],
     queryFn: () => personalAPI.periods("week"),
+    enabled: personal,
+  });
+  const decisions = useQuery({
+    queryKey: ["personal", "decisions"],
+    queryFn: personalAPI.decisions,
     enabled: personal,
   });
 
@@ -151,6 +168,16 @@ export default function PersonalPage() {
                         <span className="ml-auto text-[11px] text-ink-subtle tnum">
                           {t("personal.strength", { value: item.strength })}
                         </span>
+                        {item.phase === "labile" && (
+                          <button
+                            type="button"
+                            className="a-btn a-btn-ghost !px-2 !py-0.5 text-[11px]"
+                            disabled={keep.isPending}
+                            onClick={() => keep.mutate(item.event_id)}
+                          >
+                            {t("personal.keep")}
+                          </button>
+                        )}
                       </div>
                       <p className="mt-1 text-[--text-sm] text-ink">{item.excerpt}</p>
                     </li>
@@ -163,6 +190,38 @@ export default function PersonalPage() {
           </div>
         </>
       )}
+
+      <div className="mt-4">
+        <Panel title={t("personal.decisions")} description={t("personal.decisionsDesc")}>
+          {decisions.isLoading ? (
+            <Loading />
+          ) : decisions.isError ? (
+            <ErrorState error={decisions.error} onRetry={() => decisions.refetch()} />
+          ) : decisions.data?.length ? (
+            <ul className="divide-y divide-line-subtle">
+              {decisions.data.slice(0, 10).map((lead) => (
+                <li key={`${lead.event_id}-${lead.seq}`} className="px-4 py-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-[11px] text-ink-subtle">
+                      {lead.event_id}
+                    </span>
+                    <StatusBadge tone={lead.status === "active" ? "success" : "neutral"}>
+                      {t(lead.status === "active" ? "personal.active" : "personal.expired")}
+                    </StatusBadge>
+                    <span className="text-[11px] text-ink-subtle">{lead.actor}</span>
+                    <span className="ml-auto text-[11px] text-ink-subtle">
+                      {lead.marker}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[--text-sm] text-ink">{lead.excerpt}</p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState title={t("personal.empty")} />
+          )}
+        </Panel>
+      </div>
 
       <div className="mt-4">
         <Panel title={t("personal.periods")} description={t("personal.periodsDesc")}>

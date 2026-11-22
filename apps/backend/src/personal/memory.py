@@ -81,6 +81,10 @@ def keeps(rows: list[dict]) -> dict[str, tuple[str, ...]]:
             for source in prov.get("sources") or []:
                 if isinstance(source, str) and source:
                     found.setdefault(source, set()).add("diary")
+    from . import decisions
+    for lead in decisions.extract(rows, corrections(rows)):
+        if lead["status"] == "active":
+            found.setdefault(lead["event_id"], set()).add("decision")
     order = ("decision", "pref", "diary")
     return {key: tuple(kind for kind in order if kind in value)
             for key, value in found.items()}

@@ -10,6 +10,8 @@ from src.user.auth.service import get_current_user
 
 from .canonical import canonical
 from .dto import (
+    PersonalDecisionOut,
+    PersonalKeepIn,
     PersonalLedgerIn,
     PersonalLedgerOut,
     PersonalMemoryOut,
@@ -74,6 +76,25 @@ async def ledger_export(
         lines(), media_type="application/x-ndjson",
         headers={"Content-Disposition": 'attachment; filename="personal-ledger.jsonl"'},
     )
+
+
+@route_personal.post("/keep")
+async def personal_keep(
+    body: PersonalKeepIn,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.keep(tenant_id, body, actor=current_user.name)
+
+
+@route_personal.get("/decisions", response_model=list[PersonalDecisionOut])
+async def personal_decisions(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.decisions(tenant_id)
 
 
 @route_personal.get("/search", response_model=list[PersonalLedgerOut])

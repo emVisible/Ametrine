@@ -20,6 +20,16 @@ export interface PersonalMemory {
   items: PersonalMemoryItem[];
 }
 
+export interface PersonalDecision {
+  event_id: string;
+  seq: number;
+  actor: string;
+  at: string;
+  marker: string;
+  excerpt: string;
+  status: "active" | "expired";
+}
+
 export interface PersonalPeriod {
   level: string;
   period_key: string;
@@ -51,4 +61,10 @@ export const personalAPI = {
     ),
   periods: (level = "week") =>
     apiClient<PersonalPeriod[]>(`/personal/periods?level=${level}`),
+  decisions: () => apiClient<PersonalDecision[]>("/personal/decisions"),
+  keep: (eventId: string) =>
+    apiClient<{ kept: boolean; event_id: string; trace?: string }>(
+      "/personal/keep",
+      { method: "POST", body: { event_id: eventId } },
+    ),
 };

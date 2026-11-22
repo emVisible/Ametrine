@@ -70,3 +70,18 @@ class PersonalPeriodOut(BaseModel):
 class PersonalPeriodDetailOut(PersonalPeriodOut):
     catalog: list[dict]
     source_ids: list[str]
+
+
+class PersonalDecisionOut(BaseModel):
+    event_id: str
+    seq: int
+    actor: str
+    at: str
+    marker: str
+    excerpt: str
+    status: str
+
+
+class PersonalKeepIn(BaseModel):
+    event_id: str = Field(..., min_length=1, max_length=32)
+    why: str = Field(default="", max_length=200)

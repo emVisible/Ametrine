@@ -12,9 +12,10 @@ from src.models import PersonalLedger, Tenant, User
 
 from .canonical import FIELDS, GMT8, ZERO, iso, line_hash, to_gmt8
 from .context import compose
+from . import decisions as decision_mod
 from . import periods as period_mod
-from .dto import PersonalLedgerIn
-from .memory import survey
+from .dto import PersonalKeepIn, PersonalLedgerIn
+from .memory import corrections, survey
 
 
 class PersonalService:
@@ -156,6 +157,29 @@ class PersonalService:
 
     async def memory(self, tenant_id: int, today: date | None = None) -> dict:
         return survey(await self.payloads(tenant_id), today=today)
+
+    async def keep(self, tenant_id: int, body: PersonalKeepIn,
+                   actor: str) -> dict:
+        rows = await self.payloads(tenant_id)
+        target = next((row for row in rows if row.get("id") == body.event_id), None)
+        if target is None:
+            raise HTTPException(status_code=404, detail="这句原话不在账本里")
+        if target.get("kind") not in ("ask", "answer", "reply", "note"):
+            raise HTTPException(status_code=422, detail="只能留下人说的话")
+        for row in rows:
+            prov = row.get("provenance") or {}
+            if row.get("kind") == "pref" and prov.get("pref_of") == body.event_id:
+                return {"kept": True, "existing": row.get("id"),
+                        "event_id": body.event_id}
+        trace = await self.append(tenant_id, PersonalLedgerIn(
+            text=f"[pref] {body.event_id}", actor=actor, kind="pref",
+            source="isla", provenance={"pref_of": body.event_id,
+                                       "why": body.why}))
+        return {"kept": True, "trace": trace["id"], "event_id": body.event_id}
+
+    async def decisions(self, tenant_id: int) -> list[dict]:
+        rows = await self.payloads(tenant_id)
+        return decision_mod.extract(rows, corrections(rows))
 
     async def search(self, tenant_id: int, query: str, limit: int = 30) -> list[dict]:
         text = query.strip()

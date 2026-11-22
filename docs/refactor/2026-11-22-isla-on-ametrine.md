@@ -428,3 +428,21 @@ InferenceProvider
 - 个人引用在聊天 UI 的可点击渲染；指代/决定/ontology 的 async 移植。
 - 个人前端路由与导航；文档 + 个人双 scope 检索。
 - 周期/指代/决定/ ontology 的 async 移植。
+
+## 16. 暂缓：Chat / 推理（2026-11-22）
+
+Ametrine 是本地优先；当前没有接远端 API，这台机器也带不动 LLM / embedding / rerank。Chat 相关模块先冻结，不拿假数据或空壳接口充数。
+
+暂缓范围：
+
+- `/api/chat` 的生成、RAG 回答、SSE 的端到端验收。
+- LLM / embedding / rerank 的加载、绑定、tokenizer、推理性能。
+- 聊天页的个人引用可点击渲染、对话中的 `ev-*` 回溯。
+- 依赖 embedding 的文档入库/向量检索（解析与 pg_trgm 检索仍可用）。
+
+已经落但不依赖模型：
+
+- `/api/chat` 的个人 context 自动组装；`knowledge` 租户不注入。已用依赖替换验证 prompt，未做真实生成。
+- 账本、记忆门、原话检索（pg_trgm）、周期、决定线索、留下/保留。
+
+恢复条件：本机有可用模型运行时，或接上远端 OpenAI 兼容端点。恢复时直接接现有 `/api/chat`，不新增 `assistant` 参数，不做第二套对话栈。
