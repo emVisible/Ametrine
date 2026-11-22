@@ -166,7 +166,7 @@ class PersonalService:
         target = next((row for row in rows if row.get("id") == body.event_id), None)
         if target is None:
             raise HTTPException(status_code=404, detail="这句原话不在账本里")
-        if target.get("kind") not in ("ask", "answer", "reply", "note"):
+        if target.get("kind") not in ("ask", "answer", "reply"):
             raise HTTPException(status_code=422, detail="只能留下人说的话")
         for row in rows:
             prov = row.get("provenance") or {}
