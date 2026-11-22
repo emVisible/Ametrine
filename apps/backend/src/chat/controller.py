@@ -15,6 +15,7 @@ from src.middleware.logger import config_logger
 from src.middleware.tags import ControllerTag
 from src.user.auth.service import get_current_user
 from src.user.permissions import PermissionService, get_permission_service
+from src.personal.service import PersonalService, get_personal_service
 from src.user.quota import enforce_quota
 from src.vector.documents.service import DocumentService, get_document_service
 
@@ -156,6 +157,7 @@ async def _persisting_stream(
     history_service: ChatHistoryService,
     dto: ChatRequest,
     conversation_id,
+    personal_ids: list[str] | None = None,
 ):
     content = ""
     references = None
@@ -185,6 +187,8 @@ async def _persisting_stream(
         meta = {"mode": dto.mode}
         if references is not None:
             meta["references"] = references
+        if personal_ids:
+            meta["personal_event_ids"] = personal_ids
         await history_service.create_message(
             conversation_id=conversation_id,
             role="assistant",
@@ -209,6 +213,7 @@ async def chat(
     document_service: DocumentService = Depends(get_document_service),
     history_service: ChatHistoryService = Depends(get_chat_history_service),
     perm_service: PermissionService = Depends(get_permission_service),
+    personal_service: PersonalService = Depends(get_personal_service),
     redis_client=Depends(get_redis),
 ):
     # 库级读权限要在任何写入之前判：/api/llm/rag 早就有 require_read_database，
@@ -219,6 +224,11 @@ async def chat(
         await perm_service.require_read_database(
             current_user.id, rag.database_name if rag else "default"
         )
+
+    personal = await personal_service.context_for(current_user)
+    personal_prompt = "\n\n".join(
+        part for part in (current_user.system_prompt, personal["prompt"]) if part
+    ) or None
 
     try:
         conversation = await history_service.ensure_conversation(
@@ -247,7 +257,7 @@ async def chat(
             dto,
             document_service=document_service,
             service=llm_service,
-            personal_prompt=current_user.system_prompt,
+            personal_prompt=personal_prompt,
             redis_client=redis_client,
             user_id=current_user.id,
         )
@@ -255,7 +265,7 @@ async def chat(
         stream = _stream_llm(
             dto,
             service=llm_service,
-            personal_prompt=current_user.system_prompt,
+            personal_prompt=personal_prompt,
             redis_client=redis_client,
             user_id=current_user.id,
         )
@@ -280,6 +290,7 @@ async def chat(
             history_service=history_service,
             dto=dto,
             conversation_id=conversation.id,
+            personal_ids=personal["event_ids"],
         ),
         media_type="text/event-stream",
         status_code=200,

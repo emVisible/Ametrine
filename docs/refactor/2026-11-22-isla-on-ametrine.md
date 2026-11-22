@@ -10,8 +10,8 @@
 Isla 不再维护第二套地基。Ametrine 作为唯一底座，Isla 作为 Ametrine 的 Personal Agent 能力层。
 
 - **UI 全部用 Ametrine。** Isla 的界面只作交互参考，不迁组件、不保留视觉体系。
-- **能力只有一层。** C 端与 B 端共用账号、租户、文档、检索、引用、会话、模型、配额、审计。差别只在业务入口、默认助手、数据范围与调用策略。
-- **Isla 的账本与记忆是 Ametrine 缺的能力，不是外挂。** 以 `personal_*` 模块进入 Ametrine 内核，默认助手就是 Isla。
+- **能力只有一层。** C 端与 B 端共用账号、租户、文档、检索、引用、会话、模型、配额、审计。差别只在业务入口、数据范围与调用策略。
+- **Isla 的账本与记忆是 Ametrine 缺的能力，不是外挂。** 以 `personal_*` 模块进入 Ametrine 内核；Isla 就是系统本身，不是可选人格。
 - **技能库独立。** 书房/skill 不再属于 Ametrine 或 Isla，迁到 `~/Code/Skillshelf`，以后用文件系统、HTTP 或 MCP 组合。
 
 一句话：**Ametrine 是知识库版本的 Hermes；Isla 是它的个人 Agent 模式。**
@@ -39,7 +39,7 @@ Isla 不再维护第二套地基。Ametrine 作为唯一底座，Isla 作为 Ame
 
 ### 2.2 合并原则
 
-1. **一个能力层，不做 C/B 两套后端。** 用 `mode`、`assistant`、`scope` 区分业务，不用分叉代码。
+1. **一个能力层，不做 C/B 两套后端。** 用 `mode`、`scope` 区分业务，不用分叉代码。
 2. **Ametrine 的 UI 是唯一 UI。** Isla 页面按 Ametrine 的组件、主题、i18n、路由重写。
 3. **复用优先，删除优先。** 能删的 Isla 基础设施一律删，不搬。
 4. **账本是真相，其余可重建。** 记忆、本体、周期、决定、别名都是派生；删了能重算。
@@ -56,24 +56,23 @@ Isla 不再维护第二套地基。Ametrine 作为唯一底座，Isla 作为 Ame
 ```text
 Tenant
   ├── mode = knowledge   B 端知识库
-  │     default_assistant = rag
   │     scope = documents + collections
   └── mode = personal    C 端个人 Agent
-        default_assistant = isla
         scope = personal_ledger + documents(optional)
 ```
 
 - 同一个 `user`、同一个 `tenant` 表、同一套 JWT/权限/配额。
-- `tenant.mode` 决定默认入口、默认助手、可见导航。
+- `tenant.mode` 决定默认入口、数据范围与可见导航。
 - B 端可以打开 personal 能力（私有记忆），C 端可以挂知识库（个人文档）。
 - 不建两套账号，不建两套文档，不建两套模型配置。
 
-### 3.2 默认助手
+### 3.2 系统身份
 
-- personal 租户：`/` 与 `/chat` 默认进入 Isla。
-- knowledge 租户：默认进入现有 RAG Chat。
-- 同一个 `/api/chat`，请求带 `assistant: "isla" | "rag" | "llm"`；缺省按租户 `default_assistant`。
-- Isla 的回答仍走证据门：只引用 `ev-*` 或 `passage:*`，引用必须可点开。
+- Isla 是系统级身份，不是请求参数，也不是可选人格。没有 `assistant` 字段。
+- personal 租户：`/` 与 `/chat` 默认落在个人空间；knowledge 租户落在知识库。
+- 同一个 `/api/chat`：context 由租户数据范围、权限与当前会话自动组装；客户端不能指定「用哪个助手」。
+- 个人原话与文档可以同时进上下文，但引用类型分开：`ev-*` 与 `passage:*`。
+- 回答仍走证据门：只引用本轮提供的来源；引用必须可点开。
 
 ## 4. 模块边界
 
@@ -208,7 +207,7 @@ personal_memory_trace (
 
 聊天：
 
-- `POST /api/chat` 增加 `assistant` 字段；personal 租户缺省 `isla`。
+- `POST /api/chat` 不增加 `assistant` 字段；personal 租户自动带个人 context，knowledge 租户自动带文档 context。
 - SSE 事件沿用 Ametrine：`token`、`reference`、`done`、`error`。
 - `reference` 同时支持 `{type: "event", id: "ev-..."}` 与 `{type: "passage", id: "..."}`。
 - 写操作仍走独立 action endpoint，不在聊天里直接执行。
@@ -220,7 +219,7 @@ personal_memory_trace (
 ```text
 /                     personal -> /personal/chat; knowledge -> /chat
 /chat                 B 端知识库对话
-/personal/chat        Isla 对话（默认助手）
+/personal/chat        Isla 对话（系统默认入口）
 /personal/memory      记忆
 /personal/search      个人原话检索
 /personal/resolve     指代
@@ -237,7 +236,7 @@ personal_memory_trace (
 - `/personal/chat` 复用 Ametrine 的 SSE/消息组件，替换 prompt 组装与引用渲染。
 - 书房入口改为外链/嵌入式 Skillshelf；不在 Ametrine 内实现 skill 浏览。
 
-### 7.2 默认助手与导航
+### 7.2 入口与导航
 
 - `tenant.mode = personal` 时，登录后落在 `/personal/chat`，导航显示：对话、记忆、检索、指代、决定、卷、偏好、文档、设置。
 - `tenant.mode = knowledge` 时，保持现有 Dashboard/知识库/管理台导航，额外显示「个人」入口（如果用户有权限）。
@@ -333,7 +332,7 @@ InferenceProvider
 ### P3：前端（1 周）
 
 - Ametrine 壳子里加 `/personal/*` 页面。
-- 默认助手、导航、租户 mode。
+- 入口、导航、租户 mode。
 - 文档页复用；书房外链 Skillshelf。
 - 验收：personal 登录落 `/personal/chat`；knowledge 租户行为不变；移动端可读。
 
@@ -363,7 +362,7 @@ InferenceProvider
   5. 周期：计数与 Isla 一致；详情目录与 events 一致。
   6. 双 scope：文档引用与个人引用不混。
   7. B 端回归：现有 RAG 上传/检索/引用/配额不受影响。
-- 前端：personal 路由、默认助手、引用点击、三态、移动端。
+- 前端：personal 路由、入口、引用点击、三态、移动端。
 - 性能门：307 行导入 < 2s；10k 原话 context < 1s；memory survey < 500ms；文档检索回归不超过现有基线 20%。
 
 ## 12. 风险与取舍
@@ -394,7 +393,7 @@ InferenceProvider
 1. 建 `personal` 分支；建 `~/Code/Skillshelf` 并跑通 list/search。
 2. `personal_ledger` 表 + Alembic 迁移 + 307 行导入脚本。
 3. `personal.memory` 最小服务：survey counts/holding/meter。
-4. `/api/personal/memory` + `/api/chat?assistant=isla` 垂直切片。
+4. `/api/personal/memory` + `/api/chat` 自动个人 context 的垂直切片。
 5. 一条真实问题的回答：带 `ev-*` 引用，引用可点开。
 6. 记录切片数据：导入耗时、survey 耗时、chat 首 token/总耗时。
 7. 切片通过后，再开 P2；不通过就停，不硬推。
@@ -405,7 +404,7 @@ InferenceProvider
 
 已落：
 
-- `Tenant.mode / default_assistant`；迁移 `d1a7c3e9f2b4`。
+- `Tenant.mode`；迁移 `d1a7c3e9f2b4`；`default_assistant` 已由 `e7c5b2a9d431` 删除。
 - `personal_ledger`（append-only、每租户一条链、payload 保存原始行）。
 - `src/personal/`：canonical、memory、service、DTO、`/api/personal/*`。
 - 导入脚本：`scripts/import_personal_ledger.py`；自检：`scripts/selfcheck_personal.py`。
@@ -413,10 +412,16 @@ InferenceProvider
 - 记忆 survey 与 Isla 同口径：`barred 293 / labile 7 / stable 0 / dormant 7 / retired 0`，holding 7。
 - API 实测：`/api/personal/memory`、`/ledger`、`/ledger/verify`、`/ledger` 追加、`/ledger/export`、重复导入拒绝。
 - 前端新增 `/personal` 记忆页与 `personalOnly` 导航；`knowledge` 租户不显示该入口，B 端界面不变。
-- `/api/current` 增加 `tenant_mode` / `default_assistant`；136 个前端测试通过。
+- `/api/current` 增加 `tenant_mode`；136 个前端测试通过。
+
+已落（P2 第一刀）：
+
+- 删除 `Tenant.default_assistant`（`e7c5b2a9d431`）；`/api/chat` 不设 `assistant` 参数，Isla 是系统身份。
+- personal 租户自动注入个人 context；knowledge 租户不注入；两边共用同一个 `/api/chat`。
+- 流式/非流式助手消息的 `meta` 记录 `personal_event_ids`，供引用回溯。
 
 未落（P2/P3）：
 
-- 个人 context 与默认 Isla 回答；`/api/chat` 的 `assistant=isla`。
+- 个人引用在聊天 UI 的可点击渲染；指代/周期/决定/ontology 的 async 移植。
 - 个人前端路由与导航；文档 + 个人双 scope 检索。
 - 周期/指代/决定/ ontology 的 async 移植。

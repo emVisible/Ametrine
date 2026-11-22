@@ -11,6 +11,7 @@ from src.client import get_relation_db
 from src.models import PersonalLedger, Tenant, User
 
 from .canonical import FIELDS, GMT8, ZERO, iso, line_hash, to_gmt8
+from .context import compose
 from .dto import PersonalLedgerIn
 from .memory import survey
 
@@ -155,19 +156,25 @@ class PersonalService:
     async def memory(self, tenant_id: int, today: date | None = None) -> dict:
         return survey(await self.payloads(tenant_id), today=today)
 
-    async def ensure_tenant(self, name: str, *, mode: str,
-                            default_assistant: str) -> Tenant:
+    async def context_for(self, user: User, today: date | None = None) -> dict:
+        """Personal context is automatic; it is not a selectable assistant."""
+        if not user.tenant_id:
+            return {"prompt": "", "references": [], "event_ids": []}
+        tenant = await self.relation_db.get(Tenant, user.tenant_id)
+        if tenant is None or tenant.mode != "personal":
+            return {"prompt": "", "references": [], "event_ids": []}
+        return compose(await self.payloads(tenant.id), today=today)
+
+    async def ensure_tenant(self, name: str, *, mode: str) -> Tenant:
         result = await self.relation_db.execute(
             select(Tenant).where(Tenant.name == name)
         )
         tenant = result.scalar_one_or_none()
         if tenant is None:
-            tenant = Tenant(name=name, mode=mode,
-                            default_assistant=default_assistant)
+            tenant = Tenant(name=name, mode=mode)
             self.relation_db.add(tenant)
         else:
             tenant.mode = mode
-            tenant.default_assistant = default_assistant
         await self.relation_db.commit()
         await self.relation_db.refresh(tenant)
         return tenant

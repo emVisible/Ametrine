@@ -116,7 +116,6 @@ async def current_user(
         "email": current_user.email,
         "tenant_id": current_user.tenant_id,
         "tenant_mode": tenant.mode if tenant else None,
-        "default_assistant": tenant.default_assistant if tenant else None,
         "permissions": permission_map(current_user.role_id),
         **(await usage_snapshot(quota_db, current_user)),
     }

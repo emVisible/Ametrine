@@ -27,8 +27,7 @@ async def run(name: str) -> dict:
         verify = await service.verify(tenant.id)
         memory = await service.memory(tenant.id)
         return {"ok": verify["verdict"] == "ledger_ok", "tenant_id": tenant.id,
-                "mode": tenant.mode, "assistant": tenant.default_assistant,
-                "verify": verify,
+                "mode": tenant.mode, "verify": verify,
                 "memory": {key: memory[key]
                            for key in ("today", "counts", "holding", "meter")}}
 

@@ -80,11 +80,9 @@ class Tenant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    # C 端与 B 端共用一个租户模型；差别在业务入口与默认助手，不在能力。
+    # C 端与 B 端共用一个租户模型；差别在业务入口与数据范围，不在能力。
     mode = Column(String(16), nullable=False, server_default="knowledge",
                   default="knowledge")
-    default_assistant = Column(String(16), nullable=False, server_default="rag",
-                               default="rag")
 
     database_id = Column(Integer, ForeignKey("database.id"), unique=True, nullable=True)
     database = relationship("Database", back_populates="tenant", cascade="all, delete")

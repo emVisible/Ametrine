@@ -27,7 +27,6 @@ export interface CurrentUser {
   email: string
   tenant_id?: number | null
   tenant_mode?: string | null
-  default_assistant?: string | null
   permissions: string[]
   daily_token_used: number
   daily_token_limit: number

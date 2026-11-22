@@ -110,8 +110,7 @@ async def run(args) -> dict:
             if user is None:
                 raise ValueError(f"用户不存在：{args.user}")
         service = PersonalService(relation_db=session)
-        tenant = await service.ensure_tenant(
-            args.tenant, mode="personal", default_assistant="isla")
+        tenant = await service.ensure_tenant(args.tenant, mode="personal")
         existing = await service.payloads(tenant.id, limit=1)
         if existing:
             return {"ok": False, "tenant_id": tenant.id,
