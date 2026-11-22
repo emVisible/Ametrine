@@ -48,6 +48,7 @@ from src.middleware.exceptions import (
     xinference_unavailable_handler,
 )
 from src.middleware.logger import config_logger, log_config
+from src.personal.controller import route_personal
 from src.middleware.response import IResponse
 from src.models import Base
 from src.relation.controller import route_relation
@@ -169,6 +170,7 @@ app.include_router(route_vector_milvus, prefix=route_prefix)
 app.include_router(route_chat, prefix=route_prefix)
 app.include_router(route_llm, prefix=route_prefix)
 app.include_router(route_conversation, prefix=route_prefix)
+app.include_router(route_personal, prefix=route_prefix)
 app.include_router(route_user_permission, prefix="/api")
 app.include_router(route_system, prefix=route_prefix)
 # 推理管理面：整面只允许管理员（闸门挂在 router 的 dependencies 上，新加路由不会漏判）

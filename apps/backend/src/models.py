@@ -11,6 +11,7 @@ from sqlalchemy import (
     Text,
     BigInteger,
     UniqueConstraint,
+    Index,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -79,6 +80,11 @@ class Tenant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+    # C 端与 B 端共用一个租户模型；差别在业务入口与默认助手，不在能力。
+    mode = Column(String(16), nullable=False, server_default="knowledge",
+                  default="knowledge")
+    default_assistant = Column(String(16), nullable=False, server_default="rag",
+                               default="rag")
 
     database_id = Column(Integer, ForeignKey("database.id"), unique=True, nullable=True)
     database = relationship("Database", back_populates="tenant", cascade="all, delete")
@@ -331,3 +337,35 @@ class InferenceRoleBinding(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     updated_by = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
+
+
+class PersonalLedger(Base):
+    """Append-only personal truth. One chain per tenant; `payload` is the row."""
+
+    __tablename__ = "personal_ledger"
+
+    tenant_id = Column(
+        Integer, ForeignKey("tenant.id", ondelete="CASCADE"), primary_key=True
+    )
+    seq = Column(BigInteger, primary_key=True)
+    id = Column(String(32), nullable=False)
+    prev = Column(String(64), nullable=False)
+    hash = Column(String(64), nullable=False)
+    occurred_at = Column(DateTime(timezone=True), nullable=False)
+    recorded_at = Column(DateTime(timezone=True), nullable=False)
+    actor = Column(String(64), nullable=False)
+    source = Column(String(32), nullable=False)
+    kind = Column(String(16), nullable=False)
+    text = Column(Text, nullable=False)
+    valid_from = Column(DateTime(timezone=True), nullable=False)
+    valid_until = Column(DateTime(timezone=True), nullable=True)
+    provenance = Column(JSONB, nullable=False, default=dict)
+    payload = Column(JSONB, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(),
+                        nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_personal_ledger_tenant_id"),
+        Index("ix_personal_ledger_tenant_time", "tenant_id", "occurred_at"),
+        Index("ix_personal_ledger_tenant_kind", "tenant_id", "kind"),
+    )

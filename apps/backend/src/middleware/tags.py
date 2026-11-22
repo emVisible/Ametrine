@@ -12,6 +12,7 @@ class ControllerTag(Enum):
     init = "Initialization"
     agent = "Agent"
     arbor = "Arborist"
+    personal = "Personal"
 
 
 class LoggerTag(Enum):
