@@ -1,0 +1,66 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ametrine
+          POSTGRES_PASSWORD: ametrine
+          POSTGRES_DB: ametrine
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ametrine"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      ALGORITHM: HS256
+      SECRET_KEY: ci-secret-key
+      ACCESS_TOKEN_EXPIRE_MINUTES: "120"
+      XINFERENCE_MAIN_ADDR: http://127.0.0.1:9997
+      XINFERENCE_LLM_MODEL_ID: ci-llm
+      XINFERENCE_EMBEDDING_MODEL_ID: ci-embedding
+      XINFERENCE_RERANK_MODEL_ID: ci-rerank
+      TOKENIZER_ADDR: ci-tokenizer
+      DOC_ADDR: /tmp/ametrine-docs
+      K: "5"
+      P: "3"
+      MIN_RELEVANCE_SCORE: "0.005"
+      CHUNK_SIZE: "512"
+      CHUNK_OVERLAP: "64"
+      MAX_MODEL_LEN: "4096"
+      POSTGRE_ADDR: postgresql+asyncpg://ametrine:ametrine@localhost:5432/ametrine
+      POSTGRE_LOG: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: mkdir -p /tmp/ametrine-docs
+      - run: uv sync --frozen
+        working-directory: apps/backend
+      - run: uv run pytest -q
+        working-directory: apps/backend
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/frontend
+      - run: pnpm run check
+        working-directory: apps/frontend

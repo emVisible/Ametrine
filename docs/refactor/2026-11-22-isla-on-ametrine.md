@@ -434,6 +434,8 @@ InferenceProvider
 - 个人设置：`GET/PATCH /api/personal/settings`，称呼与时区存 `user.preferences.personal`，不另建表。
 - 个人空间开户：`POST /api/personal/bootstrap`；无租户用户可从个人页创建 `personal-{id}`，不动注册主流程。
 - 导出：个人页直接下载完整 JSONL（含机器留痕）。
+- API 集成测试：`tests/test_personal_api.py`，每个用例建独立 schema，覆盖 memory/append/retract/search/periods/settings/bootstrap；不依赖本地开发库。
+- CI：`.github/workflows/checks.yml`，后端 Postgres service + pytest，前端 pnpm check。
 
 未落（P2/P3）：
 
