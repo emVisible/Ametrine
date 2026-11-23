@@ -68,6 +68,11 @@ export default function PersonalPage() {
     queryFn: () => personalAPI.periods("week"),
     enabled: personal,
   });
+  const ontology = useQuery({
+    queryKey: ["personal", "ontology"],
+    queryFn: personalAPI.ontology,
+    enabled: personal,
+  });
   const aliases = useQuery({
     queryKey: ["personal", "aliases"],
     queryFn: personalAPI.aliases,
@@ -199,6 +204,43 @@ export default function PersonalPage() {
           </div>
         </>
       )}
+
+      <div className="mt-4">
+        <Panel title={t("personal.ontology")} description={t("personal.ontologyDesc")}>
+          {ontology.isLoading ? (
+            <Loading />
+          ) : ontology.isError ? (
+            <ErrorState error={ontology.error} onRetry={() => ontology.refetch()} />
+          ) : ontology.data ? (
+            <div className="px-4 py-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  ["entities", "personal.entities"],
+                  ["relations", "personal.relations"],
+                  ["states", "personal.states"],
+                  ["events", "personal.events"],
+                ].map(([key, label]) => (
+                  <div key={key}>
+                    <p className="text-[11px] text-ink-subtle">{t(label as never)}</p>
+                    <p className="text-[--text-lg] font-semibold text-ink tnum">
+                      {ontology.data.counts[key as keyof typeof ontology.data.counts]}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {ontology.data.entities.slice(0, 24).map((entity) => (
+                  <span key={entity.id} className="a-badge border-line bg-surface-sunken text-ink-muted">
+                    {entity.type}:{entity.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <EmptyState title={t("personal.empty")} />
+          )}
+        </Panel>
+      </div>
 
       <div className="mt-4">
         <Panel title={t("personal.resolve")} description={t("personal.resolveDesc")}>

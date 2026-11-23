@@ -35,6 +35,14 @@ export interface PersonalGroup {
   quote: string;
 }
 
+export interface PersonalOntology {
+  counts: { entities: number; relations: number; states: number; events: number };
+  entities: { id: string; type: string; label: string; evidence: string[] }[];
+  relations: unknown[];
+  states: unknown[];
+  built_from: Record<string, unknown>;
+}
+
 export interface PersonalAliases {
   aliases: PersonalAlias[];
   groups: PersonalGroup[];
@@ -98,6 +106,7 @@ export const personalAPI = {
   periods: (level = "week") =>
     apiClient<PersonalPeriod[]>(`/personal/periods?level=${level}`),
   decisions: () => apiClient<PersonalDecision[]>("/personal/decisions"),
+  ontology: () => apiClient<PersonalOntology>("/personal/ontology"),
   aliases: () => apiClient<PersonalAliases>("/personal/aliases"),
   resolve: (text: string) =>
     apiClient<PersonalResolved>("/personal/resolve", {

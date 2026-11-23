@@ -89,6 +89,15 @@ async def personal_keep(
     return await service.keep(tenant_id, body, actor=current_user.name)
 
 
+@route_personal.get("/ontology")
+async def personal_ontology(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.ontology(tenant_id)
+
+
 @route_personal.get("/aliases")
 async def personal_aliases(
     current_user=Depends(get_current_user),

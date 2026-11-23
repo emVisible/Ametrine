@@ -425,10 +425,12 @@ InferenceProvider
 - 别名：`GET /api/personal/aliases`，从「叫我/我是老二/我们是 A/B/C」里抽，不写死。
 - 指代：`POST /api/personal/resolve`，只解析账本登记过的日期、上次、人物与群体；没依据明确拒绝。
 - 个人页加入「指代」面板；说话人名字本身也作为可解析词（比旧实现多一步）。
+- 本体：`GET /api/personal/ontology`，从 speech 行现算 actor/channel/session/date/kind/term 与 mentions；不写第二份图文件。
+- 个人页加入本体摘要（实体/关系/状态/原话计数与实体标签）。
 
 未落（P2/P3）：
 
-- 个人引用在聊天 UI 的可点击渲染；ontology 的 async 移植（指代/决定已落）。
+- 个人引用在聊天 UI 的可点击渲染；ontology 的持久化/缓存（当前按请求现算）。
 - 个人前端路由与导航；文档 + 个人双 scope 检索。
 - 周期/指代/决定/ ontology 的 async 移植。
 

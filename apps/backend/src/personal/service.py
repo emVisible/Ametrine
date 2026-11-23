@@ -14,6 +14,7 @@ from .canonical import FIELDS, GMT8, ZERO, iso, line_hash, to_gmt8
 from .context import compose
 from . import aliases as alias_mod
 from . import decisions as decision_mod
+from . import ontology as ontology_mod
 from . import periods as period_mod
 from . import resolve as resolve_mod
 from .dto import PersonalKeepIn, PersonalLedgerIn, PersonalResolveIn
@@ -178,6 +179,9 @@ class PersonalService:
             source="isla", provenance={"pref_of": body.event_id,
                                        "why": body.why}))
         return {"kept": True, "trace": trace["id"], "event_id": body.event_id}
+
+    async def ontology(self, tenant_id: int) -> dict:
+        return ontology_mod.build(await self.payloads(tenant_id))
 
     async def aliases(self, tenant_id: int) -> dict:
         return alias_mod.extract(await self.payloads(tenant_id))
