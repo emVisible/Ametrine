@@ -60,6 +60,16 @@ class PersonalService:
         result = await self.relation_db.execute(query)
         return [row.payload for row in result.scalars().all()]
 
+    async def by_id(self, tenant_id: int, event_id: str) -> dict | None:
+        result = await self.relation_db.execute(
+            select(PersonalLedger)
+            .where(PersonalLedger.tenant_id == tenant_id,
+                   PersonalLedger.id == event_id)
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        return row.payload if row else None
+
     async def append(self, tenant_id: int, dto: PersonalLedgerIn) -> dict:
         text = dto.text.strip()
         if not text:

@@ -8,6 +8,7 @@ import {
   EmptyState,
   ErrorState,
   Loading,
+  Modal,
   PageHeader,
   Panel,
   SearchInput,
@@ -22,6 +23,18 @@ const PHASE_KEY = {
   barred: "personal.phase.barred",
   retired: "personal.phase.retired",
 } as const;
+
+function EventIdButton({ id, onClick }: { id: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="font-mono text-[11px] text-ink-subtle hover:text-accent-ink hover:underline"
+    >
+      {id}
+    </button>
+  );
+}
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
@@ -38,6 +51,8 @@ export default function PersonalPage() {
   const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
   const [query, setQuery] = useState("");
+  const [eventId, setEventId] = useState<string | null>(null);
+  const [weekKey, setWeekKey] = useState<string | null>(null);
   const personal = user?.tenant_mode === "personal";
   const memory = useQuery({
     queryKey: ["personal", "memory"],
@@ -67,6 +82,16 @@ export default function PersonalPage() {
     queryKey: ["personal", "periods", "week"],
     queryFn: () => personalAPI.periods("week"),
     enabled: personal,
+  });
+  const eventDetail = useQuery({
+    queryKey: ["personal", "event", eventId],
+    queryFn: () => personalAPI.ledgerOne(eventId as string),
+    enabled: !!eventId,
+  });
+  const weekDetail = useQuery({
+    queryKey: ["personal", "week", weekKey],
+    queryFn: () => personalAPI.period("week", weekKey as string),
+    enabled: !!weekKey,
   });
   const ontology = useQuery({
     queryKey: ["personal", "ontology"],
@@ -138,8 +163,8 @@ export default function PersonalPage() {
                       <ul className="divide-y divide-line-subtle">
                         {search.data.map((row) => (
                           <li key={row.id} className="flex gap-3 py-2">
-                            <span className="w-20 shrink-0 font-mono text-[11px] text-ink-subtle">
-                              {row.id}
+                            <span className="w-20 shrink-0">
+                              <EventIdButton id={row.id} onClick={() => setEventId(row.id)} />
                             </span>
                             <span className="min-w-0 flex-1 text-[--text-sm] text-ink">
                               {row.text}
@@ -167,9 +192,7 @@ export default function PersonalPage() {
                   {memory.data.items.map((item) => (
                     <li key={item.event_id} className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-[11px] text-ink-subtle">
-                          {item.event_id}
-                        </span>
+                        <EventIdButton id={item.event_id} onClick={() => setEventId(item.event_id)} />
                         <StatusBadge
                           tone={item.phase === "stable" ? "success" : "accent"}
                           dot
@@ -229,7 +252,7 @@ export default function PersonalPage() {
                 ))}
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {ontology.data.entities.slice(0, 24).map((entity) => (
+                {ontology.data.entities.filter((entity) => entity.type !== "session").slice(0, 16).map((entity) => (
                   <span key={entity.id} className="a-badge border-line bg-surface-sunken text-ink-muted">
                     {entity.type}:{entity.label}
                   </span>
@@ -313,9 +336,7 @@ export default function PersonalPage() {
               {decisions.data.slice(0, 10).map((lead) => (
                 <li key={`${lead.event_id}-${lead.seq}`} className="px-4 py-2.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-[11px] text-ink-subtle">
-                      {lead.event_id}
-                    </span>
+                    <EventIdButton id={lead.event_id} onClick={() => setEventId(lead.event_id)} />
                     <StatusBadge tone={lead.status === "active" ? "success" : "neutral"}>
                       {t(lead.status === "active" ? "personal.active" : "personal.expired")}
                     </StatusBadge>
@@ -343,11 +364,17 @@ export default function PersonalPage() {
           ) : weeks.data?.length ? (
             <ul className="grid grid-cols-2 gap-px bg-line-subtle sm:grid-cols-4">
               {weeks.data.slice(-8).map((week) => (
-                <li key={week.period_key} className="bg-surface px-4 py-3">
-                  <p className="text-[11px] text-ink-subtle tnum">{week.period_key}</p>
-                  <p className="mt-0.5 text-[--text-lg] font-semibold text-ink tnum">
-                    {week.item_count}
-                  </p>
+                <li key={week.period_key} className="bg-surface">
+                  <button
+                    type="button"
+                    onClick={() => setWeekKey(week.period_key)}
+                    className="w-full px-4 py-3 text-left hover:bg-surface-hover"
+                  >
+                    <p className="text-[11px] text-ink-subtle tnum">{week.period_key}</p>
+                    <p className="mt-0.5 text-[--text-lg] font-semibold text-ink tnum">
+                      {week.item_count}
+                    </p>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -367,8 +394,8 @@ export default function PersonalPage() {
             <ul className="divide-y divide-line-subtle">
               {ledger.data.map((row) => (
                 <li key={row.id} className="flex gap-3 px-4 py-2.5">
-                  <span className="w-20 shrink-0 font-mono text-[11px] text-ink-subtle">
-                    {row.id}
+                  <span className="w-20 shrink-0">
+                    <EventIdButton id={row.id} onClick={() => setEventId(row.id)} />
                   </span>
                   <span className="w-14 shrink-0 text-[11px] text-ink-subtle">
                     {row.actor}
@@ -387,6 +414,59 @@ export default function PersonalPage() {
           )}
         </Panel>
       </div>
+
+      <Modal
+        open={!!eventId}
+        onClose={() => setEventId(null)}
+        title={t("personal.event")}
+        width="max-w-2xl"
+      >
+        {eventDetail.isLoading ? (
+          <Loading />
+        ) : eventDetail.isError ? (
+          <ErrorState error={eventDetail.error} />
+        ) : eventDetail.data ? (
+          <div className="space-y-3 px-4 pb-4">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-subtle">
+              <span className="font-mono">{eventDetail.data.id}</span>
+              <span>{eventDetail.data.actor}</span>
+              <span>{eventDetail.data.occurred_at.slice(0, 10)}</span>
+              <span>{eventDetail.data.kind}</span>
+            </div>
+            <p className="whitespace-pre-wrap text-[--text-sm] text-ink">
+              {eventDetail.data.text}
+            </p>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        open={!!weekKey}
+        onClose={() => setWeekKey(null)}
+        title={t("personal.periodDetail", { key: weekKey ?? "" })}
+        width="max-w-2xl"
+      >
+        {weekDetail.isLoading ? (
+          <Loading />
+        ) : weekDetail.isError ? (
+          <ErrorState error={weekDetail.error} />
+        ) : weekDetail.data?.catalog.length ? (
+          <ul className="max-h-[60vh] divide-y divide-line-subtle overflow-y-auto px-4 pb-4">
+            {weekDetail.data.catalog.map((item) => (
+              <li key={item.id} className="py-2.5">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-subtle">
+                  <EventIdButton id={item.id} onClick={() => setEventId(item.id)} />
+                  <span>{item.date}</span>
+                  <span>{item.actor}</span>
+                </div>
+                <p className="mt-1 text-[--text-sm] text-ink">{item.first_line}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState title={t("personal.empty")} />
+        )}
+      </Modal>
     </div>
   );
 }

@@ -48,6 +48,8 @@ export const zh = {
     entities: "实体",
     relations: "关系",
     states: "状态",
+    event: "原话",
+    periodDetail: "周期 {key}",
     events: "原话",
     resolve: "指代",
     resolveDesc: "只认账本里有登记的词：昨天、上次、我们三个、名字。没依据就不猜。",

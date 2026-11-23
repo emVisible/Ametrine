@@ -20,6 +20,18 @@ export interface PersonalMemory {
   items: PersonalMemoryItem[];
 }
 
+export interface PersonalPeriodDetail extends PersonalPeriod {
+  catalog: {
+    date: string;
+    session: string;
+    actor: string;
+    kind: string;
+    id: string;
+    first_line: string;
+  }[];
+  source_ids: string[];
+}
+
 export interface PersonalAlias {
   alias: string;
   actor: string;
@@ -99,12 +111,18 @@ export const personalAPI = {
   memory: () => apiClient<PersonalMemory>("/personal/memory"),
   ledger: (limit = 20) =>
     apiClient<PersonalLedgerRow[]>(`/personal/ledger?limit=${limit}`),
+  ledgerOne: (eventId: string) =>
+    apiClient<PersonalLedgerRow>(`/personal/ledger/${encodeURIComponent(eventId)}`),
   search: (q: string, limit = 20) =>
     apiClient<PersonalLedgerRow[]>(
       `/personal/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     ),
   periods: (level = "week") =>
     apiClient<PersonalPeriod[]>(`/personal/periods?level=${level}`),
+  period: (level: string, key: string) =>
+    apiClient<PersonalPeriodDetail>(
+      `/personal/periods/${level}/${encodeURIComponent(key)}`,
+    ),
   decisions: () => apiClient<PersonalDecision[]>("/personal/decisions"),
   ontology: () => apiClient<PersonalOntology>("/personal/ontology"),
   aliases: () => apiClient<PersonalAliases>("/personal/aliases"),

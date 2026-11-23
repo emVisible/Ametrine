@@ -427,6 +427,8 @@ InferenceProvider
 - 个人页加入「指代」面板；说话人名字本身也作为可解析词（比旧实现多一步）。
 - 本体：`GET /api/personal/ontology`，从 speech 行现算 actor/channel/session/date/kind/term 与 mentions；不写第二份图文件。
 - 个人页加入本体摘要（实体/关系/状态/原话计数与实体标签）。
+- 原话可点开：`GET /api/personal/ledger/{event_id}` + 个人页弹层，显示全文、说话人、日期、kind。
+- 周卡片可点开：`GET /api/personal/periods/week/{key}` + 弹层列出该周原话，可继续点回单条。
 
 未落（P2/P3）：
 

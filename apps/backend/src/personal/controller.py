@@ -126,6 +126,19 @@ async def personal_decisions(
     return await service.decisions(tenant_id)
 
 
+@route_personal.get("/ledger/{event_id}", response_model=PersonalLedgerOut)
+async def ledger_one(
+    event_id: str,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    row = await service.by_id(tenant_id, event_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="这句原话不在账本里")
+    return row
+
+
 @route_personal.get("/search", response_model=list[PersonalLedgerOut])
 async def personal_search(
     q: str = Query(..., min_length=1, max_length=200),

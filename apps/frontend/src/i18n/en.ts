@@ -51,6 +51,8 @@ export const en: Messages = {
     entities: "Entities",
     relations: "Relations",
     states: "States",
+    event: "Utterance",
+    periodDetail: "Period {key}",
     events: "Utterances",
     resolve: "Reference",
     resolveDesc: "Only words registered in the ledger: yesterday, last time, the three of us, names. No basis, no guess.",
