@@ -11,6 +11,7 @@ from src.user.auth.service import get_current_user
 from .canonical import canonical
 from .dto import (
     PersonalActionIn,
+    PersonalSettingsIn,
     PersonalDecisionOut,
     PersonalKeepIn,
     PersonalResolveIn,
@@ -29,6 +30,31 @@ route_personal = APIRouter(
 )
 
 
+@route_personal.post("/bootstrap")
+async def personal_bootstrap(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    return await service.bootstrap(current_user.id)
+
+
+@route_personal.get("/settings", response_model=PersonalSettingsIn)
+async def personal_settings(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    return await service.settings(current_user.id)
+
+
+@route_personal.patch("/settings", response_model=PersonalSettingsIn)
+async def personal_settings_update(
+    body: PersonalSettingsIn,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    return await service.update_settings(current_user.id, body)
+
+
 @route_personal.post("/ledger", response_model=PersonalLedgerOut)
 async def ledger_append(
     body: PersonalLedgerIn,
@@ -36,6 +62,7 @@ async def ledger_append(
     service: PersonalService = Depends(get_personal_service),
 ):
     tenant_id = await service.tenant_id(current_user)
+    body.actor = body.actor or await service.actor_name(current_user)
     row = await service.append(tenant_id, body)
     return row
 
@@ -87,7 +114,8 @@ async def personal_keep(
     service: PersonalService = Depends(get_personal_service),
 ):
     tenant_id = await service.tenant_id(current_user)
-    return await service.keep(tenant_id, body, actor=current_user.name)
+    return await service.keep(tenant_id, body,
+                              actor=await service.actor_name(current_user))
 
 
 @route_personal.post("/retract")
@@ -97,7 +125,8 @@ async def personal_retract(
     service: PersonalService = Depends(get_personal_service),
 ):
     tenant_id = await service.tenant_id(current_user)
-    return await service.retract(tenant_id, body, actor=current_user.name)
+    return await service.retract(tenant_id, body,
+                                 actor=await service.actor_name(current_user))
 
 
 @route_personal.post("/expire")
@@ -107,7 +136,8 @@ async def personal_expire(
     service: PersonalService = Depends(get_personal_service),
 ):
     tenant_id = await service.tenant_id(current_user)
-    return await service.expire(tenant_id, body, actor=current_user.name)
+    return await service.expire(tenant_id, body,
+                                actor=await service.actor_name(current_user))
 
 
 @route_personal.get("/ontology")

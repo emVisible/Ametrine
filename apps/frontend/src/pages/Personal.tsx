@@ -14,6 +14,7 @@ import {
   SearchInput,
   StatusBadge,
   TextArea,
+  TextInput,
 } from "../components/ui";
 import { SparkIcon } from "../components/icons";
 
@@ -34,6 +35,60 @@ function EventIdButton({ id, onClick }: { id: string; onClick: () => void }) {
     >
       {id}
     </button>
+  );
+}
+
+function SettingsForm({
+  initial,
+  saving,
+  onSave,
+  onExport,
+  exporting,
+}: {
+  initial: { actor: string; timezone: string };
+  saving: boolean;
+  onSave: (body: { actor: string; timezone: string }) => void;
+  onExport: () => void;
+  exporting: boolean;
+}) {
+  const { t } = useI18n();
+  const [actor, setActor] = useState(initial.actor);
+  const [timezone, setTimezone] = useState(initial.timezone);
+  return (
+    <div className="space-y-3 px-4 py-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextInput
+          label={t("personal.actorLabel")}
+          value={actor}
+          onChange={(e) => setActor(e.target.value)}
+          hint={t("personal.actorHint")}
+        />
+        <TextInput
+          label={t("personal.timezoneLabel")}
+          value={timezone}
+          onChange={(e) => setTimezone(e.target.value)}
+          hint={t("personal.timezoneHint")}
+        />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="a-btn a-btn-primary"
+          disabled={saving || !actor.trim() || !timezone.trim()}
+          onClick={() => onSave({ actor, timezone })}
+        >
+          {t("personal.save")}
+        </button>
+        <button
+          type="button"
+          className="a-btn a-btn-ghost"
+          disabled={exporting}
+          onClick={onExport}
+        >
+          {t("personal.export")}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -94,6 +149,14 @@ export default function PersonalPage() {
     onError: (error: Error) =>
       toast(t("personal.actionFailed", { msg: error.message }), "error"),
   });
+  const bootstrap = useMutation({
+    mutationFn: personalAPI.bootstrap,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+    },
+    onError: (error: Error) =>
+      toast(t("personal.bootstrapFailed", { msg: error.message }), "error"),
+  });
   const keep = useMutation({
     mutationFn: (eventId: string) => personalAPI.keep(eventId),
     onSuccess: () => {
@@ -132,6 +195,33 @@ export default function PersonalPage() {
   const resolve = useMutation({
     mutationFn: (text: string) => personalAPI.resolve(text),
   });
+  const settings = useQuery({
+    queryKey: ["personal", "settings"],
+    queryFn: personalAPI.settings,
+    enabled: personal,
+  });
+  const saveSettings = useMutation({
+    mutationFn: personalAPI.updateSettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personal", "settings"] });
+      toast(t("personal.saved"), "success");
+    },
+    onError: (error: Error) =>
+      toast(t("personal.saveFailed", { msg: error.message }), "error"),
+  });
+  const exportLedger = useMutation({
+    mutationFn: personalAPI.exportLedger,
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "personal-ledger.jsonl";
+      link.click();
+      URL.revokeObjectURL(url);
+    },
+    onError: (error: Error) =>
+      toast(t("personal.exportFailed", { msg: error.message }), "error"),
+  });
   const decisions = useQuery({
     queryKey: ["personal", "decisions"],
     queryFn: personalAPI.decisions,
@@ -145,7 +235,23 @@ export default function PersonalPage() {
         <EmptyState
           icon={SparkIcon}
           title={t("personal.notPersonalTitle")}
-          description={t("personal.notPersonalDesc")}
+          description={
+            user && !user.tenant_id
+              ? t("personal.bootstrapDesc")
+              : t("personal.notPersonalDesc")
+          }
+          action={
+            user && !user.tenant_id ? (
+              <button
+                type="button"
+                className="a-btn a-btn-primary"
+                disabled={bootstrap.isPending}
+                onClick={() => bootstrap.mutate()}
+              >
+                {t("personal.bootstrap")}
+              </button>
+            ) : undefined
+          }
         />
       </div>
     );
@@ -169,6 +275,25 @@ export default function PersonalPage() {
             <Stat label={t("personal.labile")} value={memory.data?.counts.labile ?? 0} />
             <Stat label={t("personal.stable")} value={memory.data?.counts.stable ?? 0} />
             <Stat label={t("personal.barred")} value={memory.data?.counts.barred ?? 0} />
+          </div>
+
+          <div className="mt-4">
+            <Panel title={t("personal.settings")} description={t("personal.settingsDesc")}>
+              {settings.isLoading ? (
+                <Loading />
+              ) : settings.isError ? (
+                <ErrorState error={settings.error} onRetry={() => settings.refetch()} />
+              ) : settings.data ? (
+                <SettingsForm
+                  key={`${settings.data.actor}:${settings.data.timezone}`}
+                  initial={settings.data}
+                  saving={saveSettings.isPending}
+                  onSave={(body) => saveSettings.mutate(body)}
+                  onExport={() => exportLedger.mutate()}
+                  exporting={exportLedger.isPending}
+                />
+              ) : null}
+            </Panel>
           </div>
 
           <div className="mt-4">

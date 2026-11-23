@@ -10,7 +10,7 @@ MAX_TEXT = 4000
 
 class PersonalLedgerIn(BaseModel):
     text: str = Field(..., min_length=1, max_length=MAX_TEXT)
-    actor: str = Field(default="哥哥", min_length=1, max_length=64)
+    actor: str | None = Field(default=None, min_length=1, max_length=64)
     kind: Literal["ask", "answer", "reply", "note", "pref"] = "ask"
     source: str = Field(default="live", max_length=32)
     at: datetime | None = None
@@ -99,3 +99,12 @@ class PersonalResolveIn(BaseModel):
 class PersonalActionIn(BaseModel):
     event_id: str = Field(..., min_length=1, max_length=32)
     reason: str = Field(..., min_length=1, max_length=200)
+
+
+class PersonalSettingsIn(BaseModel):
+    actor: str = Field(default="哥哥", min_length=1, max_length=40)
+    timezone: str = Field(default="Asia/Shanghai", min_length=1, max_length=64)
+
+
+class PersonalSettingsOut(PersonalSettingsIn):
+    pass

@@ -431,6 +431,9 @@ InferenceProvider
 - 周卡片可点开：`GET /api/personal/periods/week/{key}` + 弹层列出该周原话，可继续点回单条。
 - 撤回/失效：`POST /api/personal/retract|expire`，必须写理由；只追加 trace，不改旧行。
 - 事件弹层：原话全文 + 撤回/失效动作；撤回后目标进入 `barred`，失效后进入 `retired`，原文仍可读。
+- 个人设置：`GET/PATCH /api/personal/settings`，称呼与时区存 `user.preferences.personal`，不另建表。
+- 个人空间开户：`POST /api/personal/bootstrap`；无租户用户可从个人页创建 `personal-{id}`，不动注册主流程。
+- 导出：个人页直接下载完整 JSONL（含机器留痕）。
 
 未落（P2/P3）：
 

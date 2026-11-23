@@ -1,4 +1,6 @@
+import { API_BASE } from "./base";
 import { apiClient } from "./client";
+import useAuthStore from "../stores/useAuthStore";
 
 export interface PersonalMemoryItem {
   event_id: string;
@@ -86,6 +88,11 @@ export interface PersonalDecision {
   status: "active" | "expired";
 }
 
+export interface PersonalSettings {
+  actor: string;
+  timezone: string;
+}
+
 export interface PersonalPeriod {
   level: string;
   period_key: string;
@@ -108,6 +115,25 @@ export interface PersonalLedgerRow {
 }
 
 export const personalAPI = {
+  bootstrap: () =>
+    apiClient<{ created: boolean; tenant_id: number; mode: string }>(
+      "/personal/bootstrap",
+      { method: "POST" },
+    ),
+  settings: () => apiClient<PersonalSettings>("/personal/settings"),
+  updateSettings: (body: PersonalSettings) =>
+    apiClient<PersonalSettings>("/personal/settings", {
+      method: "PATCH",
+      body,
+    }),
+  exportLedger: async (): Promise<Blob> => {
+    const token = useAuthStore.getState().token;
+    const response = await fetch(`${API_BASE}/personal/ledger/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) throw new Error(`导出失败：${response.status}`);
+    return response.blob();
+  },
   memory: () => apiClient<PersonalMemory>("/personal/memory"),
   ledger: (limit = 20) =>
     apiClient<PersonalLedgerRow[]>(`/personal/ledger?limit=${limit}`),

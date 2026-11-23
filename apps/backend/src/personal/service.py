@@ -18,7 +18,7 @@ from . import ontology as ontology_mod
 from . import periods as period_mod
 from . import resolve as resolve_mod
 from .dto import (PersonalActionIn, PersonalKeepIn, PersonalLedgerIn,
-                  PersonalResolveIn)
+                  PersonalResolveIn, PersonalSettingsIn)
 from .memory import corrections, survey
 
 
@@ -60,6 +60,50 @@ class PersonalService:
             query = query.limit(limit)
         result = await self.relation_db.execute(query)
         return [row.payload for row in result.scalars().all()]
+
+    async def bootstrap(self, user_id: int) -> dict:
+        user = await self.relation_db.get(User, user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        if user.tenant_id:
+            tenant = await self.relation_db.get(Tenant, user.tenant_id)
+            return {"created": False, "tenant_id": user.tenant_id,
+                    "mode": tenant.mode if tenant else None}
+        tenant = Tenant(name=f"personal-{user_id}", mode="personal")
+        self.relation_db.add(tenant)
+        await self.relation_db.flush()
+        user.tenant_id = tenant.id
+        await self.relation_db.commit()
+        return {"created": True, "tenant_id": tenant.id, "mode": tenant.mode}
+
+    async def settings(self, user_id: int) -> dict:
+        user = await self.relation_db.get(User, user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        person = (user.preferences or {}).get("personal") or {}
+        return {"actor": str(person.get("actor") or "哥哥"),
+                "timezone": str(person.get("timezone") or "Asia/Shanghai")}
+
+    async def update_settings(self, user_id: int, body: PersonalSettingsIn) -> dict:
+        from zoneinfo import ZoneInfo
+        try:
+            ZoneInfo(body.timezone)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=f"时区不合法：{exc}")
+        user = await self.relation_db.get(User, user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        prefs = dict(user.preferences or {})
+        prefs["personal"] = {"actor": body.actor.strip() or "哥哥",
+                             "timezone": body.timezone}
+        user.preferences = prefs
+        await self.relation_db.commit()
+        return {"actor": prefs["personal"]["actor"],
+                "timezone": prefs["personal"]["timezone"]}
+
+    async def actor_name(self, user: User) -> str:
+        person = (user.preferences or {}).get("personal") or {}
+        return str(person.get("actor") or "哥哥")
 
     async def by_id(self, tenant_id: int, event_id: str) -> dict | None:
         result = await self.relation_db.execute(
