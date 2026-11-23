@@ -131,6 +131,16 @@ export const personalAPI = {
       method: "POST",
       body: { text, actor: "哥哥" },
     }),
+  retract: (eventId: string, reason: string) =>
+    apiClient<{ ok: boolean; event_id: string; trace?: string }>(
+      "/personal/retract",
+      { method: "POST", body: { event_id: eventId, reason } },
+    ),
+  expire: (eventId: string, reason: string) =>
+    apiClient<{ ok: boolean; event_id: string; trace?: string }>(
+      "/personal/expire",
+      { method: "POST", body: { event_id: eventId, reason } },
+    ),
   keep: (eventId: string) =>
     apiClient<{ kept: boolean; event_id: string; trace?: string }>(
       "/personal/keep",

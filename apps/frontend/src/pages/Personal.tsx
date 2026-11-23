@@ -13,6 +13,7 @@ import {
   Panel,
   SearchInput,
   StatusBadge,
+  TextArea,
 } from "../components/ui";
 import { SparkIcon } from "../components/icons";
 
@@ -53,6 +54,15 @@ export default function PersonalPage() {
   const [query, setQuery] = useState("");
   const [eventId, setEventId] = useState<string | null>(null);
   const [weekKey, setWeekKey] = useState<string | null>(null);
+  const [action, setAction] = useState<
+    { kind: "retract" | "expiry"; eventId: string } | null
+  >(null);
+  const [reason, setReason] = useState("");
+  const openEvent = (id: string) => {
+    setAction(null);
+    setReason("");
+    setEventId(id);
+  };
   const personal = user?.tenant_mode === "personal";
   const memory = useQuery({
     queryKey: ["personal", "memory"],
@@ -68,6 +78,21 @@ export default function PersonalPage() {
     queryKey: ["personal", "search", query],
     queryFn: () => personalAPI.search(query, 20),
     enabled: personal && query.trim().length > 0,
+  });
+  const act = useMutation({
+    mutationFn: (input: { kind: "retract" | "expiry"; eventId: string; reason: string }) =>
+      input.kind === "retract"
+        ? personalAPI.retract(input.eventId, input.reason)
+        : personalAPI.expire(input.eventId, input.reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personal"] });
+      toast(t("personal.actionDone"), "success");
+      setAction(null);
+      setReason("");
+      setEventId(null);
+    },
+    onError: (error: Error) =>
+      toast(t("personal.actionFailed", { msg: error.message }), "error"),
   });
   const keep = useMutation({
     mutationFn: (eventId: string) => personalAPI.keep(eventId),
@@ -164,7 +189,7 @@ export default function PersonalPage() {
                         {search.data.map((row) => (
                           <li key={row.id} className="flex gap-3 py-2">
                             <span className="w-20 shrink-0">
-                              <EventIdButton id={row.id} onClick={() => setEventId(row.id)} />
+                              <EventIdButton id={row.id} onClick={() => openEvent(row.id)} />
                             </span>
                             <span className="min-w-0 flex-1 text-[--text-sm] text-ink">
                               {row.text}
@@ -192,7 +217,7 @@ export default function PersonalPage() {
                   {memory.data.items.map((item) => (
                     <li key={item.event_id} className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <EventIdButton id={item.event_id} onClick={() => setEventId(item.event_id)} />
+                        <EventIdButton id={item.event_id} onClick={() => openEvent(item.event_id)} />
                         <StatusBadge
                           tone={item.phase === "stable" ? "success" : "accent"}
                           dot
@@ -336,7 +361,7 @@ export default function PersonalPage() {
               {decisions.data.slice(0, 10).map((lead) => (
                 <li key={`${lead.event_id}-${lead.seq}`} className="px-4 py-2.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <EventIdButton id={lead.event_id} onClick={() => setEventId(lead.event_id)} />
+                    <EventIdButton id={lead.event_id} onClick={() => openEvent(lead.event_id)} />
                     <StatusBadge tone={lead.status === "active" ? "success" : "neutral"}>
                       {t(lead.status === "active" ? "personal.active" : "personal.expired")}
                     </StatusBadge>
@@ -395,7 +420,7 @@ export default function PersonalPage() {
               {ledger.data.map((row) => (
                 <li key={row.id} className="flex gap-3 px-4 py-2.5">
                   <span className="w-20 shrink-0">
-                    <EventIdButton id={row.id} onClick={() => setEventId(row.id)} />
+                    <EventIdButton id={row.id} onClick={() => openEvent(row.id)} />
                   </span>
                   <span className="w-14 shrink-0 text-[11px] text-ink-subtle">
                     {row.actor}
@@ -420,6 +445,66 @@ export default function PersonalPage() {
         onClose={() => setEventId(null)}
         title={t("personal.event")}
         width="max-w-2xl"
+        footer={
+          eventDetail.data &&
+          ["ask", "answer", "reply", "note"].includes(eventDetail.data.kind) ? (
+            action?.eventId === eventDetail.data.id ? (
+              <div className="space-y-2">
+                <TextArea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder={t("personal.reasonPlaceholder")}
+                  rows={2}
+                  autoFocus
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="a-btn a-btn-ghost"
+                    onClick={() => setAction(null)}
+                  >
+                    {t("personal.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    className="a-btn a-btn-primary"
+                    disabled={!reason.trim() || act.isPending}
+                    onClick={() =>
+                      act.mutate({
+                        kind: action.kind,
+                        eventId: action.eventId,
+                        reason,
+                      })
+                    }
+                  >
+                    {t("personal.confirm")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="a-btn a-btn-ghost"
+                  onClick={() =>
+                    setAction({ kind: "retract", eventId: eventDetail.data!.id })
+                  }
+                >
+                  {t("personal.retract")}
+                </button>
+                <button
+                  type="button"
+                  className="a-btn a-btn-ghost"
+                  onClick={() =>
+                    setAction({ kind: "expiry", eventId: eventDetail.data!.id })
+                  }
+                >
+                  {t("personal.expire")}
+                </button>
+              </div>
+            )
+          ) : undefined
+        }
       >
         {eventDetail.isLoading ? (
           <Loading />
@@ -455,7 +540,7 @@ export default function PersonalPage() {
             {weekDetail.data.catalog.map((item) => (
               <li key={item.id} className="py-2.5">
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-subtle">
-                  <EventIdButton id={item.id} onClick={() => setEventId(item.id)} />
+                  <EventIdButton id={item.id} onClick={() => openEvent(item.id)} />
                   <span>{item.date}</span>
                   <span>{item.actor}</span>
                 </div>

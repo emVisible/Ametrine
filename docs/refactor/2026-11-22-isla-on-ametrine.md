@@ -429,6 +429,8 @@ InferenceProvider
 - 个人页加入本体摘要（实体/关系/状态/原话计数与实体标签）。
 - 原话可点开：`GET /api/personal/ledger/{event_id}` + 个人页弹层，显示全文、说话人、日期、kind。
 - 周卡片可点开：`GET /api/personal/periods/week/{key}` + 弹层列出该周原话，可继续点回单条。
+- 撤回/失效：`POST /api/personal/retract|expire`，必须写理由；只追加 trace，不改旧行。
+- 事件弹层：原话全文 + 撤回/失效动作；撤回后目标进入 `barred`，失效后进入 `retired`，原文仍可读。
 
 未落（P2/P3）：
 

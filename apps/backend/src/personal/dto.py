@@ -94,3 +94,8 @@ class PersonalResolveIn(BaseModel):
     actor: str = Field(default="哥哥", max_length=64)
     at: datetime | None = None
     session: str | None = Field(default=None, max_length=80)
+
+
+class PersonalActionIn(BaseModel):
+    event_id: str = Field(..., min_length=1, max_length=32)
+    reason: str = Field(..., min_length=1, max_length=200)

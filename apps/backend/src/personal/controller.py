@@ -10,6 +10,7 @@ from src.user.auth.service import get_current_user
 
 from .canonical import canonical
 from .dto import (
+    PersonalActionIn,
     PersonalDecisionOut,
     PersonalKeepIn,
     PersonalResolveIn,
@@ -87,6 +88,26 @@ async def personal_keep(
 ):
     tenant_id = await service.tenant_id(current_user)
     return await service.keep(tenant_id, body, actor=current_user.name)
+
+
+@route_personal.post("/retract")
+async def personal_retract(
+    body: PersonalActionIn,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.retract(tenant_id, body, actor=current_user.name)
+
+
+@route_personal.post("/expire")
+async def personal_expire(
+    body: PersonalActionIn,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.expire(tenant_id, body, actor=current_user.name)
 
 
 @route_personal.get("/ontology")

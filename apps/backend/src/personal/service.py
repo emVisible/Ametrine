@@ -17,7 +17,8 @@ from . import decisions as decision_mod
 from . import ontology as ontology_mod
 from . import periods as period_mod
 from . import resolve as resolve_mod
-from .dto import PersonalKeepIn, PersonalLedgerIn, PersonalResolveIn
+from .dto import (PersonalActionIn, PersonalKeepIn, PersonalLedgerIn,
+                  PersonalResolveIn)
 from .memory import corrections, survey
 
 
@@ -71,11 +72,21 @@ class PersonalService:
         return row.payload if row else None
 
     async def append(self, tenant_id: int, dto: PersonalLedgerIn) -> dict:
-        text = dto.text.strip()
+        return await self._append(
+            tenant_id, text=dto.text, actor=dto.actor, kind=dto.kind,
+            source=dto.source, provenance=dto.provenance, at=dto.at,
+            session_id=dto.session_id)
+
+    async def _append(self, tenant_id: int, *, text: str, actor: str,
+                      kind: str, source: str = "live",
+                      provenance: dict | None = None,
+                      at: datetime | None = None,
+                      session_id: str | None = None) -> dict:
+        text = text.strip()
         if not text:
             raise HTTPException(status_code=422, detail="空话不写进账本")
         last = await self._last(tenant_id)
-        if last and last.text.strip() == text and last.actor == dto.actor:
+        if last and last.text.strip() == text and last.actor == actor:
             age = (datetime.now(GMT8) - to_gmt8(last.recorded_at)).total_seconds()
             if -5 <= age <= 30:
                 raise HTTPException(
@@ -84,30 +95,22 @@ class PersonalService:
                 )
         seq = (last.seq + 1) if last else 1
         prev = last.hash if last else ZERO
-        occurred = to_gmt8(dto.at) if dto.at else datetime.now(GMT8)
+        occurred = to_gmt8(at) if at else datetime.now(GMT8)
         recorded = datetime.now(GMT8)
         day = occurred.date().isoformat()
-        provenance = {
+        body = {
             "origin": "isla/api",
-            "session_id": dto.session_id or f"personal-{day}",
+            "session_id": session_id or f"personal-{day}",
             "archive_date": day,
             "live": True,
-            **dto.provenance,
+            **(provenance or {}),
         }
         row = {
-            "v": 1,
-            "seq": seq,
-            "id": f"ev-{seq:06d}",
-            "occurred_at": iso(occurred),
-            "recorded_at": iso(recorded),
-            "actor": dto.actor,
-            "source": dto.source,
-            "kind": dto.kind,
-            "text": text,
-            "valid_from": iso(occurred),
-            "valid_until": None,
-            "provenance": provenance,
-            "prev": prev,
+            "v": 1, "seq": seq, "id": f"ev-{seq:06d}",
+            "occurred_at": iso(occurred), "recorded_at": iso(recorded),
+            "actor": actor, "source": source, "kind": kind, "text": text,
+            "valid_from": iso(occurred), "valid_until": None,
+            "provenance": body, "prev": prev,
         }
         row["hash"] = line_hash(row)
         self.relation_db.add(self._model(tenant_id, row))
@@ -205,6 +208,41 @@ class PersonalService:
         return resolve_mod.resolve_text(rows, body.text, actor=body.actor,
                                         at=body.at.isoformat() if body.at else None,
                                         session=body.session)
+
+    async def _action(self, tenant_id: int, body: PersonalActionIn, kind: str,
+                      actor: str) -> dict:
+        rows = await self.payloads(tenant_id)
+        target = next((row for row in rows if row.get("id") == body.event_id), None)
+        if target is None:
+            raise HTTPException(status_code=404, detail="这句原话不在账本里")
+        if target.get("kind") not in ("ask", "answer", "reply", "note"):
+            raise HTTPException(status_code=422, detail="只能对原话做撤回或失效")
+        key = f"{kind}_of"
+        for row in rows:
+            prov = row.get("provenance") or {}
+            if row.get("kind") == kind and prov.get(key) == body.event_id:
+                return {"ok": True, "existing": row.get("id"),
+                        "event_id": body.event_id, "kind": kind}
+        if kind == "expiry" and any(
+            row.get("kind") == "retract"
+            and (row.get("provenance") or {}).get("retract_of") == body.event_id
+            for row in rows
+        ):
+            raise HTTPException(status_code=409, detail="已撤回的原话不再标失效")
+        trace = await self._append(
+            tenant_id, text=f"[{kind}] {body.event_id}", actor=actor,
+            kind=kind, source="isla",
+            provenance={key: body.event_id, "reason": body.reason.strip()})
+        return {"ok": True, "trace": trace["id"], "event_id": body.event_id,
+                "kind": kind}
+
+    async def retract(self, tenant_id: int, body: PersonalActionIn,
+                      actor: str) -> dict:
+        return await self._action(tenant_id, body, "retract", actor)
+
+    async def expire(self, tenant_id: int, body: PersonalActionIn,
+                     actor: str) -> dict:
+        return await self._action(tenant_id, body, "expiry", actor)
 
     async def decisions(self, tenant_id: int) -> list[dict]:
         rows = await self.payloads(tenant_id)
