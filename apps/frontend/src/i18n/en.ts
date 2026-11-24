@@ -35,6 +35,12 @@ export const en: Messages = {
     personalAdmin: "Personal ops",
   },
   personal: {
+    writeTitle: "Write a line",
+    writeDesc: "Capture a line manually; no model involved. It enters the ledger and the normal memory gate.",
+    writePlaceholder: "Something to keep right now…",
+    writeAction: "Record",
+    noteSaved: "Added to the ledger",
+    noteFailed: "Not written: {msg}",
     traces: "Audit traces",
     tracesDesc: "Retractions, expiries, keeps and legacy labels; the ledger itself is append-only.",
     quota: "Quota",

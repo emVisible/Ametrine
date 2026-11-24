@@ -149,6 +149,7 @@ export default function PersonalPage() {
     { kind: "retract" | "expiry"; eventId: string } | null
   >(null);
   const [reason, setReason] = useState("");
+  const [note, setNote] = useState("");
   const openEvent = (id: string) => {
     setAction(null);
     setReason("");
@@ -194,6 +195,16 @@ export default function PersonalPage() {
     },
     onError: (error: Error) =>
       toast(t("personal.actionFailed", { msg: error.message }), "error"),
+  });
+  const addNote = useMutation({
+    mutationFn: (text: string) => personalAPI.append(text),
+    onSuccess: () => {
+      setNote("");
+      queryClient.invalidateQueries({ queryKey: ["personal"] });
+      toast(t("personal.noteSaved"), "success");
+    },
+    onError: (error: Error) =>
+      toast(t("personal.noteFailed", { msg: error.message }), "error"),
   });
   const bootstrap = useMutation({
     mutationFn: personalAPI.bootstrap,
@@ -335,6 +346,29 @@ export default function PersonalPage() {
             <Stat label={t("personal.labile")} value={memory.data?.counts.labile ?? 0} />
             <Stat label={t("personal.stable")} value={memory.data?.counts.stable ?? 0} />
             <Stat label={t("personal.barred")} value={memory.data?.counts.barred ?? 0} />
+          </div>
+
+          <div className="mt-4">
+            <Panel title={t("personal.writeTitle")} description={t("personal.writeDesc")}>
+              <div className="space-y-2 px-4 py-3">
+                <TextArea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder={t("personal.writePlaceholder")}
+                  rows={2}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className="a-btn a-btn-primary"
+                    disabled={!note.trim() || addNote.isPending}
+                    onClick={() => addNote.mutate(note)}
+                  >
+                    {t("personal.writeAction")}
+                  </button>
+                </div>
+              </div>
+            </Panel>
           </div>
 
           <div className="mt-4">

@@ -184,6 +184,11 @@ export const personalAPI = {
     if (!response.ok) throw new Error(`导出失败：${response.status}`);
     return response.blob();
   },
+  append: (text: string) =>
+    apiClient<PersonalLedgerRow>("/personal/ledger", {
+      method: "POST",
+      body: { text },
+    }),
   memory: () => apiClient<PersonalMemory>("/personal/memory"),
   ledger: (limit = 20) =>
     apiClient<PersonalLedgerRow[]>(`/personal/ledger?limit=${limit}`),

@@ -449,6 +449,7 @@ InferenceProvider
 - 向量失败不伪装成空结果：返回 `degraded=true` + 原因（timeout / 模型或 Milvus 异常）；个人页「向量文档」模式直接显示降级原因。
 - 向量检索集成测试用 fake `documents_query_multi_service` 验证水合与 `passage:*`，不依赖模型；真实 embedding/Milvus 仍未在本机验收。
 - 操作留痕：`GET /api/personal/traces`，把 retract/expiry/pref/label 的 trace 列出来，目标原话可点回；个人页「操作留痕」。
+- 手动写入：个人页「写一句」直接走 `POST /api/personal/ledger`，不经过模型；写入后按正常记忆门计算。
 
 未落（P2/P3）：
 

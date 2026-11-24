@@ -32,6 +32,12 @@ export const zh = {
     personalAdmin: "C 端运营",
   },
   personal: {
+    writeTitle: "写一句",
+    writeDesc: "手动记一条，不经过模型；会进账本，按正常记忆门计算。",
+    writePlaceholder: "现在想留下的一句话…",
+    writeAction: "记下",
+    noteSaved: "已写入账本",
+    noteFailed: "没写成：{msg}",
     traces: "操作留痕",
     tracesDesc: "撤回、失效、留下与旧 label 都在这里；原话只增不改。",
     quota: "用量配额",
