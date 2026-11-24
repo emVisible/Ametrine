@@ -254,6 +254,9 @@ async def test_vector_search_uses_hits_and_returns_passages(api, monkeypatch):
         return [{"doc_id": str(ids["document"]), "chunk_id": ids["chunk"],
                  "relevance_score": 0.5, "score_kind": "rrf",
                  "sources": [{"database_name": "kb", "collection_name": "col"}]}]
+    async def fake_milvus():
+        return object()
+    monkeypatch.setattr("src.client.get_milvus_service", fake_milvus)
     monkeypatch.setattr(DocumentService, "documents_query_multi_service", fake_search)
     response = await client.get(
         "/api/personal/vector-search?q=季度",
