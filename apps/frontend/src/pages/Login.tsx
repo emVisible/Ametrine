@@ -5,6 +5,8 @@ import { useLogin } from "../hooks/useAuth";
 import { safeRedirect } from "../utils/redirect";
 import { pageTitleForPath } from "../utils/pageTitles";
 import { useI18n } from "../i18n/context";
+import useAuthStore from "../stores/useAuthStore";
+import { homePathFor } from "../utils/home";
 import { AuthField, AuthScreen, AuthSubmit } from "../components/AuthScreen";
 
 export default function LoginPage() {
@@ -30,7 +32,10 @@ export default function LoginPage() {
     }
     try {
       await login.mutateAsync({ username, password });
-      navigate(from, { replace: true });
+      const target = from === "/dashboard"
+        ? homePathFor(useAuthStore.getState().user)
+        : from;
+      navigate(target, { replace: true });
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : t("auth.failed"),

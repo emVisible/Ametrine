@@ -5,6 +5,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
 import { pageView } from "./pageView";
+import HomeRedirect from "./components/HomeRedirect";
 import {
   loadAccessPage,
   loadChat,
@@ -31,7 +32,7 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { index: true, element: <Navigate to="/dashboard" replace /> },
+          { index: true, element: <HomeRedirect /> },
           { path: "/dashboard", element: pageView(loadDashboard) },
           { path: "/personal", element: pageView(loadPersonal) },
           { path: "/profile", element: pageView(loadProfile) },

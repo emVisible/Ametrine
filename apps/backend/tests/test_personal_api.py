@@ -72,14 +72,19 @@ async def api(anyio_backend):
             await db.flush()
             one = Tenant(name=f"personal-{uuid4().hex[:6]}", mode="personal",
                          database_id=database.id)
+            knowledge = Tenant(name=f"knowledge-{uuid4().hex[:6]}", mode="knowledge")
             two = User(name=f"no-tenant-{uuid4().hex[:6]}", password=hash("x"),
                        role_id=1, is_active=True, token_version=0)
-            db.add_all([one, two])
+            db.add_all([one, knowledge, two])
             await db.flush()
             user = User(name=f"user-{uuid4().hex[:6]}", password=hash("x"),
                         role_id=1, is_active=True, token_version=0,
                         tenant_id=one.id)
-            db.add(user)
+            knowledge_user = User(name=f"knowledge-user-{uuid4().hex[:6]}",
+                                  password=hash("x"), role_id=1,
+                                  is_active=True, token_version=0,
+                                  tenant_id=knowledge.id)
+            db.add_all([user, knowledge_user])
             await db.commit()
             collection = Collection(name=f"col-{uuid4().hex[:6]}",
                                     database_id=database.id)
@@ -97,12 +102,13 @@ async def api(anyio_backend):
             rows[1]["prev"] = rows[0]["hash"]
             rows[1]["hash"] = line_hash(rows[1])
             await service.append_payloads(one.id, rows)
-            ids = user.id, two.id, one.id
+            ids = user.id, two.id, one.id, knowledge_user.id
 
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport,
                                      base_url="http://test") as client:
-            yield client, {"user": ids[0], "fresh": ids[1], "tenant": ids[2]}
+            yield client, {"user": ids[0], "fresh": ids[1], "tenant": ids[2],
+                           "knowledge_user": ids[3]}
     finally:
         app.dependency_overrides.pop(get_relation_db, None)
         await engine.dispose()
@@ -171,3 +177,12 @@ async def test_bootstrap_creates_a_personal_tenant(api):
     current = await client.get("/api/current", headers=headers)
     assert current.status_code == 200
     assert current.json()["data"]["tenant_mode"] == "personal"
+
+
+@pytest.mark.anyio
+async def test_knowledge_tenant_cannot_read_personal_ledger(api):
+    client, ids = api
+    headers = {"Authorization": f"Bearer {_token(ids['knowledge_user'])}"}
+    response = await client.get("/api/personal/memory", headers=headers)
+    assert response.status_code == 403
+    assert "个人空间" in response.json()["message"]

@@ -35,6 +35,14 @@ class PersonalService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="当前账号没有绑定租户，个人账本不可用",
             )
+        tenant = await self.relation_db.get(Tenant, user.tenant_id)
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="租户不存在")
+        if tenant.mode != "personal":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="当前租户不是个人空间，个人账本不可用",
+            )
         return int(user.tenant_id)
 
     async def _last(self, tenant_id: int) -> PersonalLedger | None:

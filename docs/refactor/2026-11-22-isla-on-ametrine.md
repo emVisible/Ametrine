@@ -439,6 +439,8 @@ InferenceProvider
 - 双 scope 词法检索：`GET /api/personal/scope-search`，同时返回个人原话与可读文档分块（`passage:*`），按数据库权限过滤。
 - 文档分块 `pg_trgm` 索引（`a3d9e1f7c620`）；向量检索仍等 embedding，词法检索先顶。
 - 个人页检索加「原话 / 原话 + 文档」切换；文档结果按库/集合展示。
+- 权限收口：所有 `/api/personal/*` 业务端点要求租户 `mode=personal`；知识库租户调用返回 403，已有集成测试。
+- 登录落地：personal 租户默认进 `/personal`，knowledge 租户仍进 `/dashboard`；`/` 由 `HomeRedirect` 决定。
 
 未落（P2/P3）：
 
