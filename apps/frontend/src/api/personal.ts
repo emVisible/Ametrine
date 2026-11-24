@@ -150,6 +150,17 @@ export const personalAPI = {
       { method: "POST" },
     ),
   adminOverview: () => apiClient<PersonalAdminRow[]>("/personal/admin/overview"),
+  updateQuota: (userId: number, daily: number, monthly: number) =>
+    apiClient<{
+      user_id: number;
+      daily_token_limit: number;
+      monthly_token_limit: number;
+      daily_unlimited: boolean;
+      monthly_unlimited: boolean;
+    }>(`/personal/admin/quotas/${userId}`, {
+      method: "PATCH",
+      body: { daily_token_limit: daily, monthly_token_limit: monthly },
+    }),
   settings: () => apiClient<PersonalSettings>("/personal/settings"),
   updateSettings: (body: PersonalSettings) =>
     apiClient<PersonalSettings>("/personal/settings", {

@@ -22,7 +22,7 @@ from . import ontology as ontology_mod
 from . import periods as period_mod
 from . import resolve as resolve_mod
 from .dto import (PersonalActionIn, PersonalKeepIn, PersonalLedgerIn,
-                  PersonalResolveIn, PersonalSettingsIn)
+                  PersonalQuotaIn, PersonalResolveIn, PersonalSettingsIn)
 from .memory import corrections, survey
 
 
@@ -122,6 +122,23 @@ class PersonalService:
                           "monthly_unlimited": is_unlimited(owner.monthly_token_limit)},
             })
         return out
+
+    async def update_quota(self, user_id: int, body: PersonalQuotaIn) -> dict:
+        user = await self.relation_db.get(User, user_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        tenant = (await self.relation_db.get(Tenant, user.tenant_id)
+                  if user.tenant_id else None)
+        if tenant is None or tenant.mode != "personal":
+            raise HTTPException(status_code=422, detail="目标用户不属于个人租户")
+        user.daily_token_limit = body.daily_token_limit
+        user.monthly_token_limit = body.monthly_token_limit
+        await self.relation_db.commit()
+        return {"user_id": user.id,
+                "daily_token_limit": user.daily_token_limit,
+                "monthly_token_limit": user.monthly_token_limit,
+                "daily_unlimited": is_unlimited(user.daily_token_limit),
+                "monthly_unlimited": is_unlimited(user.monthly_token_limit)}
 
     async def bootstrap(self, user_id: int) -> dict:
         user = await self.relation_db.get(User, user_id)

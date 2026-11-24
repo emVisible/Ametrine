@@ -206,3 +206,35 @@ async def test_admin_personal_overview_is_gated(api):
     rows = allowed.json()["data"]
     assert any(row["tenant_id"] == ids["tenant"] for row in rows)
     assert next(row for row in rows if row["tenant_id"] == ids["tenant"])["speech_rows"] == 2
+
+
+@pytest.mark.anyio
+async def test_admin_can_write_personal_quota(api):
+    client, ids = api
+    admin_headers = {"Authorization": f"Bearer {_token(ids['admin'])}"}
+    denied = await client.patch(
+        f"/api/personal/admin/quotas/{ids['user']}",
+        headers={"Authorization": f"Bearer {_token(ids['user'])}"},
+        json={"daily_token_limit": 10, "monthly_token_limit": 100},
+    )
+    assert denied.status_code == 403
+
+    saved = await client.patch(
+        f"/api/personal/admin/quotas/{ids['user']}", headers=admin_headers,
+        json={"daily_token_limit": 0, "monthly_token_limit": 5000},
+    )
+    assert saved.status_code == 200
+    assert saved.json()["data"]["daily_unlimited"] is True
+
+    overview = await client.get("/api/personal/admin/overview", headers=admin_headers)
+    row = next(item for item in overview.json()["data"]
+               if item["tenant_id"] == ids["tenant"])
+    assert row["usage"]["daily_limit"] == 0
+    assert row["usage"]["monthly_limit"] == 5000
+
+    wrong = await client.patch(
+        f"/api/personal/admin/quotas/{ids['knowledge_user']}",
+        headers=admin_headers,
+        json={"daily_token_limit": 10, "monthly_token_limit": 100},
+    )
+    assert wrong.status_code == 422

@@ -20,6 +20,7 @@ from .dto import (
     PersonalMemoryOut,
     PersonalPeriodDetailOut,
     PersonalPeriodOut,
+    PersonalQuotaIn,
     PersonalVerifyOut,
 )
 from .service import PersonalService, get_personal_service
@@ -28,6 +29,15 @@ route_personal = APIRouter(
     prefix="/personal", tags=[ControllerTag.personal],
     dependencies=[Depends(get_current_user)],
 )
+
+
+@route_personal.patch("/admin/quotas/{user_id}", dependencies=[Depends(get_admin_user)])
+async def personal_admin_quota(
+    user_id: int,
+    body: PersonalQuotaIn,
+    service: PersonalService = Depends(get_personal_service),
+):
+    return await service.update_quota(user_id, body)
 
 
 @route_personal.get("/admin/overview", dependencies=[Depends(get_admin_user)])

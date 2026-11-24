@@ -1,14 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { personalAPI, type PersonalAdminRow } from "../api/personal";
 import { intlLocale } from "../i18n";
 import { useI18n } from "../i18n/context";
+import { useToast } from "../hooks/useToast";
 import {
   Breadcrumbs,
   DataTable,
   EmptyState,
+  Modal,
   PageHeader,
   Panel,
   StatusBadge,
+  TextInput,
   type Column,
 } from "../components/ui";
 
@@ -19,7 +23,10 @@ function quotaText(used: number, limit: number, unlimited: boolean, t: Translate
   return `${used.toLocaleString(intlLocale())} / ${limit.toLocaleString(intlLocale())}`;
 }
 
-function columnsFor(t: Translate): Column<PersonalAdminRow>[] {
+function columnsFor(
+  t: Translate,
+  onEdit: (row: PersonalAdminRow) => void,
+): Column<PersonalAdminRow>[] {
   return [
     {
       key: "user",
@@ -71,6 +78,22 @@ function columnsFor(t: Translate): Column<PersonalAdminRow>[] {
           : "—",
     },
     {
+      key: "actions",
+      header: "",
+      width: "6rem",
+      align: "right",
+      cell: (row) => (
+        <button
+          type="button"
+          className="a-btn a-btn-ghost !px-2 !py-0.5 text-[11px]"
+          disabled={!row.user}
+          onClick={() => onEdit(row)}
+        >
+          {t("admin.personal.editQuota")}
+        </button>
+      ),
+    },
+    {
       key: "status",
       header: t("admin.personal.status"),
       width: "7rem",
@@ -83,11 +106,75 @@ function columnsFor(t: Translate): Column<PersonalAdminRow>[] {
   ];
 }
 
+function QuotaEditor({
+  row,
+  saving,
+  onSave,
+}: {
+  row: PersonalAdminRow;
+  saving: boolean;
+  onSave: (daily: number, monthly: number) => void;
+}) {
+  const { t } = useI18n();
+  const [daily, setDaily] = useState(String(row.usage?.daily_limit ?? 0));
+  const [monthly, setMonthly] = useState(String(row.usage?.monthly_limit ?? 0));
+  const dailyNumber = Number(daily);
+  const monthlyNumber = Number(monthly);
+  const valid = Number.isInteger(dailyNumber) && dailyNumber >= 0
+    && Number.isInteger(monthlyNumber) && monthlyNumber >= 0;
+  return (
+    <div className="space-y-3 px-4 pb-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextInput
+          label={t("admin.personal.dailyLimit")}
+          type="number"
+          min={0}
+          value={daily}
+          onChange={(e) => setDaily(e.target.value)}
+          hint={t("admin.personal.zeroUnlimited")}
+        />
+        <TextInput
+          label={t("admin.personal.monthlyLimit")}
+          type="number"
+          min={0}
+          value={monthly}
+          onChange={(e) => setMonthly(e.target.value)}
+          hint={t("admin.personal.zeroUnlimited")}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          className="a-btn a-btn-primary"
+          disabled={!valid || saving}
+          onClick={() => onSave(dailyNumber, monthlyNumber)}
+        >
+          {t("admin.personal.save")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPersonalPage() {
   const { t } = useI18n();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<PersonalAdminRow | null>(null);
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["personal", "admin", "overview"],
     queryFn: personalAPI.adminOverview,
+  });
+  const saveQuota = useMutation({
+    mutationFn: (input: { userId: number; daily: number; monthly: number }) =>
+      personalAPI.updateQuota(input.userId, input.daily, input.monthly),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personal", "admin", "overview"] });
+      toast(t("admin.personal.saved"), "success");
+      setEditing(null);
+    },
+    onError: (err: Error) =>
+      toast(t("admin.personal.saveFailed", { msg: err.message }), "error"),
   });
 
   return (
@@ -104,7 +191,7 @@ export default function AdminPersonalPage() {
       />
       <Panel bodyClass="p-0">
         <DataTable
-          columns={columnsFor(t)}
+          columns={columnsFor(t, (row) => setEditing(row))}
           rows={data ?? []}
           rowKey={(row) => row.tenant_id}
           loading={isLoading}
@@ -113,6 +200,31 @@ export default function AdminPersonalPage() {
           empty={<EmptyState title={t("admin.personal.empty")} />}
         />
       </Panel>
+
+      <Modal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title={t("admin.personal.quotaTitle", {
+          name: editing?.user?.name ?? "",
+        })}
+        description={t("admin.personal.quotaDesc")}
+        width="max-w-lg"
+      >
+        {editing && (
+          <QuotaEditor
+            key={editing.user?.id}
+            row={editing}
+            saving={saveQuota.isPending}
+            onSave={(daily, monthly) =>
+              saveQuota.mutate({
+                userId: editing.user!.id,
+                daily,
+                monthly,
+              })
+            }
+          />
+        )}
+      </Modal>
     </div>
   );
 }

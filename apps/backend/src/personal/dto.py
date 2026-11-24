@@ -108,3 +108,8 @@ class PersonalSettingsIn(BaseModel):
 
 class PersonalSettingsOut(PersonalSettingsIn):
     pass
+
+
+class PersonalQuotaIn(BaseModel):
+    daily_token_limit: int = Field(ge=0, le=1_000_000_000)
+    monthly_token_limit: int = Field(ge=0, le=1_000_000_000)

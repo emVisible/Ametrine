@@ -444,6 +444,7 @@ InferenceProvider
 - C 端运营面：`GET /api/personal/admin/overview`（管理员），列出 personal 租户、原话/总行、最近活动与日/月配额；配额复用 `usage_by_user`，不读死列。
 - 管理页 `/admin/personal` 与导航「C 端运营」；仅管理员可见。
 - C 端个人页显示今日/本月 token 配额；无限制时明确标「无限制」。
+- 管理员配额写入口：`PATCH /api/personal/admin/quotas/{user_id}`；只允许改 personal 租户，0 = 无限制，管理页弹层直接改。
 
 未落（P2/P3）：
 
