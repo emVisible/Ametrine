@@ -14,7 +14,7 @@ from main import app
 from src.client import get_relation_db
 from src.config import algorithm, postgre_addr, secret_key
 from src.models import (Base, Collection, Database, Document, DocumentChunk,
-                        Tenant, User)
+                        Role, Tenant, User)
 from src.personal.canonical import GMT8, ZERO, line_hash
 from src.personal.service import PersonalService
 from src.vector.documents.service import DocumentService
@@ -59,7 +59,7 @@ async def api(anyio_backend):
         await conn.execute(text(f'CREATE SCHEMA "{schema}"'))
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=False))
 
     async def override_db():
         async with session() as db:
@@ -68,6 +68,8 @@ async def api(anyio_backend):
     app.dependency_overrides[get_relation_db] = override_db
     try:
         async with session() as db:
+            db.add_all([Role(id=1, name="user"), Role(id=3, name="admin")])
+            await db.flush()
             database = Database(name=f"kb-{uuid4().hex[:6]}")
             db.add(database)
             await db.flush()
