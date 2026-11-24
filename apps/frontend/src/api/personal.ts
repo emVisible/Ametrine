@@ -93,6 +93,17 @@ export interface PersonalSettings {
   timezone: string;
 }
 
+export interface PersonalPassage {
+  type: "passage";
+  id: string;
+  document_id: string;
+  title: string;
+  collection: string;
+  database: string;
+  text: string;
+  excerpt: string;
+}
+
 export interface PersonalPeriod {
   level: string;
   period_key: string;
@@ -142,6 +153,10 @@ export const personalAPI = {
   search: (q: string, limit = 20) =>
     apiClient<PersonalLedgerRow[]>(
       `/personal/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    ),
+  scopeSearch: (q: string, limit = 20) =>
+    apiClient<{ personal: PersonalLedgerRow[]; documents: PersonalPassage[] }>(
+      `/personal/scope-search?q=${encodeURIComponent(q)}&limit=${limit}`,
     ),
   periods: (level = "week") =>
     apiClient<PersonalPeriod[]>(`/personal/periods?level=${level}`),

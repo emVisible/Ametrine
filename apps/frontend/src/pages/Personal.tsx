@@ -107,6 +107,7 @@ export default function PersonalPage() {
   const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
   const [query, setQuery] = useState("");
+  const [searchAll, setSearchAll] = useState(false);
   const [eventId, setEventId] = useState<string | null>(null);
   const [weekKey, setWeekKey] = useState<string | null>(null);
   const [action, setAction] = useState<
@@ -132,7 +133,12 @@ export default function PersonalPage() {
   const search = useQuery({
     queryKey: ["personal", "search", query],
     queryFn: () => personalAPI.search(query, 20),
-    enabled: personal && query.trim().length > 0,
+    enabled: personal && !searchAll && query.trim().length > 0,
+  });
+  const scope = useQuery({
+    queryKey: ["personal", "scope-search", query],
+    queryFn: () => personalAPI.scopeSearch(query, 20),
+    enabled: personal && searchAll && query.trim().length > 0,
   });
   const act = useMutation({
     mutationFn: (input: { kind: "retract" | "expiry"; eventId: string; reason: string }) =>
@@ -222,6 +228,11 @@ export default function PersonalPage() {
     onError: (error: Error) =>
       toast(t("personal.exportFailed", { msg: error.message }), "error"),
   });
+  const personalHits = searchAll
+    ? scope.data?.personal ?? []
+    : search.data ?? [];
+  const documentHits = searchAll ? scope.data?.documents ?? [] : [];
+  const hitsLoading = searchAll ? scope.isLoading : search.isLoading;
   const decisions = useQuery({
     queryKey: ["personal", "decisions"],
     queryFn: personalAPI.decisions,
@@ -300,30 +311,81 @@ export default function PersonalPage() {
             <Panel title={t("personal.searchTitle")}
               description={t("personal.searchDesc")}>
               <div className="px-4 py-3">
-                <SearchInput
-                  value={query}
-                  onValueChange={setQuery}
-                  placeholder={t("personal.searchPlaceholder")}
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <SearchInput
+                    value={query}
+                    onValueChange={setQuery}
+                    placeholder={t("personal.searchPlaceholder")}
+                    className="min-w-48 flex-1"
+                  />
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      className={`a-btn !px-2 !py-1 text-[11px] ${!searchAll ? "a-btn-primary" : "a-btn-ghost"}`}
+                      onClick={() => setSearchAll(false)}
+                    >
+                      {t("personal.scopePersonal")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`a-btn !px-2 !py-1 text-[11px] ${searchAll ? "a-btn-primary" : "a-btn-ghost"}`}
+                      onClick={() => setSearchAll(true)}
+                    >
+                      {t("personal.scopeAll")}
+                    </button>
+                  </div>
+                </div>
                 {query.trim() && (
                   <div className="mt-3">
-                    {search.isLoading ? (
+                    {hitsLoading ? (
                       <Loading />
-                    ) : search.data?.length ? (
-                      <ul className="divide-y divide-line-subtle">
-                        {search.data.map((row) => (
-                          <li key={row.id} className="flex gap-3 py-2">
-                            <span className="w-20 shrink-0">
-                              <EventIdButton id={row.id} onClick={() => openEvent(row.id)} />
-                            </span>
-                            <span className="min-w-0 flex-1 text-[--text-sm] text-ink">
-                              {row.text}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
                     ) : (
-                      <EmptyState title={t("personal.searchEmpty")} />
+                      <>
+                        {personalHits.length ? (
+                          <ul className="divide-y divide-line-subtle">
+                            {personalHits.map((row) => (
+                              <li key={row.id} className="flex gap-3 py-2">
+                                <span className="w-20 shrink-0">
+                                  <EventIdButton id={row.id} onClick={() => openEvent(row.id)} />
+                                </span>
+                                <span className="min-w-0 flex-1 text-[--text-sm] text-ink">
+                                  {row.text}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <EmptyState title={t("personal.searchEmpty")} />
+                        )}
+                        {searchAll && (
+                          <div className="mt-3 border-t border-line-subtle pt-3">
+                            <p className="mb-2 text-[11px] text-ink-subtle">
+                              {t("personal.documents")}
+                            </p>
+                            {documentHits.length ? (
+                              <ul className="divide-y divide-line-subtle">
+                                {documentHits.map((row) => (
+                                  <li key={row.id} className="py-2">
+                                    <p className="text-[--text-sm] font-medium text-ink">
+                                      {row.title}
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] text-ink-subtle">
+                                      {row.database} / {row.collection}
+                                    </p>
+                                    <p className="mt-1 text-[--text-sm] text-ink-muted">
+                                      {row.excerpt}
+                                    </p>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-[11px] text-ink-subtle">
+                                {t("personal.documentsEmpty")}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

@@ -436,6 +436,9 @@ InferenceProvider
 - 导出：个人页直接下载完整 JSONL（含机器留痕）。
 - API 集成测试：`tests/test_personal_api.py`，每个用例建独立 schema，覆盖 memory/append/retract/search/periods/settings/bootstrap；不依赖本地开发库。
 - CI：`.github/workflows/checks.yml`，后端 Postgres service + pytest，前端 pnpm check。
+- 双 scope 词法检索：`GET /api/personal/scope-search`，同时返回个人原话与可读文档分块（`passage:*`），按数据库权限过滤。
+- 文档分块 `pg_trgm` 索引（`a3d9e1f7c620`）；向量检索仍等 embedding，词法检索先顶。
+- 个人页检索加「原话 / 原话 + 文档」切换；文档结果按库/集合展示。
 
 未落（P2/P3）：
 

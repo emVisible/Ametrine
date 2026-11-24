@@ -190,6 +190,19 @@ async def ledger_one(
     return row
 
 
+@route_personal.get("/scope-search")
+async def personal_scope_search(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(20, ge=1, le=100),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    personal = await service.search(tenant_id, q, limit=limit)
+    documents = await service.document_search(current_user.id, q, limit=limit)
+    return {"personal": personal, "documents": documents}
+
+
 @route_personal.get("/search", response_model=list[PersonalLedgerOut])
 async def personal_search(
     q: str = Query(..., min_length=1, max_length=200),

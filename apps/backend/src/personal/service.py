@@ -8,9 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.client import get_relation_db
-from src.models import PersonalLedger, Tenant, User
+from src.models import (Collection, Database, Document, DocumentChunk,
+                        PersonalLedger, Tenant, User)
 
 from .canonical import FIELDS, GMT8, ZERO, iso, line_hash, to_gmt8
+from src.user.permissions.service import accessible_database_ids
+
 from .context import compose
 from . import aliases as alias_mod
 from . import decisions as decision_mod
@@ -291,6 +294,39 @@ class PersonalService:
     async def decisions(self, tenant_id: int) -> list[dict]:
         rows = await self.payloads(tenant_id)
         return decision_mod.extract(rows, corrections(rows))
+
+    async def document_search(self, user_id: int, query: str,
+                              limit: int = 30) -> list[dict]:
+        text = query.strip()
+        if not text:
+            return []
+        readable = await accessible_database_ids(self.relation_db, user_id)
+        if readable is not None and not readable:
+            return []
+        escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query_stmt = (
+            select(DocumentChunk, Document, Collection, Database)
+            .join(Document, Document.id == DocumentChunk.doc_id)
+            .join(Collection, Collection.id == Document.collection_id)
+            .join(Database, Database.id == Collection.database_id)
+            .where(DocumentChunk.enabled.is_(True),
+                   DocumentChunk.content.ilike(f"%{escaped}%", escape="\\"))
+            .order_by(Document.created_at.desc(), DocumentChunk.id)
+            .limit(limit)
+        )
+        if readable is not None:
+            query_stmt = query_stmt.where(Database.id.in_(readable))
+        result = await self.relation_db.execute(query_stmt)
+        out = []
+        for chunk, document, collection, database in result.all():
+            text_body = " ".join((chunk.content or "").split())
+            out.append({
+                "type": "passage", "id": f"passage:{document.id}:{chunk.id}",
+                "document_id": str(document.id), "title": document.title,
+                "collection": collection.name, "database": database.name,
+                "text": text_body[:700], "excerpt": text_body[:200],
+            })
+        return out
 
     async def search(self, tenant_id: int, query: str, limit: int = 30) -> list[dict]:
         text = query.strip()

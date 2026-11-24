@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from main import app
 from src.client import get_relation_db
 from src.config import algorithm, postgre_addr, secret_key
-from src.models import Base, Tenant, User
+from src.models import (Base, Collection, Database, Document, DocumentChunk,
+                        Tenant, User)
 from src.personal.canonical import GMT8, ZERO, line_hash
 from src.personal.service import PersonalService
 from src.utils.security import hash
@@ -66,7 +67,11 @@ async def api(anyio_backend):
     app.dependency_overrides[get_relation_db] = override_db
     try:
         async with session() as db:
-            one = Tenant(name=f"personal-{uuid4().hex[:6]}", mode="personal")
+            database = Database(name=f"kb-{uuid4().hex[:6]}")
+            db.add(database)
+            await db.flush()
+            one = Tenant(name=f"personal-{uuid4().hex[:6]}", mode="personal",
+                         database_id=database.id)
             two = User(name=f"no-tenant-{uuid4().hex[:6]}", password=hash("x"),
                        role_id=1, is_active=True, token_version=0)
             db.add_all([one, two])
@@ -75,6 +80,17 @@ async def api(anyio_backend):
                         role_id=1, is_active=True, token_version=0,
                         tenant_id=one.id)
             db.add(user)
+            await db.commit()
+            collection = Collection(name=f"col-{uuid4().hex[:6]}",
+                                    database_id=database.id)
+            db.add(collection)
+            await db.flush()
+            document = Document(title="季度笔记", uploader="哥哥",
+                                collection_id=collection.id)
+            db.add(document)
+            await db.flush()
+            db.add(DocumentChunk(content="季度目标是把基础打稳。",
+                                 doc_id=document.id, enabled=True))
             await db.commit()
             service = PersonalService(db)
             rows = [_event(1, "今天很好"), _event(2, "明天继续")]
@@ -132,6 +148,12 @@ async def test_search_periods_and_settings(api):
     periods = await client.get("/api/personal/periods?level=week", headers=headers)
     assert periods.status_code == 200
     assert periods.json()["data"][-1]["item_count"] == 2
+
+    scope = await client.get("/api/personal/scope-search?q=季度", headers=headers)
+    assert scope.status_code == 200
+    data = scope.json()["data"]
+    assert data["documents"][0]["title"] == "季度笔记"
+    assert data["documents"][0]["type"] == "passage"
 
     saved = await client.patch("/api/personal/settings", headers=headers,
                                json={"actor": "泽航", "timezone": "Asia/Shanghai"})

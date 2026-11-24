@@ -137,6 +137,11 @@ class Document(Base):
 class DocumentChunk(Base):
     __tablename__ = "document_chunk"
 
+    __table_args__ = (
+        Index("ix_document_chunk_content_trgm", "content",
+              postgresql_using="gin", postgresql_ops={"content": "gin_trgm_ops"}),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     content = Column(Text)
     # 停用而不删除：向量侧没有 enabled 标量字段（集合 schema 是既有的，
