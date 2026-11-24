@@ -39,6 +39,9 @@ jobs:
       MAX_MODEL_LEN: "4096"
       POSTGRE_ADDR: postgresql+asyncpg://ametrine:ametrine@localhost:5432/ametrine
       POSTGRE_LOG: "false"
+      SEMANTIC_SPLITTER: "false"
+      OCR_AGENT: unstructured.partition.utils.ocr_models.tesseract_ocr.TesseractOCRAgent
+      SEMAPHORE: "32"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
