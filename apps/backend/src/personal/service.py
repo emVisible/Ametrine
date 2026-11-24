@@ -21,6 +21,7 @@ from . import decisions as decision_mod
 from . import ontology as ontology_mod
 from . import periods as period_mod
 from . import resolve as resolve_mod
+from . import vector as vector_mod
 from .dto import (PersonalActionIn, PersonalKeepIn, PersonalLedgerIn,
                   PersonalQuotaIn, PersonalResolveIn, PersonalSettingsIn)
 from .memory import corrections, survey
@@ -403,6 +404,10 @@ class PersonalService:
                 "text": text_body[:700], "excerpt": text_body[:200],
             })
         return out
+
+    async def vector_search(self, user_id: int, query: str,
+                            limit: int = 20) -> dict:
+        return await vector_mod.search(self.relation_db, user_id, query, limit)
 
     async def search(self, tenant_id: int, query: str, limit: int = 30) -> list[dict]:
         text = query.strip()

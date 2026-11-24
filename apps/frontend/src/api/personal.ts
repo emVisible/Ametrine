@@ -184,6 +184,10 @@ export const personalAPI = {
     apiClient<PersonalLedgerRow[]>(
       `/personal/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     ),
+  vectorSearch: (q: string, limit = 20) =>
+    apiClient<{ documents: PersonalPassage[]; degraded: boolean; reason: string | null }>(
+      `/personal/vector-search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    ),
   scopeSearch: (q: string, limit = 20) =>
     apiClient<{ personal: PersonalLedgerRow[]; documents: PersonalPassage[] }>(
       `/personal/scope-search?q=${encodeURIComponent(q)}&limit=${limit}`,

@@ -142,7 +142,7 @@ export default function PersonalPage() {
   const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
   const [query, setQuery] = useState("");
-  const [searchAll, setSearchAll] = useState(false);
+  const [scopeMode, setScopeMode] = useState<"personal" | "all" | "vector">("personal");
   const [eventId, setEventId] = useState<string | null>(null);
   const [weekKey, setWeekKey] = useState<string | null>(null);
   const [action, setAction] = useState<
@@ -168,12 +168,17 @@ export default function PersonalPage() {
   const search = useQuery({
     queryKey: ["personal", "search", query],
     queryFn: () => personalAPI.search(query, 20),
-    enabled: personal && !searchAll && query.trim().length > 0,
+    enabled: personal && scopeMode === "personal" && query.trim().length > 0,
   });
   const scope = useQuery({
     queryKey: ["personal", "scope-search", query],
     queryFn: () => personalAPI.scopeSearch(query, 20),
-    enabled: personal && searchAll && query.trim().length > 0,
+    enabled: personal && scopeMode === "all" && query.trim().length > 0,
+  });
+  const vector = useQuery({
+    queryKey: ["personal", "vector-search", query],
+    queryFn: () => personalAPI.vectorSearch(query, 20),
+    enabled: personal && scopeMode === "vector" && query.trim().length > 0,
   });
   const act = useMutation({
     mutationFn: (input: { kind: "retract" | "expiry"; eventId: string; reason: string }) =>
@@ -263,11 +268,15 @@ export default function PersonalPage() {
     onError: (error: Error) =>
       toast(t("personal.exportFailed", { msg: error.message }), "error"),
   });
-  const personalHits = searchAll
+  const personalHits = scopeMode === "all"
     ? scope.data?.personal ?? []
-    : search.data ?? [];
-  const documentHits = searchAll ? scope.data?.documents ?? [] : [];
-  const hitsLoading = searchAll ? scope.isLoading : search.isLoading;
+    : scopeMode === "personal" ? search.data ?? [] : [];
+  const documentHits = scopeMode === "all"
+    ? scope.data?.documents ?? []
+    : scopeMode === "vector" ? vector.data?.documents ?? [] : [];
+  const hitsLoading = scopeMode === "all"
+    ? scope.isLoading
+    : scopeMode === "vector" ? vector.isLoading : search.isLoading;
   const decisions = useQuery({
     queryKey: ["personal", "decisions"],
     queryFn: personalAPI.decisions,
@@ -379,17 +388,24 @@ export default function PersonalPage() {
                   <div className="flex gap-1">
                     <button
                       type="button"
-                      className={`a-btn !px-2 !py-1 text-[11px] ${!searchAll ? "a-btn-primary" : "a-btn-ghost"}`}
-                      onClick={() => setSearchAll(false)}
+                      className={`a-btn !px-2 !py-1 text-[11px] ${scopeMode === "personal" ? "a-btn-primary" : "a-btn-ghost"}`}
+                      onClick={() => setScopeMode("personal")}
                     >
                       {t("personal.scopePersonal")}
                     </button>
                     <button
                       type="button"
-                      className={`a-btn !px-2 !py-1 text-[11px] ${searchAll ? "a-btn-primary" : "a-btn-ghost"}`}
-                      onClick={() => setSearchAll(true)}
+                      className={`a-btn !px-2 !py-1 text-[11px] ${scopeMode === "all" ? "a-btn-primary" : "a-btn-ghost"}`}
+                      onClick={() => setScopeMode("all")}
                     >
                       {t("personal.scopeAll")}
+                    </button>
+                    <button
+                      type="button"
+                      className={`a-btn !px-2 !py-1 text-[11px] ${scopeMode === "vector" ? "a-btn-primary" : "a-btn-ghost"}`}
+                      onClick={() => setScopeMode("vector")}
+                    >
+                      {t("personal.scopeVector")}
                     </button>
                   </div>
                 </div>
@@ -415,11 +431,16 @@ export default function PersonalPage() {
                         ) : (
                           <EmptyState title={t("personal.searchEmpty")} />
                         )}
-                        {searchAll && (
+                        {(scopeMode === "all" || scopeMode === "vector") && (
                           <div className="mt-3 border-t border-line-subtle pt-3">
                             <p className="mb-2 text-[11px] text-ink-subtle">
                               {t("personal.documents")}
                             </p>
+                            {scopeMode === "vector" && vector.data?.degraded && (
+                              <p className="mb-2 text-[11px] text-warning">
+                                {t("personal.vectorDegraded", { reason: vector.data.reason ?? "" })}
+                              </p>
+                            )}
                             {documentHits.length ? (
                               <ul className="divide-y divide-line-subtle">
                                 {documentHits.map((row) => (

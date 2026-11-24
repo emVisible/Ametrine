@@ -49,6 +49,8 @@ export const zh = {
     stable: "留下",
     barred: "不进记忆",
     scopePersonal: "原话",
+    scopeVector: "向量文档",
+    vectorDegraded: "向量检索降级：{reason}。这不是空结果，是模型或向量库没就绪。",
     scopeAll: "原话 + 文档",
     documents: "文档",
     documentsEmpty: "没有匹配的文档；向量检索等模型，词法检索先顶这里。",

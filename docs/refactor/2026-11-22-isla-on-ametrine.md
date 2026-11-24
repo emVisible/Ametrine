@@ -445,6 +445,9 @@ InferenceProvider
 - 管理页 `/admin/personal` 与导航「C 端运营」；仅管理员可见。
 - C 端个人页显示今日/本月 token 配额；无限制时明确标「无限制」。
 - 管理员配额写入口：`PATCH /api/personal/admin/quotas/{user_id}`；只允许改 personal 租户，0 = 无限制，管理页弹层直接改。
+- 文档向量检索通路：`GET /api/personal/vector-search`；按可读库/集合构造 sources，embedding + Milvus 检索，RRF 融合，回表水合正文，停用分块丢弃。
+- 向量失败不伪装成空结果：返回 `degraded=true` + 原因（timeout / 模型或 Milvus 异常）；个人页「向量文档」模式直接显示降级原因。
+- 向量检索集成测试用 fake `documents_query_multi_service` 验证水合与 `passage:*`，不依赖模型；真实 embedding/Milvus 仍未在本机验收。
 
 未落（P2/P3）：
 
@@ -461,7 +464,7 @@ Ametrine 是本地优先；当前没有接远端 API，这台机器也带不动 
 - `/api/chat` 的生成、RAG 回答、SSE 的端到端验收。
 - LLM / embedding / rerank 的加载、绑定、tokenizer、推理性能。
 - 聊天页的个人引用可点击渲染、对话中的 `ev-*` 回溯。
-- 依赖 embedding 的文档入库/向量检索（解析与 pg_trgm 检索仍可用）。
+- 依赖 embedding 的文档入库与真实向量召回（解析、pg_trgm 检索、个人向量检索通路已可用，模型侧未验收）。
 
 已经落但不依赖模型：
 

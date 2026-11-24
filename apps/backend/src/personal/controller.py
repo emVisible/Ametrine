@@ -207,6 +207,17 @@ async def ledger_one(
     return row
 
 
+@route_personal.get("/vector-search")
+async def personal_vector_search(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(20, ge=1, le=100),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    await service.tenant_id(current_user)
+    return await service.vector_search(current_user.id, q, limit=limit)
+
+
 @route_personal.get("/scope-search")
 async def personal_scope_search(
     q: str = Query(..., min_length=1, max_length=200),

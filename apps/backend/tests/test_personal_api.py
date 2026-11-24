@@ -17,6 +17,7 @@ from src.models import (Base, Collection, Database, Document, DocumentChunk,
                         Tenant, User)
 from src.personal.canonical import GMT8, ZERO, line_hash
 from src.personal.service import PersonalService
+from src.vector.documents.service import DocumentService
 from src.utils.security import hash
 
 
@@ -96,8 +97,9 @@ async def api(anyio_backend):
                                 collection_id=collection.id)
             db.add(document)
             await db.flush()
-            db.add(DocumentChunk(content="季度目标是把基础打稳。",
-                                 doc_id=document.id, enabled=True))
+            chunk = DocumentChunk(content="季度目标是把基础打稳。",
+                                  doc_id=document.id, enabled=True)
+            db.add(chunk)
             await db.commit()
             service = PersonalService(db)
             rows = [_event(1, "今天很好"), _event(2, "明天继续")]
@@ -105,12 +107,14 @@ async def api(anyio_backend):
             rows[1]["hash"] = line_hash(rows[1])
             await service.append_payloads(one.id, rows)
             ids = user.id, two.id, one.id, knowledge_user.id, admin_user.id
+            doc_ids = (document.id, chunk.id)
 
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport,
                                      base_url="http://test") as client:
             yield client, {"user": ids[0], "fresh": ids[1], "tenant": ids[2],
-                           "knowledge_user": ids[3], "admin": ids[4]}
+                           "knowledge_user": ids[3], "admin": ids[4],
+                           "document": doc_ids[0], "chunk": doc_ids[1]}
     finally:
         app.dependency_overrides.pop(get_relation_db, None)
         await engine.dispose()
@@ -238,3 +242,22 @@ async def test_admin_can_write_personal_quota(api):
         json={"daily_token_limit": 10, "monthly_token_limit": 100},
     )
     assert wrong.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_vector_search_uses_hits_and_returns_passages(api, monkeypatch):
+    client, ids = api
+    async def fake_search(self, data, sources, limit=10):
+        return [{"doc_id": str(ids["document"]), "chunk_id": ids["chunk"],
+                 "relevance_score": 0.5, "score_kind": "rrf",
+                 "sources": [{"database_name": "kb", "collection_name": "col"}]}]
+    monkeypatch.setattr(DocumentService, "documents_query_multi_service", fake_search)
+    response = await client.get(
+        "/api/personal/vector-search?q=季度",
+        headers={"Authorization": f"Bearer {_token(ids['user'])}"},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["degraded"] is False
+    assert data["documents"][0]["title"] == "季度笔记"
+    assert data["documents"][0]["id"].startswith("passage:")

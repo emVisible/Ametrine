@@ -52,6 +52,8 @@ export const en: Messages = {
     stable: "Kept",
     barred: "Not memory",
     scopePersonal: "Utterances",
+    scopeVector: "Vector docs",
+    vectorDegraded: "Vector search degraded: {reason}. This is not an empty result; the model or vector store is not ready.",
     scopeAll: "Utterances + docs",
     documents: "Documents",
     documentsEmpty: "No matching documents; lexical search stands in until embeddings are available.",
