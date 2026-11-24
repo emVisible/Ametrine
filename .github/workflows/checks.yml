@@ -23,7 +23,7 @@ jobs:
           --health-retries 20
     env:
       ALGORITHM: HS256
-      SECRET_KEY: ci-secret-key
+      SECRET_KEY: ci-secret-key-0123456789-abcdefghijklmnopqrstuvwxyz
       ACCESS_TOKEN_EXPIRE_MINUTES: "120"
       XINFERENCE_MAIN_ADDR: http://127.0.0.1:9997
       XINFERENCE_LLM_MODEL_ID: ci-llm
