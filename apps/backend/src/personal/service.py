@@ -405,6 +405,25 @@ class PersonalService:
             })
         return out
 
+    async def traces(self, tenant_id: int, limit: int = 100) -> list[dict]:
+        rows = await self.payloads(tenant_id)
+        kinds = {"label", "retract", "expiry", "pref"}
+        out = []
+        for row in rows:
+            if row.get("kind") not in kinds:
+                continue
+            prov = row.get("provenance") or {}
+            kind = row["kind"]
+            target = (prov.get(f"{kind}_of") or prov.get("label_of")
+                      or prov.get("pref_of"))
+            out.append({
+                "id": row["id"], "kind": kind, "actor": row["actor"],
+                "at": row["occurred_at"], "target": target,
+                "reason": str(prov.get("reason") or prov.get("why")
+                              or prov.get("sitting") or ""),
+            })
+        return list(reversed(out))[:limit]
+
     async def vector_search(self, user_id: int, query: str,
                             limit: int = 20) -> dict:
         return await vector_mod.search(self.relation_db, user_id, query, limit)

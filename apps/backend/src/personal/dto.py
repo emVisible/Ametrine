@@ -113,3 +113,12 @@ class PersonalSettingsOut(PersonalSettingsIn):
 class PersonalQuotaIn(BaseModel):
     daily_token_limit: int = Field(ge=0, le=1_000_000_000)
     monthly_token_limit: int = Field(ge=0, le=1_000_000_000)
+
+
+class PersonalTraceOut(BaseModel):
+    id: str
+    kind: str
+    actor: str
+    at: str
+    target: str | None = None
+    reason: str = ""

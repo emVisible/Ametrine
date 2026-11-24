@@ -448,6 +448,7 @@ InferenceProvider
 - 文档向量检索通路：`GET /api/personal/vector-search`；按可读库/集合构造 sources，embedding + Milvus 检索，RRF 融合，回表水合正文，停用分块丢弃。
 - 向量失败不伪装成空结果：返回 `degraded=true` + 原因（timeout / 模型或 Milvus 异常）；个人页「向量文档」模式直接显示降级原因。
 - 向量检索集成测试用 fake `documents_query_multi_service` 验证水合与 `passage:*`，不依赖模型；真实 embedding/Milvus 仍未在本机验收。
+- 操作留痕：`GET /api/personal/traces`，把 retract/expiry/pref/label 的 trace 列出来，目标原话可点回；个人页「操作留痕」。
 
 未落（P2/P3）：
 

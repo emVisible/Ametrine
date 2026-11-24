@@ -34,6 +34,15 @@ export interface PersonalPeriodDetail extends PersonalPeriod {
   source_ids: string[];
 }
 
+export interface PersonalTrace {
+  id: string;
+  kind: string;
+  actor: string;
+  at: string;
+  target: string | null;
+  reason: string;
+}
+
 export interface PersonalAlias {
   alias: string;
   actor: string;
@@ -184,6 +193,8 @@ export const personalAPI = {
     apiClient<PersonalLedgerRow[]>(
       `/personal/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     ),
+  traces: (limit = 100) =>
+    apiClient<PersonalTrace[]>(`/personal/traces?limit=${limit}`),
   vectorSearch: (q: string, limit = 20) =>
     apiClient<{ documents: PersonalPassage[]; degraded: boolean; reason: string | null }>(
       `/personal/vector-search?q=${encodeURIComponent(q)}&limit=${limit}`,

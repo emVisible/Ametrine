@@ -143,6 +143,9 @@ async def test_memory_append_and_retract(api):
     memory = (await client.get("/api/personal/memory?today=2026-11-22",
                                headers=headers)).json()["data"]
     assert memory["counts"]["barred"] >= 2
+    traces = (await client.get("/api/personal/traces", headers=headers)).json()["data"]
+    assert any(item["kind"] == "retract" and item["target"] == "ev-000001"
+               for item in traces)
 
     one = await client.get(f"/api/personal/ledger/{event_id}", headers=headers)
     assert one.status_code == 200

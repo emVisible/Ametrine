@@ -21,6 +21,7 @@ from .dto import (
     PersonalPeriodDetailOut,
     PersonalPeriodOut,
     PersonalQuotaIn,
+    PersonalTraceOut,
     PersonalVerifyOut,
 )
 from .service import PersonalService, get_personal_service
@@ -205,6 +206,16 @@ async def ledger_one(
     if row is None:
         raise HTTPException(status_code=404, detail="这句原话不在账本里")
     return row
+
+
+@route_personal.get("/traces", response_model=list[PersonalTraceOut])
+async def personal_traces(
+    limit: int = Query(100, ge=1, le=500),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.traces(tenant_id, limit=limit)
 
 
 @route_personal.get("/vector-search")

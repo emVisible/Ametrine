@@ -277,6 +277,11 @@ export default function PersonalPage() {
   const hitsLoading = scopeMode === "all"
     ? scope.isLoading
     : scopeMode === "vector" ? vector.isLoading : search.isLoading;
+  const traces = useQuery({
+    queryKey: ["personal", "traces"],
+    queryFn: () => personalAPI.traces(20),
+    enabled: personal,
+  });
   const decisions = useQuery({
     queryKey: ["personal", "decisions"],
     queryFn: personalAPI.decisions,
@@ -666,6 +671,39 @@ export default function PersonalPage() {
                       {week.item_count}
                     </p>
                   </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState title={t("personal.empty")} />
+          )}
+        </Panel>
+      </div>
+
+      <div className="mt-4">
+        <Panel title={t("personal.traces")} description={t("personal.tracesDesc")}>
+          {traces.isLoading ? (
+            <Loading />
+          ) : traces.isError ? (
+            <ErrorState error={traces.error} onRetry={() => traces.refetch()} />
+          ) : traces.data?.length ? (
+            <ul className="divide-y divide-line-subtle">
+              {traces.data.map((trace) => (
+                <li key={trace.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+                  <StatusBadge tone="neutral">{trace.kind}</StatusBadge>
+                  {trace.target && (
+                    <EventIdButton
+                      id={trace.target}
+                      onClick={() => openEvent(trace.target as string)}
+                    />
+                  )}
+                  <span className="text-[11px] text-ink-subtle">{trace.actor}</span>
+                  <span className="min-w-0 flex-1 truncate text-[11px] text-ink-subtle">
+                    {trace.reason}
+                  </span>
+                  <span className="text-[11px] text-ink-subtle">
+                    {trace.at.slice(0, 10)}
+                  </span>
                 </li>
               ))}
             </ul>

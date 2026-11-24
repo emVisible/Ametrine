@@ -32,6 +32,8 @@ export const zh = {
     personalAdmin: "C 端运营",
   },
   personal: {
+    traces: "操作留痕",
+    tracesDesc: "撤回、失效、留下与旧 label 都在这里；原话只增不改。",
     quota: "用量配额",
     quotaDesc: "按 message 现算，和 /api/current 同一口径；聊天未接模型所以现在通常为 0。",
     dailyQuota: "今日 token",

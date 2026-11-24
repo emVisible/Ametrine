@@ -35,6 +35,8 @@ export const en: Messages = {
     personalAdmin: "Personal ops",
   },
   personal: {
+    traces: "Audit traces",
+    tracesDesc: "Retractions, expiries, keeps and legacy labels; the ledger itself is append-only.",
     quota: "Quota",
     quotaDesc: "Computed from messages, same as /api/current; usually 0 while chat is not wired to a model.",
     dailyQuota: "Daily tokens",
