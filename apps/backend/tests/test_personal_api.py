@@ -47,14 +47,14 @@ def _token(user_id: int) -> str:
 async def api(anyio_backend):
     schema = f"test_personal_{uuid4().hex[:8]}"
     base = make_url(postgre_addr)
-    admin = create_async_engine(base, poolclass=None)
+    admin_engine = create_async_engine(base, poolclass=None)
     test_url = base.set(database=base.database)
     engine = create_async_engine(
         test_url, connect_args={"server_settings": {
             "search_path": f"{schema},public"}},
     )
     session = async_sessionmaker(engine, expire_on_commit=False)
-    async with admin.begin() as conn:
+    async with admin_engine.begin() as conn:
         await conn.execute(text(f'CREATE SCHEMA "{schema}"'))
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
@@ -84,7 +84,9 @@ async def api(anyio_backend):
                                   password=hash("x"), role_id=1,
                                   is_active=True, token_version=0,
                                   tenant_id=knowledge.id)
-            db.add_all([user, knowledge_user])
+            admin_user = User(name=f"admin-{uuid4().hex[:6]}", password=hash("x"),
+                              role_id=3, is_active=True, token_version=0)
+            db.add_all([user, knowledge_user, admin_user])
             await db.commit()
             collection = Collection(name=f"col-{uuid4().hex[:6]}",
                                     database_id=database.id)
@@ -102,19 +104,19 @@ async def api(anyio_backend):
             rows[1]["prev"] = rows[0]["hash"]
             rows[1]["hash"] = line_hash(rows[1])
             await service.append_payloads(one.id, rows)
-            ids = user.id, two.id, one.id, knowledge_user.id
+            ids = user.id, two.id, one.id, knowledge_user.id, admin_user.id
 
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport,
                                      base_url="http://test") as client:
             yield client, {"user": ids[0], "fresh": ids[1], "tenant": ids[2],
-                           "knowledge_user": ids[3]}
+                           "knowledge_user": ids[3], "admin": ids[4]}
     finally:
         app.dependency_overrides.pop(get_relation_db, None)
         await engine.dispose()
-        async with admin.begin() as conn:
+        async with admin_engine.begin() as conn:
             await conn.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
-        await admin.dispose()
+        await admin_engine.dispose()
 
 
 @pytest.mark.anyio
@@ -186,3 +188,21 @@ async def test_knowledge_tenant_cannot_read_personal_ledger(api):
     response = await client.get("/api/personal/memory", headers=headers)
     assert response.status_code == 403
     assert "个人空间" in response.json()["message"]
+
+
+@pytest.mark.anyio
+async def test_admin_personal_overview_is_gated(api):
+    client, ids = api
+    forbidden = await client.get(
+        "/api/personal/admin/overview",
+        headers={"Authorization": f"Bearer {_token(ids['user'])}"},
+    )
+    assert forbidden.status_code == 403
+    allowed = await client.get(
+        "/api/personal/admin/overview",
+        headers={"Authorization": f"Bearer {_token(ids['admin'])}"},
+    )
+    assert allowed.status_code == 200
+    rows = allowed.json()["data"]
+    assert any(row["tenant_id"] == ids["tenant"] for row in rows)
+    assert next(row for row in rows if row["tenant_id"] == ids["tenant"])["speech_rows"] == 2

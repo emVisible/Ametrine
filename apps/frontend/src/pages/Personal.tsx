@@ -92,6 +92,41 @@ function SettingsForm({
   );
 }
 
+function QuotaBar({
+  label,
+  used,
+  limit,
+  unlimited,
+}: {
+  label: string;
+  used: number;
+  limit: number;
+  unlimited: boolean;
+}) {
+  const { t } = useI18n();
+  const percent = !unlimited && limit > 0
+    ? Math.min(100, Math.round((used / limit) * 100))
+    : null;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[11px] text-ink-subtle">{label}</p>
+        <p className="text-[11px] text-ink-muted tnum">
+          {unlimited
+            ? t("personal.unlimited")
+            : `${used.toLocaleString()} / ${limit.toLocaleString()}`}
+        </p>
+      </div>
+      <div className="mt-1 h-[3px] overflow-hidden rounded-full bg-surface-sunken">
+        <div
+          className={`h-full rounded-full ${percent && percent >= 90 ? "bg-danger" : "bg-accent"}`}
+          style={{ width: `${percent ?? 0}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="a-card px-4 py-3">
@@ -286,6 +321,29 @@ export default function PersonalPage() {
             <Stat label={t("personal.labile")} value={memory.data?.counts.labile ?? 0} />
             <Stat label={t("personal.stable")} value={memory.data?.counts.stable ?? 0} />
             <Stat label={t("personal.barred")} value={memory.data?.counts.barred ?? 0} />
+          </div>
+
+          <div className="mt-4">
+            <Panel title={t("personal.quota")} description={t("personal.quotaDesc")}>
+              {user ? (
+                <div className="grid gap-4 px-4 py-3 sm:grid-cols-2">
+                  <QuotaBar
+                    label={t("personal.dailyQuota")}
+                    used={user.daily_token_used}
+                    limit={user.daily_token_limit}
+                    unlimited={user.daily_unlimited}
+                  />
+                  <QuotaBar
+                    label={t("personal.monthlyQuota")}
+                    used={user.monthly_token_used}
+                    limit={user.monthly_token_limit}
+                    unlimited={user.monthly_unlimited}
+                  />
+                </div>
+              ) : (
+                <Loading />
+              )}
+            </Panel>
           </div>
 
           <div className="mt-4">

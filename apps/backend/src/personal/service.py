@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from datetime import date, datetime
 
 from fastapi import Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.client import get_relation_db
@@ -13,6 +13,7 @@ from src.models import (Collection, Database, Document, DocumentChunk,
 
 from .canonical import FIELDS, GMT8, ZERO, iso, line_hash, to_gmt8
 from src.user.permissions.service import accessible_database_ids
+from src.user.quota import is_unlimited, usage_by_user
 
 from .context import compose
 from . import aliases as alias_mod
@@ -71,6 +72,56 @@ class PersonalService:
             query = query.limit(limit)
         result = await self.relation_db.execute(query)
         return [row.payload for row in result.scalars().all()]
+
+    async def admin_overview(self) -> list[dict]:
+        tenants = (await self.relation_db.execute(
+            select(Tenant.id, Tenant.name).where(Tenant.mode == "personal")
+            .order_by(Tenant.name))).all()
+        users = (await self.relation_db.execute(
+            select(User.id, User.name, User.email, User.is_active, User.tenant_id,
+                   User.daily_token_limit, User.monthly_token_limit)
+            .where(User.tenant_id.is_not(None)))).all()
+        counts = {row[0]: row[1] for row in (await self.relation_db.execute(
+            select(PersonalLedger.tenant_id, func.count()).group_by(
+                PersonalLedger.tenant_id))).all()}
+        speech = {row[0]: row[1] for row in (await self.relation_db.execute(
+            select(PersonalLedger.tenant_id, func.count()).where(
+                PersonalLedger.kind.in_(("ask", "answer", "reply"))).group_by(
+                PersonalLedger.tenant_id))).all()}
+        last = {row[0]: row[1] for row in (await self.relation_db.execute(
+            select(PersonalLedger.tenant_id, func.max(PersonalLedger.occurred_at))
+            .group_by(PersonalLedger.tenant_id))).all()}
+        daily = await usage_by_user(self.relation_db, "day")
+        monthly = await usage_by_user(self.relation_db, "month")
+        total = await usage_by_user(self.relation_db, "all")
+        by_tenant: dict[int, list] = {}
+        for row in users:
+            by_tenant.setdefault(row.tenant_id, []).append(row)
+        out = []
+        for tenant_id, name in tenants:
+            owner = (by_tenant.get(tenant_id) or [None])[0]
+            if owner is None:
+                out.append({"tenant_id": tenant_id, "tenant": name, "user": None,
+                            "ledger_rows": counts.get(tenant_id, 0),
+                            "speech_rows": speech.get(tenant_id, 0),
+                            "last_at": None, "usage": None})
+                continue
+            out.append({
+                "tenant_id": tenant_id, "tenant": name,
+                "user": {"id": owner.id, "name": owner.name,
+                         "email": owner.email, "is_active": owner.is_active},
+                "ledger_rows": counts.get(tenant_id, 0),
+                "speech_rows": speech.get(tenant_id, 0),
+                "last_at": last.get(tenant_id),
+                "usage": {"daily": daily.get(owner.id, 0),
+                          "monthly": monthly.get(owner.id, 0),
+                          "total": total.get(owner.id, 0),
+                          "daily_limit": owner.daily_token_limit,
+                          "monthly_limit": owner.monthly_token_limit,
+                          "daily_unlimited": is_unlimited(owner.daily_token_limit),
+                          "monthly_unlimited": is_unlimited(owner.monthly_token_limit)},
+            })
+        return out
 
     async def bootstrap(self, user_id: int) -> dict:
         user = await self.relation_db.get(User, user_id)

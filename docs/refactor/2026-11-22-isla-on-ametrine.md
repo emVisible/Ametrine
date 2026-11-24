@@ -441,6 +441,9 @@ InferenceProvider
 - 个人页检索加「原话 / 原话 + 文档」切换；文档结果按库/集合展示。
 - 权限收口：所有 `/api/personal/*` 业务端点要求租户 `mode=personal`；知识库租户调用返回 403，已有集成测试。
 - 登录落地：personal 租户默认进 `/personal`，knowledge 租户仍进 `/dashboard`；`/` 由 `HomeRedirect` 决定。
+- C 端运营面：`GET /api/personal/admin/overview`（管理员），列出 personal 租户、原话/总行、最近活动与日/月配额；配额复用 `usage_by_user`，不读死列。
+- 管理页 `/admin/personal` 与导航「C 端运营」；仅管理员可见。
+- C 端个人页显示今日/本月 token 配额；无限制时明确标「无限制」。
 
 未落（P2/P3）：
 

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from src.middleware.tags import ControllerTag
-from src.user.auth.service import get_current_user
+from src.user.auth.service import get_admin_user, get_current_user
 
 from .canonical import canonical
 from .dto import (
@@ -28,6 +28,13 @@ route_personal = APIRouter(
     prefix="/personal", tags=[ControllerTag.personal],
     dependencies=[Depends(get_current_user)],
 )
+
+
+@route_personal.get("/admin/overview", dependencies=[Depends(get_admin_user)])
+async def personal_admin_overview(
+    service: PersonalService = Depends(get_personal_service),
+):
+    return await service.admin_overview()
 
 
 @route_personal.post("/bootstrap")

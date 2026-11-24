@@ -29,8 +29,14 @@ export const zh = {
     forbidden: "无权访问",
     queue: "回答质量",
     inference: "模型推理",
+    personalAdmin: "C 端运营",
   },
   personal: {
+    quota: "用量配额",
+    quotaDesc: "按 message 现算，和 /api/current 同一口径；聊天未接模型所以现在通常为 0。",
+    dailyQuota: "今日 token",
+    monthlyQuota: "本月 token",
+    unlimited: "无限制",
     bootstrap: "创建个人空间",
     bootstrapDesc: "当前账号还没有租户。创建后才会启用个人账本；知识库空间仍然可用。",
     bootstrapFailed: "没创建成功：{msg}",
@@ -357,6 +363,22 @@ export const zh = {
     newTitle: "新对话",
   },
   admin: {
+    personal: {
+      title: "C 端运营",
+      desc: "个人租户的账本规模、最近活动与配额用量。配额按 message 现算，不读死列。",
+      refresh: "重新读取",
+      user: "用户",
+      ledger: "原话 / 总行",
+      last: "最近原话",
+      daily: "今日 token",
+      monthly: "本月 token",
+      status: "状态",
+      active: "正常",
+      disabled: "停用",
+      unlimited: "无限制",
+      empty: "还没有个人租户",
+    },
+
     // 模型推理管理台。这一页的每条读数都来自 xinference 现算，文案里不重复任何数字。
     inference: {
       title: "模型推理",

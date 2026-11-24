@@ -15,6 +15,7 @@ import {
   loadInferencePage,
   loadProfile,
   loadQueuePage,
+  loadPersonalAdminPage,
   loadRagChat,
   loadSettings,
   loadTenantDetailPage,
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
               { path: "/admin/access", element: pageView(loadAccessPage) },
               // 回答质量队列：管理员在这里看到「哪些回答不值得信」并跳去修库。
               { path: "/admin/queue", element: pageView(loadQueuePage) },
+              { path: "/admin/personal", element: pageView(loadPersonalAdminPage) },
               // 模型推理：用哪个模型答题不再靠改 .env + 重启，也不再有「点了没反应」的加载。
               { path: "/admin/inference", element: pageView(loadInferencePage) },
               // 租户子页面：成员归属、该租户知识库的授权都在这里管，

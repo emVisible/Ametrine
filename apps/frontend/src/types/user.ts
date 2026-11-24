@@ -30,6 +30,10 @@ export interface CurrentUser {
   permissions: string[]
   daily_token_used: number
   daily_token_limit: number
+  monthly_token_used: number
+  monthly_token_limit: number
+  daily_unlimited: boolean
+  monthly_unlimited: boolean
 }
 
 export interface UserListResponse {

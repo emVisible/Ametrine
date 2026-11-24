@@ -32,8 +32,14 @@ export const en: Messages = {
     forbidden: "Access denied",
     queue: "Answer quality",
     inference: "Inference",
+    personalAdmin: "Personal ops",
   },
   personal: {
+    quota: "Quota",
+    quotaDesc: "Computed from messages, same as /api/current; usually 0 while chat is not wired to a model.",
+    dailyQuota: "Daily tokens",
+    monthlyQuota: "Monthly tokens",
+    unlimited: "Unlimited",
     bootstrap: "Create personal workspace",
     bootstrapDesc: "This account has no tenant yet. Create one to enable the personal ledger; knowledge spaces stay available.",
     bootstrapFailed: "Could not create: {msg}",
@@ -361,6 +367,22 @@ export const en: Messages = {
     newTitle: "New chat",
   },
   admin: {
+    personal: {
+      title: "Personal ops",
+      desc: "Ledger size, last activity and quota usage for personal tenants. Quota is computed from messages, not dead columns.",
+      refresh: "Reload",
+      user: "User",
+      ledger: "Utterances / rows",
+      last: "Last utterance",
+      daily: "Daily tokens",
+      monthly: "Monthly tokens",
+      status: "Status",
+      active: "Active",
+      disabled: "Disabled",
+      unlimited: "Unlimited",
+      empty: "No personal tenants yet",
+    },
+
     // Model inference console. Every reading comes from the inference server; nothing here is cached.
     inference: {
       title: "Inference",

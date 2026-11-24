@@ -88,6 +88,24 @@ export interface PersonalDecision {
   status: "active" | "expired";
 }
 
+export interface PersonalAdminRow {
+  tenant_id: number;
+  tenant: string;
+  user: { id: number; name: string; email: string | null; is_active: boolean } | null;
+  ledger_rows: number;
+  speech_rows: number;
+  last_at: string | null;
+  usage: {
+    daily: number;
+    monthly: number;
+    total: number;
+    daily_limit: number;
+    monthly_limit: number;
+    daily_unlimited: boolean;
+    monthly_unlimited: boolean;
+  } | null;
+}
+
 export interface PersonalSettings {
   actor: string;
   timezone: string;
@@ -131,6 +149,7 @@ export const personalAPI = {
       "/personal/bootstrap",
       { method: "POST" },
     ),
+  adminOverview: () => apiClient<PersonalAdminRow[]>("/personal/admin/overview"),
   settings: () => apiClient<PersonalSettings>("/personal/settings"),
   updateSettings: (body: PersonalSettings) =>
     apiClient<PersonalSettings>("/personal/settings", {

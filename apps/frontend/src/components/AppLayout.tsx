@@ -56,6 +56,7 @@ const NAV: NavEntry[] = [
   { to: "/admin/vector", labelKey: "page.vector", Icon: LibraryIcon },
   // 回答质量队列是管理员的日常入口：先看哪些回答不值得信，再回知识库修它
   { to: "/admin/queue", labelKey: "page.queue", Icon: WarningIcon, exact: true, adminOnly: true },
+  { to: "/admin/personal", labelKey: "page.personalAdmin", Icon: SparkIcon, exact: true, adminOnly: true },
   // 模型推理排在知识库之后：它决定「答得好不好」的上限，但不是每天都进的地方
   {
     to: "/admin/inference",

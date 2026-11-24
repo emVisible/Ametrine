@@ -19,6 +19,7 @@ export const loadRagChat = () => import("./pages/RAGChat");
 export const loadVectorPage = () => import("./pages/AdminVector");
 export const loadAccessPage = () => import("./pages/AdminAccess");
 export const loadQueuePage = () => import("./pages/AdminQueue");
+export const loadPersonalAdminPage = () => import("./pages/AdminPersonal");
 export const loadTenantDetailPage = () => import("./pages/AdminTenantDetail");
 export const loadInferencePage = () => import("./pages/AdminInference");
 export const loadForbidden = () => import("./pages/Forbidden");
@@ -36,6 +37,7 @@ export const pageLoaders: PageLoader[] = [
   loadVectorPage,
   loadAccessPage,
   loadQueuePage,
+  loadPersonalAdminPage,
   loadTenantDetailPage,
   loadInferencePage,
   loadForbidden,

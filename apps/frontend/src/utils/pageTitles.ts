@@ -20,6 +20,7 @@ const TITLES: { match: (path: string) => boolean; key: MsgKey }[] = [
   // 这两条之前漏了 /admin/queue：标签页标题会退回只剩站名，
   // 多标签浏览时分不清哪个窗口是队列。补上，和新页一起过测试。
   { match: (p) => under(p, "/admin/queue"), key: "page.queue" },
+  { match: (p) => under(p, "/admin/personal"), key: "page.personalAdmin" },
   { match: (p) => under(p, "/admin/inference"), key: "page.inference" },
   // 租户子页面用租户名以外的通用标题：这里拿不到租户名（数据在页面里加载），
   // 编一个 id 进标题反而不如稳定的「租户详情」。
