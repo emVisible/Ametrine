@@ -14,7 +14,7 @@ from main import app
 from src.client import get_relation_db
 from src.config import algorithm, postgre_addr, secret_key
 from src.models import (Base, Collection, Database, Document, DocumentChunk,
-                        Role, Tenant, User)
+                        PersonalHouse, Role, Tenant, User)
 from src.personal.canonical import GMT8, ZERO, line_hash
 from src.personal.service import PersonalService
 from src.vector.documents.service import DocumentService
@@ -102,6 +102,20 @@ async def api(anyio_backend):
             chunk = DocumentChunk(content="季度目标是把基础打稳。",
                                   doc_id=document.id, enabled=True)
             db.add(chunk)
+            await db.commit()
+            db.add(PersonalHouse(tenant_id=one.id, source="test", data={
+                "overview": {"counts": {"crystals": 1, "cards": 1,
+                                        "people": 1, "ledger_rows": 2,
+                                        "speech_rows": 2}},
+                "persons": [{"who": "哥哥", "crystals": [], "cards": []}],
+                "rooms": [{"id": 1, "topic": "测试房间", "turns": 1,
+                           "votes": 0, "agreed": 0, "presence": 1}],
+                "crystals": [{"id": 1, "who": "哥哥", "content": "留下"}],
+                "cards": [{"id": 1, "who": "哥哥", "summary": "收口"}],
+                "discussions": {"1": {"discussion": {"id": 1},
+                                      "turns": [], "votes": [],
+                                      "presence": []}},
+            }))
             await db.commit()
             service = PersonalService(db)
             rows = [_event(1, "今天很好"), _event(2, "明天继续")]
@@ -269,3 +283,19 @@ async def test_vector_search_uses_hits_and_returns_passages(api, monkeypatch):
     assert data["degraded"] is False
     assert data["documents"][0]["title"] == "季度笔记"
     assert data["documents"][0]["id"].startswith("passage:")
+
+
+@pytest.mark.anyio
+async def test_house_snapshot_is_read_only(api):
+    client, ids = api
+    headers = {"Authorization": f"Bearer {_token(ids['user'])}"}
+    overview = await client.get("/api/personal/house/overview", headers=headers)
+    assert overview.status_code == 200
+    assert overview.json()["data"]["counts"]["crystals"] == 1
+    persons = await client.get("/api/personal/house/persons", headers=headers)
+    assert persons.status_code == 200
+    assert persons.json()["data"][0]["who"] == "哥哥"
+    detail = await client.get("/api/personal/house/discussions/1",
+                              headers=headers)
+    assert detail.status_code == 200
+    assert detail.json()["data"]["discussion"]["id"] == 1

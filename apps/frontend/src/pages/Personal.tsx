@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { personalAPI } from "../api/personal";
 import { useCurrentUser } from "../hooks/useAuth";
@@ -333,6 +334,11 @@ export default function PersonalPage() {
       <PageHeader
         title={t("personal.title")}
         description={t("personal.desc")}
+        actions={
+          <Link to="/personal/house" className="a-btn a-btn-ghost">
+            {t("page.house")}
+          </Link>
+        }
       />
 
       {memory.isLoading ? (

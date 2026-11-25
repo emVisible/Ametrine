@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.client import get_relation_db
 from src.models import (Collection, Database, Document, DocumentChunk,
-                        PersonalLedger, Tenant, User)
+                        PersonalHouse, PersonalLedger, Tenant, User)
 
 from .canonical import FIELDS, GMT8, ZERO, iso, line_hash, to_gmt8
 from src.user.permissions.service import accessible_database_ids
@@ -404,6 +404,12 @@ class PersonalService:
                 "text": text_body[:700], "excerpt": text_body[:200],
             })
         return out
+
+    async def house(self, tenant_id: int) -> dict | None:
+        row = (await self.relation_db.execute(
+            select(PersonalHouse).where(PersonalHouse.tenant_id == tenant_id)
+        )).scalar_one_or_none()
+        return row.data if row else None
 
     async def traces(self, tenant_id: int, limit: int = 100) -> list[dict]:
         rows = await self.payloads(tenant_id)

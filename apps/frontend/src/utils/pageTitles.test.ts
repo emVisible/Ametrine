@@ -8,6 +8,7 @@ describe("pageTitleForPath", () => {
   it.each([
     ["/dashboard", "page.dashboard"],
     ["/personal", "page.personal"],
+    ["/personal/house", "page.house"],
     ["/chat/abc", "page.chat"],
     ["/rag/abc", "page.rag"],
     ["/admin/vector", "page.vector"],

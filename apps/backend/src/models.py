@@ -374,3 +374,19 @@ class PersonalLedger(Base):
         Index("ix_personal_ledger_text_trgm", "text",
               postgresql_using="gin", postgresql_ops={"text": "gin_trgm_ops"}),
     )
+
+
+class PersonalHouse(Base):
+    """Read-only snapshot of the old house truth (cards/crystals/rooms).
+
+    Isla's house API never wrote through HTTP; keeping one JSON snapshot is
+    honest about that boundary and avoids pretending six write models exist.
+    """
+    __tablename__ = "personal_house"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenant.id"), nullable=False,
+                       unique=True, index=True)
+    source = Column(String(255), nullable=False, default="house/truth.db")
+    imported_at = Column(DateTime(timezone=True), server_default=func.now())
+    data = Column(JSONB, nullable=False, default=dict)

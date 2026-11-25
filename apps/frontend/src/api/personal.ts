@@ -97,6 +97,39 @@ export interface PersonalDecision {
   status: "active" | "expired";
 }
 
+export interface PersonalHouseOverview {
+  counts: Record<string, number>;
+  latest: { seq: number; occurred_at: string; actor: string; kind: string; text: string }[];
+  people: { who: string; doing?: string; next?: string; waiting?: string; crystals: number }[];
+  presence: { discussion_id: number; person: string; present: string; topic?: string }[];
+  discussions: { id: number; topic: string; status: string; summary?: string }[];
+  kinds: { kind: string; n: number }[];
+}
+
+export interface PersonalHousePerson {
+  who: string;
+  doing?: string;
+  confirmed?: string;
+  next?: string;
+  waiting?: string;
+  updated_at?: string;
+  crystals: { id: number; who: string; kind: string; content: string; status: string }[];
+  cards: { id: number; who: string; summary: string; feeling: string; status: string }[];
+}
+
+export interface PersonalHouseRoom {
+  id: number;
+  topic: string;
+  status: string;
+  started_at?: string;
+  ended_at?: string;
+  summary?: string;
+  turns: number;
+  votes: number;
+  agreed: number;
+  presence: number;
+}
+
 export interface PersonalAdminRow {
   tenant_id: number;
   tenant: string;
@@ -184,6 +217,9 @@ export const personalAPI = {
     if (!response.ok) throw new Error(`导出失败：${response.status}`);
     return response.blob();
   },
+  houseOverview: () => apiClient<PersonalHouseOverview>("/personal/house/overview"),
+  housePersons: () => apiClient<PersonalHousePerson[]>("/personal/house/persons"),
+  houseRooms: () => apiClient<PersonalHouseRoom[]>("/personal/house/rooms"),
   append: (text: string) =>
     apiClient<PersonalLedgerRow>("/personal/ledger", {
       method: "POST",

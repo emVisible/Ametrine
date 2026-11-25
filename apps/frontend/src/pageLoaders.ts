@@ -20,6 +20,7 @@ export const loadVectorPage = () => import("./pages/AdminVector");
 export const loadAccessPage = () => import("./pages/AdminAccess");
 export const loadQueuePage = () => import("./pages/AdminQueue");
 export const loadPersonalAdminPage = () => import("./pages/AdminPersonal");
+export const loadPersonalHousePage = () => import("./pages/PersonalHouse");
 export const loadTenantDetailPage = () => import("./pages/AdminTenantDetail");
 export const loadInferencePage = () => import("./pages/AdminInference");
 export const loadForbidden = () => import("./pages/Forbidden");
@@ -38,6 +39,7 @@ export const pageLoaders: PageLoader[] = [
   loadAccessPage,
   loadQueuePage,
   loadPersonalAdminPage,
+  loadPersonalHousePage,
   loadTenantDetailPage,
   loadInferencePage,
   loadForbidden,

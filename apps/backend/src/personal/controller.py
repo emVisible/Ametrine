@@ -208,6 +208,86 @@ async def ledger_one(
     return row
 
 
+@route_personal.get("/house/overview")
+async def personal_house_overview(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    data = await service.house(tenant_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="还没有导入 house 数据")
+    return data["overview"]
+
+
+@route_personal.get("/house/persons")
+async def personal_house_persons(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    data = await service.house(tenant_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="还没有导入 house 数据")
+    return data["persons"]
+
+
+@route_personal.get("/house/rooms")
+async def personal_house_rooms(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    data = await service.house(tenant_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="还没有导入 house 数据")
+    return data["rooms"]
+
+
+@route_personal.get("/house/crystals")
+async def personal_house_crystals(
+    who: str | None = Query(None, max_length=40),
+    limit: int = Query(50, ge=1, le=200),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    data = await service.house(tenant_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="还没有导入 house 数据")
+    items = [row for row in data["crystals"] if not who or row["who"] == who]
+    return list(reversed(items))[:limit]
+
+
+@route_personal.get("/house/cards")
+async def personal_house_cards(
+    limit: int = Query(50, ge=1, le=200),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    data = await service.house(tenant_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="还没有导入 house 数据")
+    return list(reversed(data["cards"]))[:limit]
+
+
+@route_personal.get("/house/discussions/{discussion_id}")
+async def personal_house_discussion(
+    discussion_id: int,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    data = await service.house(tenant_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="还没有导入 house 数据")
+    row = data["discussions"].get(str(discussion_id))
+    if row is None:
+        raise HTTPException(status_code=404, detail="discussion not found")
+    return row
+
+
 @route_personal.get("/traces", response_model=list[PersonalTraceOut])
 async def personal_traces(
     limit: int = Query(100, ge=1, le=500),
