@@ -26,7 +26,7 @@ from sqlalchemy import select
 
 from src.client import async_session
 from src.models import User
-from src.personal.canonical import FIELDS, GMT8, ZERO, iso, line_hash
+from src.personal.canonical import FIELDS, ZERO, line_hash
 from src.personal.service import PersonalService
 
 # One-time classification of the old archive. Runtime code must not use these.
@@ -58,8 +58,8 @@ def read_jsonl(path: Path) -> list[dict]:
     return rows
 
 
-def label_row(seq: int, prev: str, target: str, sitting: str) -> dict:
-    stamp = iso(datetime.now(GMT8))
+def label_row(seq: int, prev: str, target: str, sitting: str,
+              stamp: str) -> dict:
     row = {
         "v": 1, "seq": seq, "id": f"ev-{seq:06d}",
         "occurred_at": stamp, "recorded_at": stamp,
@@ -87,7 +87,8 @@ def add_labels(rows: list[dict]) -> list[dict]:
             sitting = "work"
         if sitting:
             seq += 1
-            label = label_row(seq, prev, row["id"], sitting)
+            label = label_row(seq, prev, row["id"], sitting,
+                              row["occurred_at"])
             out.append(label)
             prev = label["hash"]
     return out

@@ -69,6 +69,8 @@ export const zh = {
     noteFailed: "没写成：{msg}",
     digestCount: "{count} 条 / {days} 天",
     digestDecisions: "有 {n} 条决定线索",
+    auditOk: "审计通过 · {n} 条留痕",
+    auditBroken: "审计链断裂",
     traces: "操作留痕",
     tracesDesc: "撤回、失效、留下与旧 label 都在这里；原话只增不改。",
     quota: "用量配额",

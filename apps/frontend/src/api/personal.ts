@@ -97,6 +97,29 @@ export interface PersonalDecision {
   status: "active" | "expired";
 }
 
+export interface PersonalBrief {
+  text: string;
+  words: number;
+  limit: number;
+  truncated: boolean;
+  digest: string;
+  verdict: string;
+}
+
+export interface PersonalUtteranceResult {
+  row: PersonalLedgerRow;
+  resolution: { phrases: { phrase: string; status: string; labels?: string[] }[] };
+  brief: PersonalBrief;
+}
+
+export interface PersonalAudit {
+  total: number;
+  items: PersonalTrace[];
+  verdict: string;
+  tail: string;
+  errors: string[];
+}
+
 export interface PersonalNow {
   last_turn: unknown | null;
   last_utterance: {
@@ -282,7 +305,7 @@ export const personalAPI = {
   housePersons: () => apiClient<PersonalHousePerson[]>("/personal/house/persons"),
   houseRooms: () => apiClient<PersonalHouseRoom[]>("/personal/house/rooms"),
   append: (text: string) =>
-    apiClient<PersonalLedgerRow>("/personal/ledger", {
+    apiClient<PersonalUtteranceResult>("/personal/utterances", {
       method: "POST",
       body: { text },
     }),
@@ -295,6 +318,8 @@ export const personalAPI = {
     apiClient<PersonalLedgerRow[]>(
       `/personal/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     ),
+  audit: (limit = 100) =>
+    apiClient<PersonalAudit>(`/personal/audit?limit=${limit}`),
   traces: (limit = 100) =>
     apiClient<PersonalTrace[]>(`/personal/traces?limit=${limit}`),
   vectorSearch: (q: string, limit = 20) =>

@@ -17,6 +17,7 @@ from src.user.quota import is_unlimited, usage_by_user
 
 from .context import compose
 from . import aliases as alias_mod
+from . import brief as brief_mod
 from . import day as day_mod
 from . import decisions as decision_mod
 from . import digest as digest_mod
@@ -439,6 +440,27 @@ class PersonalService:
             "ms": round((perf_counter() - started) * 1000),
         }
 
+    async def utterance(self, tenant_id: int, dto: PersonalLedgerIn,
+                        actor: str) -> dict:
+        rows = await self.payloads(tenant_id)
+        before = ontology_mod.build(rows)
+        resolution = resolve_mod.resolve_text(
+            rows, dto.text, actor=actor,
+            at=dto.at.isoformat() if dto.at else None,
+            session=dto.session_id)
+        row = await self.append(tenant_id, dto)
+        after = ontology_mod.build(await self.payloads(tenant_id))
+        return {
+            "row": row,
+            "resolution": resolution,
+            "brief": brief_mod.compose(
+                resolution, event_id=row["id"],
+                entities_before=before["counts"]["entities"],
+                entities_after=after["counts"]["entities"],
+                digest_before=before["content_digest"],
+                digest_after=after["content_digest"]),
+        }
+
     async def now(self, tenant_id: int) -> dict:
         return now_mod.snapshot(await self.payloads(tenant_id))
 
@@ -462,6 +484,14 @@ class PersonalService:
             select(PersonalHouse).where(PersonalHouse.tenant_id == tenant_id)
         )).scalar_one_or_none()
         return row.data if row else None
+
+    async def audit(self, tenant_id: int, limit: int = 100) -> dict:
+        rows = await self.payloads(tenant_id)
+        traces = await self.traces(tenant_id, limit=500)
+        replay = replay_mod.collect(rows)
+        return {"total": len(traces), "items": traces[:limit],
+                "verdict": replay["verdict"], "tail": replay["tail"],
+                "errors": replay["errors"]}
 
     async def traces(self, tenant_id: int, limit: int = 100) -> list[dict]:
         rows = await self.payloads(tenant_id)

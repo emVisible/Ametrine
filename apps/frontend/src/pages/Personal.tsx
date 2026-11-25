@@ -151,6 +151,7 @@ export default function PersonalPage() {
   >(null);
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
+  const [brief, setBrief] = useState<string | null>(null);
   const openEvent = (id: string) => {
     setAction(null);
     setReason("");
@@ -199,8 +200,9 @@ export default function PersonalPage() {
   });
   const addNote = useMutation({
     mutationFn: (text: string) => personalAPI.append(text),
-    onSuccess: () => {
+    onSuccess: (result) => {
       setNote("");
+      setBrief(result.brief.text);
       queryClient.invalidateQueries({ queryKey: ["personal"] });
       toast(t("personal.noteSaved"), "success");
     },
@@ -302,6 +304,11 @@ export default function PersonalPage() {
   const traces = useQuery({
     queryKey: ["personal", "traces"],
     queryFn: () => personalAPI.traces(20),
+    enabled: personal,
+  });
+  const audit = useQuery({
+    queryKey: ["personal", "audit"],
+    queryFn: () => personalAPI.audit(20),
     enabled: personal,
   });
   const decisions = useQuery({
@@ -423,6 +430,11 @@ export default function PersonalPage() {
                   placeholder={t("personal.writePlaceholder")}
                   rows={2}
                 />
+                {brief && (
+                  <p className="rounded-[--radius-sm] bg-surface-sunken px-2 py-1.5 text-[11px] text-ink-muted">
+                    {brief}
+                  </p>
+                )}
                 <div className="flex justify-end">
                   <button
                     type="button"
@@ -782,6 +794,15 @@ export default function PersonalPage() {
 
       <div className="mt-4">
         <Panel title={t("personal.traces")} description={t("personal.tracesDesc")}>
+          {audit.data && (
+            <div className="border-b border-line-subtle px-4 py-2">
+              <StatusBadge tone={audit.data.verdict === "replay_ok" ? "success" : "danger"} dot>
+                {audit.data.verdict === "replay_ok"
+                  ? t("personal.auditOk", { n: audit.data.total })
+                  : t("personal.auditBroken")}
+              </StatusBadge>
+            </div>
+          )}
           {traces.isLoading ? (
             <Loading />
           ) : traces.isError ? (

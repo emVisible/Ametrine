@@ -96,7 +96,8 @@ def _date(rows: list[dict], phrase: str, anchor_day, anchor: dict) -> dict:
 
 def _prior(rows: list[dict], stamp: datetime, session: str | None) -> dict:
     earlier = [row for row in rows
-               if speech(row) and _stamp(row) < stamp
+               if row.get("kind") in ("ask", "answer", "reply", "note")
+               and _stamp(row) < stamp
                and _session(row) != (session or "")]
     if not earlier:
         return {"status": "unresolved", "kind": "prior", "phrase": "上次",

@@ -72,6 +72,8 @@ export const en: Messages = {
     noteFailed: "Not written: {msg}",
     digestCount: "{count} utterances / {days} days",
     digestDecisions: "{n} decision leads",
+    auditOk: "Audit ok · {n} traces",
+    auditBroken: "Audit chain broken",
     traces: "Audit traces",
     tracesDesc: "Retractions, expiries, keeps and legacy labels; the ledger itself is append-only.",
     quota: "Quota",

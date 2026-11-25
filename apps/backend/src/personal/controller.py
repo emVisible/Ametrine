@@ -73,6 +73,17 @@ async def personal_settings_update(
     return await service.update_settings(current_user.id, body)
 
 
+@route_personal.post("/utterances")
+async def personal_utterance(
+    body: PersonalLedgerIn,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    body.actor = body.actor or await service.actor_name(current_user)
+    return await service.utterance(tenant_id, body, actor=body.actor)
+
+
 @route_personal.post("/ledger", response_model=PersonalLedgerOut)
 async def ledger_append(
     body: PersonalLedgerIn,
@@ -385,6 +396,16 @@ async def personal_house_discussion(
     if row is None:
         raise HTTPException(status_code=404, detail="discussion not found")
     return row
+
+
+@route_personal.get("/audit")
+async def personal_audit(
+    limit: int = Query(100, ge=1, le=500),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.audit(tenant_id, limit=limit)
 
 
 @route_personal.get("/traces", response_model=list[PersonalTraceOut])

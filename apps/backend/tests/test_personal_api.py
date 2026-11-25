@@ -357,3 +357,29 @@ async def test_rebuild_recomputes_without_writing(api):
     assert data["rows"] == 2
     assert data["speech"] == 2
     assert data["tail"]
+
+@pytest.mark.anyio
+async def test_utterance_returns_a_receipt_without_guessing(api):
+    client, ids = api
+    headers = {"Authorization": f"Bearer {_token(ids['user'])}"}
+    result = await client.post("/api/personal/utterances", headers=headers,
+                               json={"text": "今天记一句"})
+    assert result.status_code == 200
+    data = result.json()["data"]
+    assert data["row"]["id"] == "ev-000003"
+    assert data["brief"]["verdict"] == "brief_ok"
+    assert "记住了 ev-000003" in data["brief"]["text"]
+    assert data["brief"]["words"] <= data["brief"]["limit"]
+
+@pytest.mark.anyio
+async def test_audit_is_a_verified_trace_list(api):
+    client, ids = api
+    headers = {"Authorization": f"Bearer {_token(ids['user'])}"}
+    await client.post("/api/personal/retract", headers=headers,
+                      json={"event_id": "ev-000001", "reason": "说错了"})
+    audit = await client.get("/api/personal/audit", headers=headers)
+    assert audit.status_code == 200
+    data = audit.json()["data"]
+    assert data["verdict"] == "replay_ok"
+    assert data["total"] >= 1
+    assert data["items"][0]["kind"] == "retract"

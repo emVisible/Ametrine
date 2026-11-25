@@ -1,0 +1,137 @@
+{
+  "note": "Ten real referring expressions copied verbatim from truth/ledger.jsonl. Each case carries its own first-hand basis; the API re-derives the expected answer from that basis, never from resolve.py.",
+  "cases": [
+    {
+      "case": "G01",
+      "event_id": "ev-000190",
+      "phrase": "今天",
+      "kind": "date",
+      "expected": [
+        "date:2026-11-05"
+      ],
+      "basis": "ev-000191",
+      "quote": "2026-11-05 23:30 GMT+8",
+      "quote_role": "anchor",
+      "basis_kind": "verbatim"
+    },
+    {
+      "case": "G02",
+      "event_id": "ev-000194",
+      "phrase": "今天",
+      "kind": "date",
+      "expected": [
+        "date:2026-11-06"
+      ],
+      "basis": "ev-000195",
+      "quote": "2026-11-06 08:11 GMT+8",
+      "quote_role": "anchor",
+      "basis_kind": "verbatim"
+    },
+    {
+      "case": "G03",
+      "event_id": "ev-000200",
+      "phrase": "昨天",
+      "kind": "date",
+      "expected": [
+        "date:2026-11-05"
+      ],
+      "basis": "ev-000201",
+      "quote": "2026-11-06 08:19 GMT+8",
+      "quote_role": "anchor",
+      "basis_kind": "verbatim"
+    },
+    {
+      "case": "G04",
+      "event_id": "ev-000233",
+      "phrase": "今天",
+      "kind": "date",
+      "expected": [
+        "date:2026-11-07"
+      ],
+      "basis": "ev-000234",
+      "quote": "2026-11-07 00:07 GMT+8",
+      "quote_role": "anchor",
+      "basis_kind": "verbatim"
+    },
+    {
+      "case": "G05",
+      "event_id": "ev-000236",
+      "phrase": "今天",
+      "kind": "date",
+      "expected": [
+        "date:2026-11-07"
+      ],
+      "basis": "ev-000237",
+      "quote": "2026-11-07 08:38 GMT+8",
+      "quote_role": "anchor",
+      "basis_kind": "verbatim"
+    },
+    {
+      "case": "G06",
+      "event_id": "ev-000269",
+      "phrase": "昨天",
+      "kind": "date",
+      "expected": [
+        "date:2026-11-07"
+      ],
+      "basis": "ev-000269",
+      "quote": "house-2026-11-07-1210",
+      "quote_role": "answer",
+      "basis_kind": "verbatim"
+    },
+    {
+      "case": "G07",
+      "event_id": "ev-000091",
+      "phrase": "泽航",
+      "kind": "person",
+      "expected": [
+        "actor:哥哥"
+      ],
+      "basis": "ev-000197",
+      "quote": "你们都可以叫我泽航",
+      "quote_role": null,
+      "basis_kind": "verbatim"
+    },
+    {
+      "case": "G08",
+      "event_id": "ev-000197",
+      "phrase": "我们三个",
+      "kind": "person",
+      "expected": [
+        "actor:宵明",
+        "actor:艾拉",
+        "actor:烛徽"
+      ],
+      "basis": "ev-000198",
+      "quote": "我们三个的射界——宵明/艾拉/烛徽含说话人、泽航是老二不在『三个』里",
+      "quote_role": null,
+      "basis_kind": "verbatim"
+    },
+    {
+      "case": "G09",
+      "event_id": "ev-000068",
+      "phrase": "我",
+      "kind": "person",
+      "expected": [
+        "actor:艾拉"
+      ],
+      "basis": "ev-000068",
+      "quote": "是我刚才验证时用了倒序读取",
+      "quote_role": null,
+      "basis_kind": "actor_field"
+    },
+    {
+      "case": "G10",
+      "event_id": "ev-000221",
+      "phrase": "上次",
+      "kind": "prior",
+      "expected": [
+        "event:ev-000220"
+      ],
+      "basis": "ev-000222",
+      "quote": "什么时候动第一扇门、一次迁还是逐门迁，等你说一声",
+      "quote_role": null,
+      "basis_kind": "quote_lookup"
+    }
+  ]
+}
