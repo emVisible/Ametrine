@@ -294,6 +294,11 @@ export default function PersonalPage() {
   const hitsLoading = scopeMode === "all"
     ? scope.isLoading
     : scopeMode === "vector" ? vector.isLoading : search.isLoading;
+  const now = useQuery({
+    queryKey: ["personal", "now"],
+    queryFn: personalAPI.now,
+    enabled: personal,
+  });
   const traces = useQuery({
     queryKey: ["personal", "traces"],
     queryFn: () => personalAPI.traces(20),
@@ -362,6 +367,51 @@ export default function PersonalPage() {
             <Stat label={t("personal.labile")} value={memory.data?.counts.labile ?? 0} />
             <Stat label={t("personal.stable")} value={memory.data?.counts.stable ?? 0} />
             <Stat label={t("personal.barred")} value={memory.data?.counts.barred ?? 0} />
+          </div>
+
+          <div className="mt-4">
+            <Panel title={t("personal.nowTitle")} description={t("personal.nowDesc")}>
+              {now.isLoading ? (
+                <Loading />
+              ) : now.isError ? (
+                <ErrorState error={now.error} onRetry={() => now.refetch()} />
+              ) : now.data?.last_utterance ? (
+                <div className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <EventIdButton
+                      id={now.data.last_utterance.event_id}
+                      onClick={() => openEvent(now.data!.last_utterance!.event_id)}
+                    />
+                    <span className="text-[11px] text-ink-subtle">
+                      {now.data.last_utterance.actor} · {now.data.gap.label}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[--text-sm] text-ink">
+                    {now.data.last_utterance.text}
+                  </p>
+                  {now.data.standing.length > 0 && (
+                    <div className="mt-3 border-t border-line-subtle pt-2">
+                      <p className="text-[11px] text-ink-subtle">
+                        {t("personal.standing")}
+                      </p>
+                      <ul className="mt-1 space-y-1">
+                        {now.data.standing.map((lead) => (
+                          <li key={lead.event_id} className="text-[11px] text-ink-muted">
+                            <EventIdButton
+                              id={lead.event_id}
+                              onClick={() => openEvent(lead.event_id)}
+                            />{" "}
+                            {lead.excerpt}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <EmptyState title={t("personal.empty")} />
+              )}
+            </Panel>
           </div>
 
           <div className="mt-4">

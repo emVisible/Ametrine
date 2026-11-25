@@ -61,6 +61,9 @@ export const en: Messages = {
     empty: "No house snapshot imported yet",
   },
   personal: {
+    nowTitle: "Now",
+    nowDesc: "The last utterance, how long ago, and decisions not yet retired. Read straight from the ledger.",
+    standing: "Still-standing decisions",
     writeTitle: "Write a line",
     writeDesc: "Capture a line manually; no model involved. It enters the ledger and the normal memory gate.",
     writePlaceholder: "Something to keep right now…",

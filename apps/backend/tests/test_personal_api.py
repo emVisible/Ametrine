@@ -332,3 +332,28 @@ async def test_day_and_digest_are_read_only_views(api):
     span = await client.get("/api/personal/digest/span?q=最近", headers=headers)
     assert span.status_code == 200
     assert span.json()["data"]["count"] == 2
+
+@pytest.mark.anyio
+async def test_now_and_replay_read_the_same_ledger(api):
+    client, ids = api
+    headers = {"Authorization": f"Bearer {_token(ids['user'])}"}
+    now = await client.get("/api/personal/now", headers=headers)
+    assert now.status_code == 200
+    assert now.json()["data"]["last_utterance"]["event_id"] == "ev-000002"
+    replay = await client.get("/api/personal/replay", headers=headers)
+    assert replay.status_code == 200
+    assert replay.json()["data"]["verdict"] == "replay_ok"
+    assert replay.json()["data"]["rows"] == 2
+
+@pytest.mark.anyio
+async def test_rebuild_recomputes_without_writing(api):
+    client, ids = api
+    headers = {"Authorization": f"Bearer {_token(ids['user'])}"}
+    result = await client.post("/api/personal/maintenance/rebuild",
+                               headers=headers)
+    assert result.status_code == 200
+    data = result.json()["data"]
+    assert data["ok"] is True
+    assert data["rows"] == 2
+    assert data["speech"] == 2
+    assert data["tail"]

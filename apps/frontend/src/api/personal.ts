@@ -97,6 +97,17 @@ export interface PersonalDecision {
   status: "active" | "expired";
 }
 
+export interface PersonalNow {
+  last_turn: unknown | null;
+  last_utterance: {
+    event_id: string; seq: number; actor: string; kind: string;
+    text: string; at: string;
+  } | null;
+  standing: { event_id: string; actor: string; marker: string; excerpt: string; at: string }[];
+  gap: { days: number | null; hours: number | null; minutes: number | null; label: string };
+  note: string;
+}
+
 export interface PersonalDay {
   exists: boolean;
   read_only: boolean;
@@ -258,6 +269,7 @@ export const personalAPI = {
     if (!response.ok) throw new Error(`导出失败：${response.status}`);
     return response.blob();
   },
+  now: () => apiClient<PersonalNow>("/personal/now"),
   day: (date?: string) =>
     apiClient<PersonalDay>(`/personal/day${date ? `?date=${date}` : ""}`),
   digest: (level: string, key: string) =>

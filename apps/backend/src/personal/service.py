@@ -20,8 +20,10 @@ from . import aliases as alias_mod
 from . import day as day_mod
 from . import decisions as decision_mod
 from . import digest as digest_mod
+from . import now as now_mod
 from . import ontology as ontology_mod
 from . import periods as period_mod
+from . import replay as replay_mod
 from . import resolve as resolve_mod
 from . import snapshots as snapshot_mod
 from . import vector as vector_mod
@@ -417,6 +419,31 @@ class PersonalService:
 
     def snapshot_path(self, tenant_id: int, name: str):
         return snapshot_mod.path_for(tenant_id, name)
+
+    async def rebuild(self, tenant_id: int) -> dict:
+        from time import perf_counter
+        from . import aliases as alias_mod
+        from . import ontology as ontology_mod
+        from .memory import speech, survey
+        started = perf_counter()
+        rows = await self.payloads(tenant_id)
+        graph = ontology_mod.build(rows)
+        return {
+            "ok": True, "rows": len(rows),
+            "speech": sum(1 for row in rows if speech(row)),
+            "memory": survey(rows)["counts"],
+            "decisions": len(decision_mod.extract(rows, corrections(rows))),
+            "aliases": len(alias_mod.extract(rows)["aliases"]),
+            "entities": graph["counts"]["entities"],
+            "tail": rows[-1].get("hash") if rows else "",
+            "ms": round((perf_counter() - started) * 1000),
+        }
+
+    async def now(self, tenant_id: int) -> dict:
+        return now_mod.snapshot(await self.payloads(tenant_id))
+
+    async def replay(self, tenant_id: int) -> dict:
+        return replay_mod.collect(await self.payloads(tenant_id))
 
     async def day(self, tenant_id: int, day_str: str | None = None) -> dict:
         return day_mod.collect(await self.payloads(tenant_id),

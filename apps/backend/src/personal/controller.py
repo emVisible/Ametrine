@@ -239,6 +239,33 @@ async def personal_snapshot_download(
     return FileResponse(path, media_type="application/zip", filename=name)
 
 
+@route_personal.post("/maintenance/rebuild")
+async def personal_rebuild(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.rebuild(tenant_id)
+
+
+@route_personal.get("/now")
+async def personal_now(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.now(tenant_id)
+
+
+@route_personal.get("/replay")
+async def personal_replay(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.replay(tenant_id)
+
+
 @route_personal.get("/day")
 async def personal_day(
     date_str: str | None = Query(None, alias="date",

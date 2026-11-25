@@ -58,6 +58,9 @@ export const zh = {
     empty: "还没有导入 house 数据",
   },
   personal: {
+    nowTitle: "现在",
+    nowDesc: "最后一句话、隔了多久、还没退休的决定。原样读账本。",
+    standing: "还没退休的决定",
     writeTitle: "写一句",
     writeDesc: "手动记一条，不经过模型；会进账本，按正常记忆门计算。",
     writePlaceholder: "现在想留下的一句话…",
