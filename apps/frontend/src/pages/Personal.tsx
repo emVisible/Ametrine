@@ -239,6 +239,11 @@ export default function PersonalPage() {
     queryFn: () => personalAPI.period("week", weekKey as string),
     enabled: !!weekKey,
   });
+  const weekDigest = useQuery({
+    queryKey: ["personal", "digest", "week", weekKey],
+    queryFn: () => personalAPI.digest("week", weekKey as string),
+    enabled: !!weekKey,
+  });
   const ontology = useQuery({
     queryKey: ["personal", "ontology"],
     queryFn: personalAPI.ontology,
@@ -335,9 +340,14 @@ export default function PersonalPage() {
         title={t("personal.title")}
         description={t("personal.desc")}
         actions={
-          <Link to="/personal/house" className="a-btn a-btn-ghost">
-            {t("page.house")}
-          </Link>
+          <div className="flex gap-2">
+            <Link to="/personal/day" className="a-btn a-btn-ghost">
+              {t("page.day")}
+            </Link>
+            <Link to="/personal/house" className="a-btn a-btn-ghost">
+              {t("page.house")}
+            </Link>
+          </div>
         }
       />
 
@@ -880,18 +890,51 @@ export default function PersonalPage() {
         ) : weekDetail.isError ? (
           <ErrorState error={weekDetail.error} />
         ) : weekDetail.data?.catalog.length ? (
-          <ul className="max-h-[60vh] divide-y divide-line-subtle overflow-y-auto px-4 pb-4">
-            {weekDetail.data.catalog.map((item) => (
-              <li key={item.id} className="py-2.5">
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-subtle">
-                  <EventIdButton id={item.id} onClick={() => openEvent(item.id)} />
-                  <span>{item.date}</span>
-                  <span>{item.actor}</span>
-                </div>
-                <p className="mt-1 text-[--text-sm] text-ink">{item.first_line}</p>
-              </li>
-            ))}
-          </ul>
+          <div className="max-h-[60vh] overflow-y-auto px-4 pb-4">
+            {weekDigest.data && (
+              <div className="mb-3 rounded-[--radius-md] border border-line-subtle bg-surface-sunken p-3">
+                <p className="text-[11px] text-ink-subtle">
+                  {t("personal.digestCount", {
+                    count: weekDigest.data.count,
+                    days: weekDigest.data.days,
+                  })}
+                </p>
+                <p className="mt-1 text-[--text-sm] text-ink">
+                  {weekDigest.data.actors.map((actor) => `${actor.who} ${actor.n}`).join(" · ")}
+                </p>
+                {weekDigest.data.first_of_day.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {weekDigest.data.first_of_day.slice(-4).map((line) => (
+                      <li key={line.event_id} className="text-[11px] text-ink-muted">
+                        <span className="tnum">{line.date.slice(5)}</span>{" "}
+                        <span className="text-ink-subtle">{line.actor}</span>{" "}
+                        {line.text}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {weekDigest.data.decisions.length > 0 && (
+                  <p className="mt-2 text-[11px] text-ink-subtle">
+                    {t("personal.digestDecisions", {
+                      n: weekDigest.data.decisions.length,
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
+            <ul className="divide-y divide-line-subtle">
+              {weekDetail.data.catalog.map((item) => (
+                <li key={item.id} className="py-2.5">
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-ink-subtle">
+                    <EventIdButton id={item.id} onClick={() => openEvent(item.id)} />
+                    <span>{item.date}</span>
+                    <span>{item.actor}</span>
+                  </div>
+                  <p className="mt-1 text-[--text-sm] text-ink">{item.first_line}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : (
           <EmptyState title={t("personal.empty")} />
         )}

@@ -315,3 +315,20 @@ async def test_snapshot_create_list_and_download(api):
         f"/api/personal/snapshots/{body['name']}", headers=headers)
     assert download.status_code == 200
     assert download.content[:2] == b"PK"
+
+@pytest.mark.anyio
+async def test_day_and_digest_are_read_only_views(api):
+    client, ids = api
+    headers = {"Authorization": f"Bearer {_token(ids['user'])}"}
+    day = await client.get("/api/personal/day?date=2026-11-22", headers=headers)
+    assert day.status_code == 200
+    assert day.json()["data"]["total"] == 2
+    assert len(day.json()["data"]["segments"]) == 5
+
+    digest = await client.get(
+        "/api/personal/digest?level=week&key=2026-W47", headers=headers)
+    assert digest.status_code == 200
+    assert digest.json()["data"]["count"] == 2
+    span = await client.get("/api/personal/digest/span?q=最近", headers=headers)
+    assert span.status_code == 200
+    assert span.json()["data"]["count"] == 2

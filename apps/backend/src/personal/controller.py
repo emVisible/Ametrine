@@ -239,6 +239,47 @@ async def personal_snapshot_download(
     return FileResponse(path, media_type="application/zip", filename=name)
 
 
+@route_personal.get("/day")
+async def personal_day(
+    date_str: str | None = Query(None, alias="date",
+                                 pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    try:
+        return await service.day(tenant_id, date_str)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"日期不合法：{exc}")
+
+
+@route_personal.get("/digest")
+async def personal_digest(
+    level: str = Query("week", pattern="^(week|month|quarter|year)$"),
+    key: str = Query(..., min_length=4, max_length=16),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    try:
+        return await service.digest(tenant_id, level, key)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"周期键不合法：{exc}")
+
+
+@route_personal.get("/digest/span")
+async def personal_digest_span(
+    q: str = Query(..., min_length=1, max_length=80),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    found = await service.digest_span(tenant_id, q)
+    if found is None:
+        raise HTTPException(status_code=422, detail="这句话里没有可识别的时间范围")
+    return found
+
+
 @route_personal.get("/house/overview")
 async def personal_house_overview(
     current_user=Depends(get_current_user),

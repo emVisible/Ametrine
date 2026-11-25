@@ -17,7 +17,9 @@ from src.user.quota import is_unlimited, usage_by_user
 
 from .context import compose
 from . import aliases as alias_mod
+from . import day as day_mod
 from . import decisions as decision_mod
+from . import digest as digest_mod
 from . import ontology as ontology_mod
 from . import periods as period_mod
 from . import resolve as resolve_mod
@@ -415,6 +417,18 @@ class PersonalService:
 
     def snapshot_path(self, tenant_id: int, name: str):
         return snapshot_mod.path_for(tenant_id, name)
+
+    async def day(self, tenant_id: int, day_str: str | None = None) -> dict:
+        return day_mod.collect(await self.payloads(tenant_id),
+                               await self.house(tenant_id), day_str)
+
+    async def digest(self, tenant_id: int, level: str, key: str) -> dict:
+        return digest_mod.of(await self.payloads(tenant_id), level, key)
+
+    async def digest_span(self, tenant_id: int, text: str) -> dict | None:
+        rows = await self.payloads(tenant_id)
+        span = digest_mod.parse_span(text, rows)
+        return digest_mod.of_span(rows, span) if span else None
 
     async def house(self, tenant_id: int) -> dict | None:
         row = (await self.relation_db.execute(

@@ -97,6 +97,47 @@ export interface PersonalDecision {
   status: "active" | "expired";
 }
 
+export interface PersonalDay {
+  exists: boolean;
+  read_only: boolean;
+  private_db_opened: boolean;
+  day: string;
+  is_today: boolean;
+  from: string;
+  to: string;
+  current: string | null;
+  total: number;
+  segments: {
+    key: string;
+    label: string;
+    anchor: boolean;
+    current: boolean;
+    count: number;
+    items: { seq: number; event_id: string; at: string; actor: string; kind: string; text: string }[];
+  }[];
+  cards: { id: number; who: string; summary: string; feeling: string }[];
+  crystals: { id: number; who: string; kind: string; content: string }[];
+  notes: string[];
+}
+
+export interface PersonalDigest {
+  level: string;
+  key: string;
+  start: string;
+  end: string;
+  count: number;
+  days: number;
+  actors: { who: string; n: number }[];
+  first_of_day: {
+    date: string; event_id: string; actor: string; kind: string;
+    source: string; full_chars: number; text: string;
+  }[];
+  decisions: { event_id: string; actor: string; marker: string; excerpt: string; at: string }[];
+  expired: { event_id: string; at: string }[];
+  empty: boolean;
+  digest: string;
+}
+
 export interface PersonalHouseOverview {
   counts: Record<string, number>;
   latest: { seq: number; occurred_at: string; actor: string; kind: string; text: string }[];
@@ -217,6 +258,14 @@ export const personalAPI = {
     if (!response.ok) throw new Error(`导出失败：${response.status}`);
     return response.blob();
   },
+  day: (date?: string) =>
+    apiClient<PersonalDay>(`/personal/day${date ? `?date=${date}` : ""}`),
+  digest: (level: string, key: string) =>
+    apiClient<PersonalDigest>(
+      `/personal/digest?level=${level}&key=${encodeURIComponent(key)}`,
+    ),
+  digestSpan: (q: string) =>
+    apiClient<PersonalDigest>(`/personal/digest/span?q=${encodeURIComponent(q)}`),
   houseOverview: () => apiClient<PersonalHouseOverview>("/personal/house/overview"),
   housePersons: () => apiClient<PersonalHousePerson[]>("/personal/house/persons"),
   houseRooms: () => apiClient<PersonalHouseRoom[]>("/personal/house/rooms"),
