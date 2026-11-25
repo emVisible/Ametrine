@@ -299,3 +299,19 @@ async def test_house_snapshot_is_read_only(api):
                               headers=headers)
     assert detail.status_code == 200
     assert detail.json()["data"]["discussion"]["id"] == 1
+
+@pytest.mark.anyio
+async def test_snapshot_create_list_and_download(api):
+    client, ids = api
+    headers = {"Authorization": f"Bearer {_token(ids['user'])}"}
+    created = await client.post("/api/personal/snapshots", headers=headers)
+    assert created.status_code == 200
+    body = created.json()["data"]
+    assert body["manifest"]["rows"] == 2
+    listed = await client.get("/api/personal/snapshots", headers=headers)
+    assert listed.status_code == 200
+    assert any(item["name"] == body["name"] for item in listed.json()["data"])
+    download = await client.get(
+        f"/api/personal/snapshots/{body['name']}", headers=headers)
+    assert download.status_code == 200
+    assert download.content[:2] == b"PK"

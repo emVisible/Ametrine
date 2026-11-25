@@ -21,6 +21,7 @@ from . import decisions as decision_mod
 from . import ontology as ontology_mod
 from . import periods as period_mod
 from . import resolve as resolve_mod
+from . import snapshots as snapshot_mod
 from . import vector as vector_mod
 from .dto import (PersonalActionIn, PersonalKeepIn, PersonalLedgerIn,
                   PersonalQuotaIn, PersonalResolveIn, PersonalSettingsIn)
@@ -404,6 +405,16 @@ class PersonalService:
                 "text": text_body[:700], "excerpt": text_body[:200],
             })
         return out
+
+    async def create_snapshot(self, tenant_id: int) -> dict:
+        return snapshot_mod.create(tenant_id, await self.payloads(tenant_id),
+                                   await self.house(tenant_id))
+
+    async def snapshots(self, tenant_id: int) -> list[dict]:
+        return snapshot_mod.listing(tenant_id)
+
+    def snapshot_path(self, tenant_id: int, name: str):
+        return snapshot_mod.path_for(tenant_id, name)
 
     async def house(self, tenant_id: int) -> dict | None:
         row = (await self.relation_db.execute(

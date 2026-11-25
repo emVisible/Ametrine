@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from src.middleware.tags import ControllerTag
 from src.user.auth.service import get_admin_user, get_current_user
@@ -206,6 +206,37 @@ async def ledger_one(
     if row is None:
         raise HTTPException(status_code=404, detail="这句原话不在账本里")
     return row
+
+
+@route_personal.post("/snapshots")
+async def personal_snapshot_create(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.create_snapshot(tenant_id)
+
+
+@route_personal.get("/snapshots")
+async def personal_snapshot_list(
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.snapshots(tenant_id)
+
+
+@route_personal.get("/snapshots/{name}")
+async def personal_snapshot_download(
+    name: str,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    path = service.snapshot_path(tenant_id, name)
+    if path is None:
+        raise HTTPException(status_code=404, detail="快照不存在")
+    return FileResponse(path, media_type="application/zip", filename=name)
 
 
 @route_personal.get("/house/overview")
