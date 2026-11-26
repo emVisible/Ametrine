@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.client import get_relation_db
 from src.models import (Collection, Database, Document, DocumentChunk,
-                        PersonalHouse, PersonalLedger, Tenant, User)
+                        PersonalHouse, PersonalJob, PersonalLedger, Tenant,
+                        User)
 
 from .canonical import FIELDS, GMT8, ZERO, iso, line_hash, to_gmt8
 from src.user.permissions.service import accessible_database_ids
@@ -28,8 +29,9 @@ from . import replay as replay_mod
 from . import resolve as resolve_mod
 from . import snapshots as snapshot_mod
 from . import vector as vector_mod
-from .dto import (PersonalActionIn, PersonalKeepIn, PersonalLedgerIn,
-                  PersonalQuotaIn, PersonalResolveIn, PersonalSettingsIn)
+from .dto import (PersonalActionIn, PersonalBulkIn, PersonalKeepIn,
+                  PersonalLedgerIn, PersonalQuotaIn, PersonalResolveIn,
+                  PersonalSettingsIn)
 from .memory import corrections, survey
 
 
@@ -211,7 +213,8 @@ class PersonalService:
                       kind: str, source: str = "live",
                       provenance: dict | None = None,
                       at: datetime | None = None,
-                      session_id: str | None = None) -> dict:
+                      session_id: str | None = None,
+                      commit: bool = True) -> dict:
         text = text.strip()
         if not text:
             raise HTTPException(status_code=422, detail="空话不写进账本")
@@ -244,7 +247,10 @@ class PersonalService:
         }
         row["hash"] = line_hash(row)
         self.relation_db.add(self._model(tenant_id, row))
-        await self.relation_db.commit()
+        if commit:
+            await self.relation_db.commit()
+        else:
+            await self.relation_db.flush()
         return row
 
     def _model(self, tenant_id: int, row: dict) -> PersonalLedger:
@@ -484,6 +490,51 @@ class PersonalService:
             select(PersonalHouse).where(PersonalHouse.tenant_id == tenant_id)
         )).scalar_one_or_none()
         return row.data if row else None
+
+    async def bulk(self, tenant_id: int, body: PersonalBulkIn,
+                   actor: str, kind: str = "bulk") -> dict:
+        job = PersonalJob(tenant_id=tenant_id, kind=kind, status="running",
+                          meta={"source": body.source, "items": len(body.items)})
+        self.relation_db.add(job)
+        await self.relation_db.commit()
+        try:
+            rows = []
+            for item in body.items:
+                rows.append(await self._append(
+                    tenant_id, text=item.text,
+                    actor=item.actor or actor, kind=item.kind,
+                    source=body.source, at=item.at,
+                    session_id=item.session or body.session, commit=False))
+            await self.relation_db.commit()
+            job.status = "done"
+            job.rows = len(rows)
+            job.finished_at = datetime.now(GMT8)
+            await self.relation_db.commit()
+            return {"ok": True, "job": job.id, "rows": len(rows),
+                    "first": rows[0]["id"] if rows else None,
+                    "last": rows[-1]["id"] if rows else None,
+                    "tail": rows[-1]["hash"] if rows else None}
+        except Exception as exc:  # noqa: BLE001
+            await self.relation_db.rollback()
+            job = await self.relation_db.get(PersonalJob, job.id)
+            if job is not None:
+                job.status = "failed"
+                job.error = f"{type(exc).__name__}: {exc}"[:500]
+                job.finished_at = datetime.now(GMT8)
+                await self.relation_db.commit()
+            raise HTTPException(status_code=422,
+                                detail=f"批量写入失败：{type(exc).__name__}") from exc
+
+    async def jobs(self, tenant_id: int, limit: int = 50) -> list[dict]:
+        rows = (await self.relation_db.execute(
+            select(PersonalJob).where(PersonalJob.tenant_id == tenant_id)
+            .order_by(PersonalJob.id.desc()).limit(limit)
+        )).scalars().all()
+        return [{"id": row.id, "kind": row.kind, "status": row.status,
+                 "rows": row.rows, "error": row.error,
+                 "requested_at": row.requested_at,
+                 "finished_at": row.finished_at, "meta": row.meta}
+                for row in rows]
 
     async def audit(self, tenant_id: int, limit: int = 100) -> dict:
         rows = await self.payloads(tenant_id)

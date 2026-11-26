@@ -383,3 +383,22 @@ async def test_audit_is_a_verified_trace_list(api):
     assert data["verdict"] == "replay_ok"
     assert data["total"] >= 1
     assert data["items"][0]["kind"] == "retract"
+
+@pytest.mark.anyio
+async def test_bulk_and_ingest_are_recorded_as_jobs(api):
+    client, ids = api
+    headers = {"Authorization": f"Bearer {_token(ids['user'])}"}
+    bulk = await client.post("/api/personal/bulk", headers=headers,
+                             json={"items": [{"text": "批量一"},
+                                             {"text": "批量二"}]})
+    assert bulk.status_code == 200
+    assert bulk.json()["data"]["rows"] == 2
+    ingest = await client.post(
+        "/api/personal/ingest", headers=headers,
+        files={"file": ("notes.txt", b"import one\nimport two\n", "text/plain")},
+    )
+    assert ingest.status_code == 200
+    assert ingest.json()["data"]["rows"] == 2
+    jobs = (await client.get("/api/personal/jobs", headers=headers)).json()["data"]
+    assert [job["kind"] for job in jobs[:2]] == ["ingest", "bulk"]
+    assert all(job["status"] == "done" for job in jobs[:2])

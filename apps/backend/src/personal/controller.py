@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
+                     UploadFile)
 from fastapi.responses import FileResponse, StreamingResponse
 
 from src.middleware.tags import ControllerTag
@@ -11,6 +15,8 @@ from src.user.auth.service import get_admin_user, get_current_user
 from .canonical import canonical
 from .dto import (
     PersonalActionIn,
+    PersonalBulkIn,
+    PersonalBulkItem,
     PersonalSettingsIn,
     PersonalDecisionOut,
     PersonalKeepIn,
@@ -71,6 +77,75 @@ async def personal_settings_update(
     service: PersonalService = Depends(get_personal_service),
 ):
     return await service.update_settings(current_user.id, body)
+
+
+@route_personal.post("/bulk")
+async def personal_bulk(
+    body: PersonalBulkIn,
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    actor = await service.actor_name(current_user)
+    return await service.bulk(tenant_id, body, actor=actor)
+
+
+@route_personal.get("/jobs")
+async def personal_jobs(
+    limit: int = Query(50, ge=1, le=200),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.jobs(tenant_id, limit=limit)
+
+
+@route_personal.post("/ingest")
+async def personal_ingest(
+    file: UploadFile = File(...),
+    source: str = Form("ingest"),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in (".jsonl", ".ndjson", ".txt", ".md"):
+        raise HTTPException(status_code=415,
+                            detail="只支持 .jsonl/.ndjson/.txt/.md")
+    raw = await file.read()
+    if len(raw) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="导入文件不能超过 5 MB")
+    items = []
+    for number, line in enumerate(raw.decode("utf-8", errors="replace").splitlines(), 1):
+        text = line.strip()
+        if not text or text.startswith("#"):
+            continue
+        if suffix in (".txt", ".md"):
+            items.append(PersonalBulkItem(text=text))
+            continue
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=422,
+                                detail=f"第 {number} 行不是 JSON：{exc}")
+        if isinstance(value, str):
+            items.append(PersonalBulkItem(text=value))
+        elif isinstance(value, dict):
+            if "hash" in value or "seq" in value:
+                raise HTTPException(status_code=422,
+                                    detail=f"第 {number} 行像账本行，拒绝导入")
+            if value.get("kind") in ("retract", "expiry", "label", "day", "diary"):
+                raise HTTPException(status_code=422,
+                                    detail=f"第 {number} 行是机器留痕，拒绝导入")
+            items.append(PersonalBulkItem(**value))
+        else:
+            raise HTTPException(status_code=422,
+                                detail=f"第 {number} 行不是字符串或对象")
+    if not items:
+        raise HTTPException(status_code=422, detail="文件里没有可导入的行")
+    body = PersonalBulkIn(items=items, source=source)
+    actor = await service.actor_name(current_user)
+    tenant_id = await service.tenant_id(current_user)
+    return await service.bulk(tenant_id, body, actor=actor, kind="ingest")
 
 
 @route_personal.post("/utterances")

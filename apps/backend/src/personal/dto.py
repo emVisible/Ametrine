@@ -101,6 +101,20 @@ class PersonalActionIn(BaseModel):
     reason: str = Field(..., min_length=1, max_length=200)
 
 
+class PersonalBulkItem(BaseModel):
+    text: str = Field(..., min_length=1, max_length=MAX_TEXT)
+    actor: str | None = Field(default=None, max_length=64)
+    kind: Literal["ask", "answer", "reply", "note"] = "ask"
+    at: datetime | None = None
+    session: str | None = Field(default=None, max_length=80)
+
+
+class PersonalBulkIn(BaseModel):
+    items: list[PersonalBulkItem] = Field(..., min_length=1, max_length=2000)
+    source: str = Field(default="bulk", max_length=32)
+    session: str | None = Field(default=None, max_length=80)
+
+
 class PersonalSettingsIn(BaseModel):
     actor: str = Field(default="哥哥", min_length=1, max_length=40)
     timezone: str = Field(default="Asia/Shanghai", min_length=1, max_length=64)

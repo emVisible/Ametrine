@@ -390,3 +390,22 @@ class PersonalHouse(Base):
     source = Column(String(255), nullable=False, default="house/truth.db")
     imported_at = Column(DateTime(timezone=True), server_default=func.now())
     data = Column(JSONB, nullable=False, default=dict)
+
+
+class PersonalJob(Base):
+    """One explicit batch/ingest operation. Synchronous today, but recorded.
+
+    There is no hidden queue: the request either finishes the batch or marks it
+    failed. The row exists so operators can see what was attempted and why.
+    """
+    __tablename__ = "personal_job"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenant.id"), nullable=False, index=True)
+    kind = Column(String(16), nullable=False)
+    status = Column(String(16), nullable=False, default="running")
+    requested_at = Column(DateTime(timezone=True), server_default=func.now())
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    rows = Column(Integer, nullable=False, default=0)
+    error = Column(String(500), nullable=True)
+    meta = Column(JSONB, nullable=False, default=dict)
