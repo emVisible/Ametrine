@@ -117,7 +117,8 @@ def snapshot(db_path: Path) -> dict:
                   Counter(row["kind"] for row in events).most_common()],
     }
     return {"overview": overview, "persons": people, "rooms": rooms,
-            "crystals": crystals, "cards": cards, "discussions": details}
+            "crystals": crystals, "cards": cards, "discussions": details,
+            "events": events}
 
 
 async def run(args) -> dict:

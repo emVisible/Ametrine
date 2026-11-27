@@ -417,6 +417,23 @@ class PersonalService:
             })
         return out
 
+    async def house_events(self, tenant_id: int, *, q: str = "",
+                           actor: str = "", limit: int = 50,
+                           offset: int = 0) -> dict:
+        data = await self.house(tenant_id)
+        if data is None:
+            return {"total": 0, "items": [], "limit": limit, "offset": offset}
+        rows = list(data.get("events") or [])
+        needle = q.strip().casefold()
+        if actor.strip():
+            rows = [row for row in rows if row.get("actor") == actor.strip()]
+        if needle:
+            rows = [row for row in rows
+                    if needle in (row.get("text") or "").casefold()]
+        total = len(rows)
+        return {"total": total, "limit": limit, "offset": offset,
+                "items": list(reversed(rows))[offset:offset + limit]}
+
     async def create_snapshot(self, tenant_id: int) -> dict:
         return snapshot_mod.create(tenant_id, await self.payloads(tenant_id),
                                    await self.house(tenant_id))

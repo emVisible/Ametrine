@@ -115,6 +115,8 @@ async def api(anyio_backend):
                 "discussions": {"1": {"discussion": {"id": 1},
                                       "turns": [], "votes": [],
                                       "presence": []}},
+                "events": [{"seq": 1, "occurred_at": "2026-11-04T13:00:00+00:00",
+                            "actor": "哥哥", "kind": "ask", "text": "house 事件"}],
             }))
             await db.commit()
             service = PersonalService(db)
@@ -299,6 +301,11 @@ async def test_house_snapshot_is_read_only(api):
                               headers=headers)
     assert detail.status_code == 200
     assert detail.json()["data"]["discussion"]["id"] == 1
+    events = await client.get("/api/personal/house/events?q=house",
+                              headers=headers)
+    assert events.status_code == 200
+    assert events.json()["data"]["total"] == 1
+    assert events.json()["data"]["items"][0]["seq"] == 1
 
 @pytest.mark.anyio
 async def test_snapshot_create_list_and_download(api):

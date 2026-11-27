@@ -179,6 +179,15 @@ export interface PersonalDigest {
   digest: string;
 }
 
+export interface PersonalHouseEvent {
+  seq: number;
+  occurred_at: string;
+  actor: string;
+  kind: string;
+  text: string;
+  meta?: string | null;
+}
+
 export interface PersonalHouseOverview {
   counts: Record<string, number>;
   latest: { seq: number; occurred_at: string; actor: string; kind: string; text: string }[];
@@ -315,6 +324,10 @@ export const personalAPI = {
   houseOverview: () => apiClient<PersonalHouseOverview>("/personal/house/overview"),
   housePersons: () => apiClient<PersonalHousePerson[]>("/personal/house/persons"),
   houseRooms: () => apiClient<PersonalHouseRoom[]>("/personal/house/rooms"),
+  houseEvents: (q: string, actor: string, limit: number, offset: number) =>
+    apiClient<{ total: number; limit: number; offset: number; items: PersonalHouseEvent[] }>(
+      `/personal/house/events?q=${encodeURIComponent(q)}&actor=${encodeURIComponent(actor)}&limit=${limit}&offset=${offset}`,
+    ),
   append: (text: string) =>
     apiClient<PersonalUtteranceResult>("/personal/utterances", {
       method: "POST",
