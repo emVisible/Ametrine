@@ -353,6 +353,9 @@ export default function PersonalPage() {
         description={t("personal.desc")}
         actions={
           <div className="flex gap-2">
+            <Link to="/personal/archive" className="a-btn a-btn-ghost">
+              {t("page.archive")}
+            </Link>
             <Link to="/personal/day" className="a-btn a-btn-ghost">
               {t("page.day")}
             </Link>

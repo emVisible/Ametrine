@@ -112,6 +112,13 @@ export interface PersonalUtteranceResult {
   brief: PersonalBrief;
 }
 
+export interface PersonalArchive {
+  total: number;
+  limit: number;
+  offset: number;
+  items: PersonalLedgerRow[];
+}
+
 export interface PersonalAudit {
   total: number;
   items: PersonalTrace[];
@@ -292,6 +299,10 @@ export const personalAPI = {
     if (!response.ok) throw new Error(`导出失败：${response.status}`);
     return response.blob();
   },
+  archive: (q: string, actor: string, limit: number, offset: number) =>
+    apiClient<PersonalArchive>(
+      `/personal/archive?q=${encodeURIComponent(q)}&actor=${encodeURIComponent(actor)}&limit=${limit}&offset=${offset}`,
+    ),
   now: () => apiClient<PersonalNow>("/personal/now"),
   day: (date?: string) =>
     apiClient<PersonalDay>(`/personal/day${date ? `?date=${date}` : ""}`),

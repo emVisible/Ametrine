@@ -491,6 +491,21 @@ class PersonalService:
         )).scalar_one_or_none()
         return row.data if row else None
 
+    async def archive(self, tenant_id: int, *, q: str = "",
+                      actor: str = "", limit: int = 50,
+                      offset: int = 0) -> dict:
+        rows = await self.payloads(tenant_id, human_only=True)
+        needle = q.strip().casefold()
+        if actor.strip():
+            rows = [row for row in rows if row.get("actor") == actor.strip()]
+        if needle:
+            rows = [row for row in rows
+                    if needle in (row.get("text") or "").casefold()]
+        total = len(rows)
+        newest = list(reversed(rows))[offset:offset + limit]
+        return {"total": total, "limit": limit, "offset": offset,
+                "items": newest}
+
     async def bulk(self, tenant_id: int, body: PersonalBulkIn,
                    actor: str, kind: str = "bulk") -> dict:
         job = PersonalJob(tenant_id=tenant_id, kind=kind, status="running",

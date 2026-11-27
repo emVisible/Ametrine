@@ -402,3 +402,18 @@ async def test_bulk_and_ingest_are_recorded_as_jobs(api):
     jobs = (await client.get("/api/personal/jobs", headers=headers)).json()["data"]
     assert [job["kind"] for job in jobs[:2]] == ["ingest", "bulk"]
     assert all(job["status"] == "done" for job in jobs[:2])
+
+@pytest.mark.anyio
+async def test_archive_paginates_and_filters_without_machine_rows(api):
+    client, ids = api
+    headers = {"Authorization": f"Bearer {_token(ids['user'])}"}
+    archive = await client.get("/api/personal/archive?limit=1&offset=0",
+                               headers=headers)
+    assert archive.status_code == 200
+    data = archive.json()["data"]
+    assert data["total"] == 2
+    assert len(data["items"]) == 1
+    assert data["items"][0]["id"] == "ev-000002"
+    found = await client.get("/api/personal/archive?q=今天",
+                             headers=headers)
+    assert [row["id"] for row in found.json()["data"]["items"]] == ["ev-000001"]

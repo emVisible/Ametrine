@@ -10,6 +10,7 @@ describe("pageTitleForPath", () => {
     ["/personal", "page.personal"],
     ["/personal/house", "page.house"],
     ["/personal/day", "page.day"],
+    ["/personal/archive", "page.archive"],
     ["/chat/abc", "page.chat"],
     ["/rag/abc", "page.rag"],
     ["/admin/vector", "page.vector"],

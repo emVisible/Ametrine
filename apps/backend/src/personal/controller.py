@@ -171,6 +171,20 @@ async def ledger_append(
     return row
 
 
+@route_personal.get("/archive")
+async def personal_archive(
+    q: str = Query("", max_length=200),
+    actor: str = Query("", max_length=64),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_user=Depends(get_current_user),
+    service: PersonalService = Depends(get_personal_service),
+):
+    tenant_id = await service.tenant_id(current_user)
+    return await service.archive(tenant_id, q=q, actor=actor,
+                                 limit=limit, offset=offset)
+
+
 @route_personal.get("/ledger", response_model=list[PersonalLedgerOut])
 async def ledger_list(
     limit: int = Query(100, ge=1, le=1000),

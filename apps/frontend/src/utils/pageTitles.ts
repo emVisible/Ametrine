@@ -14,6 +14,7 @@ const TITLES: { match: (path: string) => boolean; key: MsgKey }[] = [
   { match: (p) => under(p, "/dashboard"), key: "page.dashboard" },
   { match: (p) => under(p, "/personal/house"), key: "page.house" },
   { match: (p) => under(p, "/personal/day"), key: "page.day" },
+  { match: (p) => under(p, "/personal/archive"), key: "page.archive" },
   { match: (p) => under(p, "/personal"), key: "page.personal" },
   { match: (p) => under(p, "/chat"), key: "page.chat" },
   { match: (p) => under(p, "/rag"), key: "page.rag" },
