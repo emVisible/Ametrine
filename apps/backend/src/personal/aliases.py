@@ -41,6 +41,10 @@ def _roster_pattern(actors: set[str], names: set[str]) -> re.Pattern | None:
 
 
 def extract(rows: list[dict]) -> dict:
+    # House notes are archival context, not speech: their actors must not
+    # become ledger aliases (otherwise "泽航" resolves to itself, not 哥哥).
+    rows = [row for row in rows
+            if not (row.get("provenance") or {}).get("house_seq")]
     actors = {row["actor"] for row in rows if row.get("actor")}
     found: list[dict] = []
     seen: set[tuple[str, str]] = set()

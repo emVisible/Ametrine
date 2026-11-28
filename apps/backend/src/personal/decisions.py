@@ -57,6 +57,8 @@ def extract(rows: list[dict], closed: dict[str, str]) -> list[dict]:
     taken = {key for key, value in closed.items() if value == "retracted"}
     out: list[dict] = []
     for row in rows:
+        if (row.get("provenance") or {}).get("house_seq"):
+            continue
         if row.get("kind") in ("expiry", "day", "diary", "label", "retract"):
             continue
         if row.get("id") in taken:
